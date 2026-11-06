@@ -1,0 +1,1751 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Admin INFAS">
+<title>Révision INFAS · Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Figtree:wght@400;500;600;700&display=swap">
+<style>
+:root{
+  --paper:#F5F4FB; --card:#FFFFFF; --ink:#1F1A3D; --muted:#6E6889; --line:#E9E6F4; --soft:#F1EEFB;
+  --violet:#6C3BF5; --violet-ink:#4A22C9; --teal:#17B3A3; --rose:#E25DB8; --amber:#E89A2C; --red:#E04848; --green:#1E9E6A;
+  --free:#17B3A3; --prem:#6C3BF5; --hidden:#9A95AE;
+  --shadow:0 1px 2px rgba(31,26,61,.04),0 8px 24px -12px rgba(31,26,61,.12);
+  --r-lg:22px; --r-md:14px; --r-sm:10px;
+  --display:"Bricolage Grotesque",ui-rounded,system-ui,sans-serif;
+  --body:"Figtree",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+:root[data-theme="dark"]{
+  --paper:#13111F; --card:#1C1930; --ink:#EEEAFB; --muted:#A39DBD; --line:#2C2846; --soft:#25213C;
+  --violet:#8F6BFF; --violet-ink:#B9A2FF; --hidden:#77718F;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px -12px rgba(0,0,0,.5);
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.5}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--violet);outline-offset:2px;border-radius:6px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* ---------- layout ---------- */
+.app{display:grid;grid-template-columns:268px 1fr;min-height:100vh}
+.side{position:sticky;top:0;height:100vh;overflow:auto;padding:22px 16px;border-right:1px solid var(--line);background:var(--card);display:flex;flex-direction:column;gap:6px}
+.brand{display:flex;align-items:center;gap:10px;padding:2px 8px 14px}
+.logo{width:38px;height:38px;border-radius:12px;background:var(--violet);display:grid;place-items:center;color:#fff}
+.brand b{font-family:var(--display);font-size:18px;line-height:1.1;display:block}
+.brand small{color:var(--muted);font-size:12.5px}
+.sidesearch{display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:12px;padding:8px 10px;margin:0 4px 10px;background:var(--paper)}
+.sidesearch input{border:0;background:transparent;outline:none;width:100%;font-size:14px}
+.navlabel{color:var(--muted);font-size:12.5px;padding:12px 12px 4px}
+.nav{display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:12px;border:0;background:transparent;text-align:left;width:100%;font-weight:500;color:var(--ink)}
+.nav svg{width:19px;height:19px;flex:none;opacity:.8}
+.nav:hover{background:var(--soft)}
+.nav.on{background:var(--ink);color:var(--paper)}
+:root[data-theme="dark"] .nav.on{background:var(--violet);color:#fff}
+.nav .count{margin-left:auto;font-size:12px;background:var(--soft);color:var(--muted);border-radius:99px;padding:1px 8px;font-weight:600}
+.nav.on .count{background:rgba(255,255,255,.18);color:inherit}
+.phasecard{margin-top:auto;border-radius:var(--r-md);background:var(--soft);padding:14px}
+.phasecard b{display:block;font-size:14px}
+.phasecard p{margin:4px 0 10px;color:var(--muted);font-size:13px}
+.steps{display:flex;gap:4px}
+.steps i{height:6px;flex:1;border-radius:9px;background:var(--line)}
+.steps i.done{background:var(--violet)}
+
+.main{min-width:0;padding:18px 28px 60px}
+.top{display:flex;align-items:center;gap:12px;margin-bottom:18px}
+.iconbtn.burger{display:none}
+.crumb{color:var(--muted);font-size:14px}
+.crumb b{color:var(--ink);font-weight:600}
+.top .grow{flex:1}
+.iconbtn{width:38px;height:38px;border-radius:12px;border:1px solid var(--line);background:var(--card);display:grid;place-items:center}
+.iconbtn svg{width:18px;height:18px}
+.me{display:flex;align-items:center;gap:8px;padding:4px 10px 4px 4px;border:1px solid var(--line);border-radius:99px;background:var(--card)}
+.syncpill{border:0;cursor:pointer;padding:5px 11px}
+body.locked .side nav,body.locked .side .navlabel,body.locked .sidesearch{display:none}
+.login{max-width:420px;margin:6vh auto 0}
+.login h1{font-family:var(--display);font-size:28px;margin:0 0 6px}
+.msg{border-radius:12px;padding:10px 12px;font-size:14px;margin-top:12px}
+.msg.bad{background:color-mix(in srgb,var(--red) 12%,transparent);color:var(--red)}
+.msg.ok{background:color-mix(in srgb,var(--green) 12%,transparent);color:var(--green)}
+.av{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:700;color:#fff;background:var(--violet);flex:none}
+.signature{font-family:var(--display);font-weight:700;font-size:15px;letter-spacing:.01em;color:var(--violet-ink);background:var(--soft);border-radius:99px;padding:6px 14px;white-space:nowrap}
+
+.head{display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap;margin:6px 0 18px}
+.head h1{font-family:var(--display);font-size:30px;line-height:1.1;margin:0;font-weight:700}
+.head p{margin:4px 0 0;color:var(--muted)}
+.head .grow{flex:1}
+.demo{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:#8a5a00;background:#FFF3DC;border-radius:99px;padding:3px 10px;font-weight:600}
+:root[data-theme="dark"] .demo{background:#3a2c10;color:#f2c56b}
+
+/* ---------- atoms ---------- */
+.card{background:var(--card);border-radius:var(--r-lg);box-shadow:var(--shadow);padding:20px;min-width:0}
+.card h3{font-size:16px;margin:0;font-weight:600}
+.card .sub{color:var(--muted);font-size:13px;margin:2px 0 0}
+.cardhead{display:flex;align-items:flex-start;gap:10px;margin-bottom:14px}
+.cardhead .grow{flex:1}
+.btn{border:1px solid var(--line);background:var(--card);border-radius:12px;padding:8px 14px;font-weight:600;font-size:14px;display:inline-flex;align-items:center;gap:7px;white-space:nowrap}
+.btn:hover{border-color:var(--muted)}
+.btn.pri{background:var(--violet);border-color:var(--violet);color:#fff}
+.btn.pri:hover{background:var(--violet-ink)}
+.btn.danger{color:var(--red)}
+.btn.sm{padding:5px 10px;font-size:13px;border-radius:10px}
+.btn svg{width:16px;height:16px}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{border:1px solid var(--line);background:var(--card);border-radius:99px;padding:5px 12px;font-size:13.5px;font-weight:500}
+.chip.on{background:var(--ink);border-color:var(--ink);color:var(--paper)}
+:root[data-theme="dark"] .chip.on{background:var(--violet);border-color:var(--violet);color:#fff}
+.pill{display:inline-flex;align-items:center;gap:5px;border-radius:99px;padding:2px 9px;font-size:12.5px;font-weight:600;white-space:nowrap}
+.pill.free{background:color-mix(in srgb,var(--free) 14%,transparent);color:var(--free)}
+.pill.prem{background:color-mix(in srgb,var(--prem) 14%,transparent);color:var(--prem)}
+.pill.hid{background:color-mix(in srgb,var(--hidden) 18%,transparent);color:var(--hidden)}
+.pill.warn{background:color-mix(in srgb,var(--amber) 16%,transparent);color:#b06d00}
+.pill.bad{background:color-mix(in srgb,var(--red) 14%,transparent);color:var(--red)}
+.pill.ok{background:color-mix(in srgb,var(--green) 14%,transparent);color:var(--green)}
+:root[data-theme="dark"] .pill.warn{color:var(--amber)}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex:none}
+.muted{color:var(--muted)}
+.num{font-family:var(--display);font-variant-numeric:tabular-nums}
+input.field,select.field,textarea.field{width:100%;border:1px solid var(--line);background:var(--paper);border-radius:12px;padding:9px 12px;outline:none}
+input.field:focus,select.field:focus,textarea.field:focus{border-color:var(--violet)}
+label.lbl{display:block;font-size:13px;font-weight:600;margin:12px 0 5px}
+.row{display:flex;gap:10px;align-items:center}
+.wrap{flex-wrap:wrap}
+.grid{display:grid;gap:18px}
+
+/* ---------- overview ---------- */
+.kpis{grid-template-columns:1.35fr 1fr 1fr 1fr}
+.hero{background:var(--violet);color:#fff;border-radius:var(--r-lg);padding:20px;position:relative;overflow:hidden;box-shadow:var(--shadow)}
+.hero .lab{opacity:.85;font-size:14px}
+.hero .big{font-family:var(--display);font-size:46px;font-weight:700;line-height:1;margin:14px 0 6px;letter-spacing:-.01em}
+.hero .delta{display:inline-block;background:rgba(255,255,255,.2);border-radius:99px;padding:2px 10px;font-size:13px;font-weight:600}
+.hero .split{display:flex;height:8px;border-radius:9px;overflow:hidden;margin-top:18px;gap:3px}
+.hero .split span{display:block;height:100%;border-radius:9px}
+.hero .legend{display:flex;gap:14px;margin-top:8px;font-size:12.5px;opacity:.9;flex-wrap:wrap}
+.kpi .lab{color:var(--muted);font-size:14px;display:flex;align-items:center;gap:8px}
+.kpi .ic{width:32px;height:32px;border-radius:10px;background:var(--soft);display:grid;place-items:center;color:var(--violet)}
+.kpi .ic svg{width:17px;height:17px}
+.kpi .big{font-family:var(--display);font-size:32px;font-weight:700;margin:12px 0 2px;line-height:1.1}
+.kpi .foot{font-size:13px;color:var(--muted)}
+.up{color:var(--green);font-weight:600}
+.down{color:var(--red);font-weight:600}
+.row2{grid-template-columns:1.7fr 1fr;margin-top:18px}
+.row3{grid-template-columns:1.25fr 1fr;margin-top:18px}
+.levels{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.lvl{border:1px solid var(--line);border-radius:var(--r-md);padding:12px}
+.lvl .t{display:flex;align-items:center;gap:6px;font-weight:600;font-size:14px}
+.lvl .n{font-family:var(--display);font-size:24px;font-weight:700;margin:6px 0 0}
+.lvl .s{font-size:12.5px;color:var(--muted)}
+.bar{height:6px;border-radius:9px;background:var(--soft);overflow:hidden;margin-top:8px}
+.bar span{display:block;height:100%;background:var(--violet);border-radius:9px}
+.goal{display:flex;align-items:center;gap:14px;padding:12px 0;border-top:1px solid var(--line)}
+.goal:first-of-type{border-top:0}
+.goal .gt{flex:1;min-width:0}
+.goal .gt b{display:block;font-weight:600;font-size:14.5px}
+.goal .gt span{font-size:12.5px;color:var(--muted)}
+.goal .gv{text-align:right;font-size:13px;color:var(--muted)}
+.goal .gv b{display:block;font-family:var(--display);font-size:17px;color:var(--ink)}
+
+/* charts */
+.chart{position:relative}
+.chart svg{display:block;width:100%;height:auto;overflow:visible}
+.tip{position:absolute;pointer-events:none;background:var(--ink);color:var(--paper);border-radius:10px;padding:7px 10px;font-size:12.5px;white-space:nowrap;transform:translate(-50%,-110%);opacity:0;transition:opacity .12s}
+.tip b{font-family:var(--display)}
+.legendrow{display:flex;gap:14px;font-size:13px;color:var(--muted);flex-wrap:wrap}
+.legendrow span{display:inline-flex;align-items:center;gap:6px}
+
+/* tables */
+.tablewrap{overflow-x:auto;margin:0 -20px;padding:0 20px}
+table.t{width:100%;border-collapse:collapse;font-size:14px}
+table.t th{text-align:left;color:var(--muted);font-weight:500;font-size:13px;padding:10px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+table.t td{padding:11px 10px;border-bottom:1px solid var(--line);vertical-align:middle}
+table.t tr:last-child td{border-bottom:0}
+table.t tbody tr.click{cursor:pointer}
+table.t tbody tr.click:hover td{background:var(--soft)}
+.who{display:flex;align-items:center;gap:10px;min-width:180px}
+.who b{display:block;font-weight:600}
+.who small{color:var(--muted)}
+.pager{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:14px;font-size:13.5px;color:var(--muted)}
+.empty{padding:36px 10px;text-align:center;color:var(--muted)}
+
+/* access */
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:11px;padding:2px;background:var(--paper);flex:none}
+.seg button{border:0;background:transparent;border-radius:9px;padding:4px 9px;font-size:12.5px;font-weight:600;color:var(--muted)}
+.seg button.on.inh{background:var(--card);color:var(--ink);box-shadow:var(--shadow)}
+.seg button.on.gratuit{background:var(--free);color:#fff}
+.seg button.on.premium{background:var(--prem);color:#fff}
+.seg button.on.masque{background:var(--hidden);color:#fff}
+.accgrid{grid-template-columns:1fr 1fr}
+.lvlmatrix{display:grid;grid-template-columns:auto repeat(3,1fr);gap:8px;align-items:center}
+.lvlmatrix .h{font-size:13px;color:var(--muted);text-align:center}
+.lvlmatrix .r{font-weight:600}
+.lvlmatrix .c{display:flex;justify-content:center}
+.feat{display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--line)}
+.feat:first-child{border-top:0}
+.feat .ft{flex:1;min-width:0}
+.feat .ft b{display:block;font-weight:600;font-size:14.5px}
+.feat .ft span{font-size:12.5px;color:var(--muted)}
+.rub{margin-top:18px}
+.rubhead{display:flex;align-items:center;gap:12px;padding:6px 4px 10px;flex-wrap:wrap}
+.rubhead h3{font-family:var(--display);font-size:19px;margin:0;font-weight:700}
+.mat{border-radius:var(--r-md);background:var(--card);box-shadow:var(--shadow);margin-bottom:10px;border-left:5px solid var(--free);overflow:hidden}
+.mat.st-premium{border-left-color:var(--prem)}
+.mat.st-masque{border-left-color:var(--hidden)}
+.mathead{display:flex;align-items:center;gap:12px;padding:12px 14px;flex-wrap:wrap}
+.mathead .mt{flex:1;min-width:180px;display:flex;align-items:center;gap:10px;border:0;background:transparent;text-align:left;padding:0}
+.mathead .mt b{font-weight:600;font-size:15px}
+.mathead .mt small{display:block;color:var(--muted);font-size:12.5px}
+.chev{width:18px;height:18px;transition:transform .15s;flex:none;color:var(--muted)}
+.mat.open .chev{transform:rotate(90deg)}
+.quota{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted)}
+.quota input{width:52px;padding:4px 6px;border-radius:8px;border:1px solid var(--line);background:var(--paper);text-align:center}
+.matbody{display:none;border-top:1px solid var(--line);padding:6px 14px 12px}
+.mat.open .matbody{display:block}
+.item{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px dashed var(--line);flex-wrap:wrap}
+.item:last-child{border-bottom:0}
+.item .it{flex:1;min-width:150px;font-size:14px}
+.item .eff{font-size:12px;color:var(--muted);min-width:120px}
+.summary{display:flex;gap:10px;flex-wrap:wrap}
+.summary .s{flex:1;min-width:140px;border-radius:var(--r-md);padding:14px;background:var(--card);box-shadow:var(--shadow)}
+.summary .s b{font-family:var(--display);font-size:26px;display:block}
+.summary .s span{font-size:13px;color:var(--muted)}
+
+/* misc pages */
+.annonce{display:flex;gap:14px;align-items:flex-start;padding:14px 0;border-top:1px solid var(--line)}
+.annonce:first-child{border-top:0}
+.banner{border-radius:12px;padding:10px 14px;font-size:14px;color:#fff;font-weight:500}
+.report{padding:14px 0;border-top:1px solid var(--line)}
+.report:first-child{border-top:0}
+.report q{display:block;background:var(--soft);border-radius:10px;padding:8px 12px;margin:8px 0;font-size:14px;quotes:none}
+.hm{border-collapse:separate;border-spacing:4px;font-size:13px;width:100%}
+.hm td,.hm th{text-align:center;padding:6px 4px;border-radius:8px}
+.hm th{color:var(--muted);font-weight:500}
+.hm td.l{text-align:left;color:var(--muted);white-space:nowrap}
+pre.code{background:var(--ink);color:#E9E4FF;border-radius:var(--r-md);padding:14px;overflow:auto;font-size:12.5px;line-height:1.55;margin:10px 0 0}
+:root[data-theme="dark"] pre.code{background:#0c0a16}
+
+/* overlays */
+.scrim{position:fixed;inset:0;background:rgba(20,16,40,.45);display:none;z-index:40}
+.scrim.on{display:block}
+.drawer{position:fixed;top:0;right:0;height:100%;width:min(460px,100%);background:var(--card);z-index:50;transform:translateX(105%);transition:transform .22s ease;overflow:auto;padding:22px;box-shadow:-20px 0 40px -20px rgba(0,0,0,.3)}
+.drawer.on{transform:none}
+.modal{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%) scale(.98);width:min(520px,calc(100% - 28px));max-height:calc(100% - 40px);overflow:auto;background:var(--card);border-radius:var(--r-lg);z-index:60;padding:22px;display:none}
+.modal.on{display:block;transform:translate(-50%,-50%)}
+.x{float:right}
+.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(20px);background:var(--ink);color:var(--paper);padding:10px 16px;border-radius:12px;font-weight:500;opacity:0;transition:.2s;z-index:80;max-width:calc(100% - 30px)}
+.toast.on{opacity:1;transform:translateX(-50%)}
+.kv{display:grid;grid-template-columns:130px 1fr;gap:6px 12px;font-size:14px;margin:14px 0}
+.kv span{color:var(--muted)}
+.sect{font-weight:700;font-size:14.5px;margin:20px 0 8px}
+
+/* responsive */
+@media (max-width:1100px){
+  .kpis{grid-template-columns:1fr 1fr}
+  .row2,.row3,.accgrid{grid-template-columns:1fr}
+}
+@media (max-width:860px){
+  .syncpill{display:none}
+  .app{grid-template-columns:1fr}
+  .side{position:fixed;left:0;top:0;z-index:55;width:280px;transform:translateX(-105%);transition:transform .22s}
+  .side.on{transform:none}
+  .iconbtn.burger{display:grid}
+  .main{padding:12px 14px 70px}
+  .head h1{font-size:25px}
+  .signature{font-size:13px;padding:5px 11px}
+  .me span.nm{display:none}
+  .crumb{display:none}
+  .levels{grid-template-columns:repeat(2,1fr)}
+  .hero .big{font-size:40px}
+  .card{padding:16px}
+  .tablewrap{margin:0 -16px;padding:0 16px}
+  .kv{grid-template-columns:110px 1fr}
+}
+@media (max-width:520px){
+  .kpis{gap:10px}
+  .kpis .hero{grid-column:1 / -1}
+  .kpi .big{font-size:26px}
+  .kpi .lab{font-size:13px}
+  .kpi .ic{display:none}
+}
+@media (max-width:720px){
+  .paycards thead{display:none}
+  .paycards,.paycards tbody,.paycards tr,.paycards td{display:block;width:100%}
+  .paycards tr{border:1px solid var(--line);border-radius:14px;padding:10px 14px;margin-bottom:10px;background:var(--card)}
+  .paycards td{border:0!important;padding:5px 0!important;display:flex;justify-content:space-between;align-items:center;gap:12px;text-align:right}
+  .paycards td[data-l]::before{content:attr(data-l);color:var(--muted);font-size:13px;text-align:left}
+  .paycards td.pc-who{justify-content:flex-start;text-align:left;padding-bottom:8px!important}
+  .paycards td.pc-act{padding-top:10px!important}
+  .paycards td.pc-act .row{width:100%}.paycards td.pc-act .btn{flex:1;justify-content:center;padding:12px}
+  .paycards td[colspan]{display:block}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="side" id="side">
+    <div class="brand">
+      <div class="logo"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 19V6a2 2 0 0 1 2-2h9l5 5v10a2 2 0 0 1-2 2H6"/><path d="M9 13h6M12 10v6"/></svg></div>
+      <div><b>Révision INFAS</b><small>Espace administrateur</small></div>
+    </div>
+    <label class="sidesearch"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="gsearch" placeholder="Chercher un élève" aria-label="Chercher un élève"></label>
+    <div class="navlabel">Pilotage</div>
+    <nav id="nav1"></nav>
+    <div class="navlabel">Suivi</div>
+    <nav id="nav2"></nav>
+    <div class="navlabel">Général</div>
+    <nav id="nav3"></nav>
+    <div class="phasecard" id="phasecard"></div>
+  </aside>
+
+  <main class="main">
+    <div class="top">
+      <button class="iconbtn burger" id="burger" aria-label="Ouvrir le menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+      <div class="crumb">Révision INFAS › <b id="crumb">Vue d'ensemble</b></div>
+      <div class="grow"></div>
+      <button class="pill hid syncpill" id="sync" title="Enregistré dans ce navigateur">Données locales</button>
+      <div class="signature">Créé par Daniel Noufe · INFAS</div>
+      <button class="iconbtn" id="theme" aria-label="Changer de thème"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg></button>
+      <button class="me" id="me" aria-label="Mon compte"><div class="av">DN</div><span class="nm" style="font-size:14px;font-weight:600" id="mename">Daniel</span></button>
+    </div>
+    <div id="view"></div>
+  </main>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<aside class="drawer" id="drawer" aria-label="Fiche élève"></aside>
+<div class="modal" id="modal" role="dialog" aria-modal="true"></div>
+<div class="toast" id="toast" role="status"></div>
+<input type="file" id="filein" accept="application/json,.json" hidden>
+
+<script>
+"use strict";
+/* =========================================================
+   1. ICÔNES
+   ========================================================= */
+const I = {
+  home:'<path d="M3 11 12 4l9 7v8a2 2 0 0 1-2 2h-4v-6H9v6H5a2 2 0 0 1-2-2z"/>',
+  users:'<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6 6 0 0 1 4 6"/>',
+  lock:'<rect x="4" y="10" width="16" height="11" rx="2.5"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>',
+  chart:'<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
+  bell:'<path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4zM10 21h4"/>',
+  flag:'<path d="M5 21V4M5 4h11l-2 4 2 4H5"/>',
+  gear:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z"/>',
+  star:'<path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/>',
+  pulse:'<path d="M3 12h4l3-8 4 16 3-8h4"/>',
+  quiz:'<rect x="4" y="3" width="16" height="18" rx="2.5"/><path d="M8 8h8M8 12h8M8 16h5"/>',
+  plus:'<path d="M12 5v14M5 12h14"/>',
+  dl:'<path d="M12 4v11m0 0-4-4m4 4 4-4M5 20h14"/>',
+  ul:'<path d="M12 20V9m0 0-4 4m4-4 4 4M5 4h14"/>',
+  chev:'<path d="m9 6 6 6-6 6"/>',
+  eye:'<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+  x:'<path d="M6 6l12 12M18 6 6 18"/>',
+  phone:'<rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18h2"/>',
+  card:'<rect x="2.5" y="5" width="19" height="14" rx="2.5"/><path d="M2.5 10h19M6.5 15h4"/>',
+  gift:'<rect x="3" y="8" width="18" height="5" rx="1"/><path d="M5 13v8h14v-8M12 8v13M12 8S10.5 3 8 4s-1 4 4 4c5 0 6.5-3 4-4s-4 4-4 4"/>',
+};
+const ic = (k,cls='') => `<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${I[k]}</svg>`;
+
+/* =========================================================
+   2. CATALOGUE DU PORTAIL (rubriques > matières)
+   Chaque matière : questions → sujets de 50 questions.
+   ========================================================= */
+/* catalogue réel du portail (généré depuis le portail : identifiants, nombre de questions et de sujets) */
+let CATALOGUE = [{"id": "de", "nom": "Sujets D.E", "matieres": [{"id": "xmvkq4zed", "nom": "Correction Nationale 2025 — Examens blancs infirmier", "court": "Correction 2025", "niv": ["L1"], "fil": ["IDE"], "q": 3302, "nsuj": 67}]}, {"id": "med", "nom": "Médecine", "matieres": [{"id": "vih", "nom": "VIH & traitement ARV", "court": "VIH", "niv": ["L2"], "fil": ["IDE", "SF"], "q": 260, "nsuj": 6}, {"id": "orl", "nom": "ORL — Oto-rhino-laryngologie", "court": "ORL", "niv": ["L3"], "fil": ["IDE"], "q": 200, "nsuj": 4}, {"id": "endo", "nom": "Endocrinologie & Oncologie", "court": "Endo-Onco", "niv": ["L3"], "fil": ["IDE"], "q": 300, "nsuj": 6}, {"id": "dermato", "nom": "Dermatologie-Vénérologie", "court": "Dermato", "niv": ["L3"], "fil": ["IDE"], "q": 330, "nsuj": 7}, {"id": "pathotrop", "nom": "Pathologies tropicales & maladies infectieuses", "court": "Pathotrop", "niv": ["L1"], "fil": ["IDE", "SF"], "q": 296, "nsuj": 6}, {"id": "xmvkq5l1e", "nom": "Médecine IDE 2 — pathologies", "court": "Médecine IDE2", "niv": ["L2"], "fil": ["IDE"], "q": 331, "nsuj": 7}, {"id": "xmvm9jr75", "nom": "Ophtalmologie", "court": "Ophtalmo", "niv": ["L3"], "fil": ["IDE"], "q": 297, "nsuj": 6}]}, {"id": "chir", "nom": "Chirurgie", "matieres": [{"id": "chir", "nom": "Chirurgie — L1 · L2 · L3", "court": "Chirurgie", "niv": ["L1"], "fil": ["IDE", "SF"], "q": 595, "nsuj": 12}]}, {"id": "ped", "nom": "Pédiatrie", "matieres": [{"id": "xmvkq5cba", "nom": "Santé infantile", "court": "Santé infantile", "niv": ["L1"], "fil": ["IDE", "SF"], "q": 791, "nsuj": 16}, {"id": "xmvkq5gqn", "nom": "Pédiatrie", "court": "Pédiatrie", "niv": ["L2"], "fil": ["IDE", "SF"], "q": 1879, "nsuj": 38}]}, {"id": "gyn", "nom": "Gynéco-obstétrique", "matieres": [{"id": "gyneco", "nom": "Gynéco-Obstétrique", "court": "Gynéco-Obst.", "niv": ["L2"], "fil": ["IDE"], "q": 900, "nsuj": 18}, {"id": "xmvkq580o", "nom": "SSR · Planification familiale", "court": "SSR · PF", "niv": ["L2"], "fil": ["SF"], "q": 248, "nsuj": 5}]}, {"id": "sonu", "nom": "SONU", "matieres": [{"id": "sonu", "nom": "SONU — Soins obstétricaux et néonatals d’urgence", "court": "SONU", "niv": ["L2"], "fil": ["SF"], "q": 800, "nsuj": 16}]}, {"id": "sp", "nom": "Santé publique", "matieres": [{"id": "xmvkq66ok", "nom": "Santé publique L1 · L2 · L3", "court": "Santé publique", "niv": ["L1"], "fil": ["IDE", "SF"], "q": 599, "nsuj": 12}]}, {"id": "pharma", "nom": "Pharmacologie", "matieres": [{"id": "xmvkq53re", "nom": "Pharmacologie", "court": "Pharmaco", "niv": ["L2"], "fil": ["IDE", "SF"], "q": 390, "nsuj": 8}]}, {"id": "anat", "nom": "Anatomie & physiologie", "matieres": [{"id": "xmvkq5pc5", "nom": "Appareil digestif", "court": "Digestif", "niv": ["L1"], "fil": ["IDE", "SF"], "q": 325, "nsuj": 7}, {"id": "xmvkq5tml", "nom": "Système nerveux", "court": "Syst. nerveux", "niv": ["L1"], "fil": ["IDE", "SF"], "q": 767, "nsuj": 16}, {"id": "xmvkq5y0h", "nom": "Ostéologie & Arthrologie", "court": "Ostéo-Arthro", "niv": ["L1"], "fil": ["IDE", "SF"], "q": 751, "nsuj": 16}, {"id": "xmvkq62d4", "nom": "Cytologie, Histologie & Myologie", "court": "Cyto-Histo", "niv": ["L1"], "fil": ["IDE", "SF"], "q": 786, "nsuj": 16}]}, {"id": "autres", "nom": "Autres cours", "matieres": [{"id": "xprepade", "nom": "Tous les sujets prépa D.E", "court": "Prépa D.E", "niv": ["L1"], "fil": ["IDE", "SF"], "q": 1534, "nsuj": 31}, {"id": "xformules", "nom": "Réviser les formules", "court": "Formules", "niv": ["L1"], "fil": ["IDE", "SF"], "q": 339, "nsuj": 7}]}];
+const FONCTIONS = [
+  {id:'explications', nom:'Explications après chaque réponse', d:'Explication, image, technique de mémorisation et « à retenir »'},
+  {id:'flashcards', nom:'Flashcards', d:'Cartes de révision de chaque matière'},
+];
+const FILIERES = ['SF','IDE'];
+const ANNEES = ['L1','L2','L3'];
+const FIL_NOM = {SF:'Sage-femme', IDE:'Infirmier'};
+const sujetsOf = m => m.nsuj || Math.max(1, Math.ceil(m.q/50));
+
+/* index des nœuds pour la résolution des règles */
+const NODES = {}; // key -> {key, parent, label, type}
+function buildNodes(){
+  for(const k in NODES) delete NODES[k];
+  for(const r of CATALOGUE){
+    NODES['rubrique:'+r.id] = {key:'rubrique:'+r.id, parent:null, label:r.nom, type:'rubrique'};
+    for(const m of r.matieres){
+      const mk='matiere:'+m.id;
+      NODES[mk] = {key:mk, parent:'rubrique:'+r.id, label:m.nom, type:'matiere', m};
+      for(let i=1;i<=sujetsOf(m);i++) NODES[`${mk}/sujet:${i}`] = {key:`${mk}/sujet:${i}`, parent:mk, label:`Sujet ${i}`, type:'sujet', n:i};
+      NODES[mk+'/resumes'] = {key:mk+'/resumes', parent:mk, label:'Résumés de cours', type:'resumes'};
+      NODES[mk+'/appli'] = {key:mk+'/appli', parent:mk, label:'Application complète', type:'appli'};
+    }
+  }
+  for(const f of FONCTIONS) NODES['fonction:'+f.id] = {key:'fonction:'+f.id, parent:null, label:f.nom, type:'fonction'};
+  for(const f of FILIERES) for(const a of ANNEES) NODES[`niveau:${f}-${a}`] = {key:`niveau:${f}-${a}`, parent:null, label:`${f} ${a}`, type:'niveau'};
+}
+buildNodes();
+
+/* La liste des cours suit automatiquement le portail publié : à chaque publication, le Studio dépose
+   catalogue.json à côté de l'appli ; le tableau de bord le relit à son ouverture. */
+const PORTAIL_DEFAUT = 'https://qidevelloper-cpu.github.io/daniel-noufe-revision-infas/';
+const CAT_KEY = 'rinfas_admin_catalogue';
+let CAT_INFO = {source:'interne', genere:null, erreur:''};
+function prettyRub(n){ n = String(n||''); if(n.length>4 && n===n.toUpperCase()) n = n[0]+n.slice(1).toLowerCase(); return n.replace(/\bd\.e\b/i,'D.E'); }
+function applyCatalogue(c, src){
+  if(!c || !Array.isArray(c.rubriques) || !c.rubriques.length) return false;
+  CATALOGUE = c.rubriques.map(r=>({id:r.id, nom:prettyRub(r.nom), matieres:(r.matieres||[]).map(m=>({id:m.id, nom:m.nom, court:m.court, niv:m.niv||[], fil:m.fil, q:m.q||0, nsuj:m.nsuj||1}))})).filter(r=>r.matieres.length);
+  buildNodes(); CAT_INFO = {source:src, genere:c.genere||null, erreur:''}; return true;
+}
+function portailUrl(){ return String((typeof getCfg==='function' && getCfg().portail) || PORTAIL_DEFAUT).trim().replace(/\/?$/,'/'); }
+function loadCatalogueCache(){ try{ const c = JSON.parse(localStorage.getItem(CAT_KEY)); if(c) applyCatalogue(c,'cache'); }catch(e){} }
+async function loadCatalogue(){
+  try{
+    const ctl = new AbortController(), tm = setTimeout(()=>ctl.abort(), 8000);
+    const r = await fetch(portailUrl()+'catalogue.json?t='+Date.now(), {cache:'no-store', signal:ctl.signal});
+    clearTimeout(tm);
+    if(!r.ok) throw new Error(r.status===404 ? 'catalogue.json introuvable : republiez le portail depuis le Studio' : 'erreur '+r.status);
+    const c = await r.json();
+    if(!applyCatalogue(c,'portail')) throw new Error('fichier catalogue.json invalide');
+    try{ localStorage.setItem(CAT_KEY, JSON.stringify(c)); }catch(e){}
+    return true;
+  }catch(e){ CAT_INFO.erreur = (e.name==='AbortError' || /Failed to fetch|NetworkError|Load failed/i.test(e.message||'')) ? 'portail injoignable (adresse ou connexion internet)' : (e.message||String(e)); return false; }
+}
+
+/* =========================================================
+   3. SOURCE DE DONNÉES
+   Phase 1 : LocalSource (localStorage). Phase 2 : SupabaseSource
+   avec les mêmes méthodes — on changera UNE ligne : const source = …
+   ========================================================= */
+const STORE_KEY = 'rinfas_admin_v1';
+const CFG_KEY = 'rinfas_admin_cfg';
+const LocalSource = {
+  load(){ try{ const s = localStorage.getItem(STORE_KEY); return s ? JSON.parse(s) : null; }catch(e){ return null; } },
+  save(db){ try{ localStorage.setItem(STORE_KEY, JSON.stringify(db)); return true; }catch(e){ return false; } },
+  clear(){ try{ localStorage.removeItem(STORE_KEY); }catch(e){} },
+};
+let source = LocalSource;       // remplacé par SupabaseSource quand Supabase est actif
+let MODE = 'local';             // 'local' | 'supabase'
+let ADMIN_NAME = 'Daniel';
+let DB = null;
+/* Projet Supabase de Révision INFAS : clé publique (la même que dans l'appli des élèves). L'accès aux données reste protégé par la connexion administrateur. */
+const SB_DEFAUT = {mode:'supabase', url:'https://fsdcxvszvyjquzdjanpo.supabase.co', key:'sb_publishable_dZGt5cfkEDeH-z5uoUa8kA_UXGQFkzi'};
+function getCfg(){ let c={}; try{ c = JSON.parse(localStorage.getItem(CFG_KEY)) || {}; }catch(e){} return c.mode ? c : Object.assign({}, SB_DEFAUT, c); }
+function setCfg(c){ try{ localStorage.setItem(CFG_KEY, JSON.stringify(c)); }catch(e){} }
+
+/* ---------- Supabase ---------- */
+let SB = null, SB_EMAIL = '';
+function loadSupabaseLib(){
+  return new Promise((ok,ko)=>{
+    if(window.supabase && window.supabase.createClient) return ok();
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+    s.onload = ()=> window.supabase ? ok() : ko(new Error('Bibliothèque Supabase introuvable.'));
+    s.onerror = ()=> ko(new Error('Impossible de charger Supabase : vérifiez la connexion internet.'));
+    document.head.appendChild(s);
+  });
+}
+function keyProblem(key){
+  if(!key) return 'Collez la clé publique du projet.';
+  if(/^sb_secret_/i.test(key)) return 'Cette clé est la clé secrète : utilisez la clé publique (publishable ou anon).';
+  const parts = key.split('.');
+  if(parts.length===3){ try{ const pl = JSON.parse(atob(parts[1].replace(/-/g,'+').replace(/_/g,'/'))); if(pl.role==='service_role') return 'Cette clé est la clé service_role (secrète) : utilisez la clé anon.'; }catch(e){} }
+  return '';
+}
+async function sbClient(cfg){ await loadSupabaseLib(); return window.supabase.createClient(cfg.url.trim().replace(/\/+$/,''), cfg.key.trim()); }
+function frErr(e){
+  const m = (e && (e.message||e.error_description||e.msg)) || String(e);
+  if(/Invalid login credentials/i.test(m)) return 'E-mail ou mot de passe incorrect.';
+  if(/Email not confirmed/i.test(m)) return 'E-mail non confirmé : confirmez le compte dans Supabase (Authentication).';
+  if(/Failed to fetch|NetworkError|Load failed/i.test(m)) return 'Supabase injoignable : vérifiez l’URL du projet et la connexion internet.';
+  if(/relation .* does not exist|Could not find the table|schema cache/i.test(m)) return 'Tables introuvables : lancez d’abord le script supabase-schema.sql.';
+  if(/row-level security|permission denied/i.test(m)) return 'Accès refusé : ce compte n’est pas administrateur.';
+  if(/Invalid API key|JWT/i.test(m)) return 'Clé publique refusée : recopiez-la depuis les réglages API du projet.';
+  return m;
+}
+
+/* Correspondance entre les objets du tableau de bord et les colonnes SQL */
+const MAP = [
+  {k:'plans', t:'plans', id:'id',
+    to:p=>({id:p.id, nom:p.nom, jours:p.jours, prix_xof:p.prix, actif:!!p.actif}),
+    from:r=>({id:r.id, nom:r.nom, jours:r.jours, prix:r.prix_xof, actif:r.actif})},
+  {k:'profiles', t:'profiles', id:'id',
+    to:p=>{ const r={id:p.id, prenom:p.prenom, nom:p.nom, filiere:p.filiere||null, annee:p.annee||null, programme:p.programme||null, telephone:p.telephone||null, role:'eleve', statut:p.statut||'actif', appareils:p.appareils||[]};
+      if(!p.auth_id){ r.quiz=p.quiz|0; r.created_at=p.created_at; r.last_seen=p.last_seen; } return r; },
+    from:r=>({id:r.id, auth_id:r.auth_id||null, email:r.email||'', prenom:r.prenom, nom:r.nom, filiere:r.filiere, annee:r.annee, programme:r.programme||'6 mois', telephone:r.telephone||'—', role:r.role, statut:r.statut, quiz:r.quiz, appareils:r.appareils||[], created_at:r.created_at, last_seen:r.last_seen})},
+  {k:'entitlements', t:'entitlements', id:'id',
+    to:e=>({id:e.id, user_id:e.user_id, plan:e.plan, starts_at:e.start, ends_at:e.end, source:e.source, note:e.note||''}),
+    from:r=>({id:r.id, user_id:r.user_id, plan:r.plan, start:r.starts_at, end:r.ends_at, source:r.source, note:r.note||''})},
+  {k:'reports', t:'reports', id:'id',
+    to:r=>({id:r.id, user_id:r.user_id||null, mat:r.mat, question:r.question, message:r.message, statut:r.statut, note:r.note||'', created_at:r.date, appareil:r.appareil||null, qid:r.qid||null}),
+    from:r=>({id:r.id, user_id:r.user_id, mat:r.mat, question:r.question, message:r.message, statut:r.statut, note:r.note||'', date:r.created_at, appareil:r.appareil||null, qid:r.qid||null})},
+  {k:'announcements', t:'announcements', id:'id',
+    to:a=>({id:a.id, titre:a.titre, texte:a.texte, cible:a.cible, couleur:a.couleur, du:a.du, au:a.au, actif:!!a.actif}),
+    from:r=>({id:r.id, titre:r.titre, texte:r.texte, cible:r.cible, couleur:r.couleur, du:r.du, au:r.au, actif:r.actif})},
+  {k:'audit_log', t:'audit_log', id:'id', noDelete:true,
+    to:a=>({id:a.id, created_at:a.date, admin:a.admin, action:a.action, cible:a.cible||null}),
+    from:r=>({id:r.id, date:r.created_at, admin:r.admin, action:r.action, cible:r.cible||''})},
+];
+/* tables « virtuelles » construites à partir de l'état du tableau de bord */
+const VIRTUAL = [
+  {t:'access_rules', id:'cle', rows:db=>Object.entries(db.access.regles).map(([cle,v])=>({cle, acces:v.acces, quota_gratuit:v.quotaGratuit==null?null:v.quotaGratuit}))},
+  {t:'app_settings', id:'cle', noDelete:true, rows:db=>[
+    {cle:'public.access', valeur:{defaut:db.access.defaut, version:db.access.version, misAJour:db.access.misAJour}},
+    {cle:'goals', valeur:db.goals},
+    {cle:'demo_stats', valeur:db.stats},
+    {cle:'meta', valeur:{demo:!!db.meta.demo}},
+    {cle:'public.paiement', valeur:db.paiementCfg||PAY_DEFAUT()},
+  ]},
+];
+const PAY_DEFAUT = ()=>({actif:false, nom:'', numeros:{wave:'', orange:'', mtn:'', moov:''}, consigne:''});
+const OPS = {wave:['Wave','#1DC3F0'], orange:['Orange Money','#FF7900'], mtn:['MTN MoMo','#E0B000'], moov:['Moov Money','#0066B3']};
+let SNAP = {};
+let REAL = null;   // statistiques réelles envoyées par le portail élève (appareils anonymes)
+async function loadReal(){
+  REAL = null; if(MODE!=='supabase' || !SB) return;
+  try{ const {data,error} = await SB.rpc('stats_usage', {p_jours:120}); if(!error && data && data.totaux && data.totaux.evenements>0) REAL = data; }catch(e){}
+}   // dernier état connu de Supabase : table -> Map(id -> json)
+function snapshotFrom(db){
+  const s = {};
+  MAP.forEach(m=>{ s[m.t] = new Map(db[m.k].map(o=>{ const r=m.to(o); return [r[m.id], JSON.stringify(r)]; })); });
+  VIRTUAL.forEach(v=>{ s[v.t] = new Map(v.rows(db).map(r=>[r[v.id], JSON.stringify(r)])); });
+  return s;
+}
+async function fetchAll(t, opts={}){
+  if(opts.limit){ const {data,error} = await SB.from(t).select('*').order(opts.order,{ascending:false}).limit(opts.limit); if(error) throw error; return data; }
+  let all=[], from=0;
+  for(;;){ const {data,error} = await SB.from(t).select('*').range(from, from+999); if(error) throw error; all = all.concat(data); if(data.length<1000) break; from += 1000; }
+  return all;
+}
+function emptyStats(){
+  const daily=[]; for(let d=119; d>=0; d--) daily.push({date:new Date(today0-d*DAY).toISOString().slice(0,10), actifs:0, quiz:0, inscriptions:0});
+  return {daily, usageMatieres:{}, notions:[]};
+}
+const SupabaseSource = {
+  async load(){
+    const db = {meta:{version:1, demo:false}, goals:[], stats:emptyStats(), access:{version:1, defaut:'gratuit', regles:{}, misAJour:new Date().toISOString()}};
+    for(const m of MAP){
+      const rows = await fetchAll(m.t, m.k==='audit_log'?{order:'created_at', limit:400}:{});
+      db[m.k] = rows.map(m.from);
+    }
+    const admins = db.profiles.filter(p=>p.role==='admin');
+    db.profiles = db.profiles.filter(p=>p.role!=='admin');
+    if(admins[0]) ADMIN_NAME = admins[0].prenom;
+    const rawRules = await fetchAll('access_rules'), rawSettings = await fetchAll('app_settings');
+    rawRules.forEach(r=>{ db.access.regles[r.cle] = r.quota_gratuit==null ? {acces:r.acces} : {acces:r.acces, quotaGratuit:r.quota_gratuit}; });
+    rawSettings.forEach(r=>{
+      if(r.cle==='public.access'){ db.access.defaut = r.valeur.defaut||'gratuit'; db.access.version = r.valeur.version||1; db.access.misAJour = r.valeur.misAJour||db.access.misAJour; }
+      if(r.cle==='goals' && Array.isArray(r.valeur)) db.goals = r.valeur;
+      if(r.cle==='demo_stats' && r.valeur && r.valeur.daily) db.stats = r.valeur;
+      if(r.cle==='meta' && r.valeur) db.meta.demo = !!r.valeur.demo;
+      if(r.cle==='public.paiement' && r.valeur) db.paiementCfg = Object.assign(PAY_DEFAUT(), r.valeur, {numeros:Object.assign(PAY_DEFAUT().numeros, r.valeur.numeros||{})});
+    });
+    if(!db.goals.length) db.goals = seed().goals;
+    if(!db.paiementCfg) db.paiementCfg = PAY_DEFAUT();
+    try{ db.payments = await fetchAll('payments'); }catch(e){ db.payments = []; db.paymentsErreur = frErr(e); }
+    db.audit_log.sort((a,b)=>new Date(b.date)-new Date(a.date));
+    SNAP = snapshotFrom(db);
+    // pour les tables virtuelles, l'état connu = ce qui est VRAIMENT dans la base
+    SNAP.access_rules = new Map(rawRules.map(r=>[r.cle, JSON.stringify({cle:r.cle, acces:r.acces, quota_gratuit:r.quota_gratuit})]));
+    SNAP.app_settings = new Map(rawSettings.map(r=>[r.cle, JSON.stringify({cle:r.cle, valeur:r.valeur})]));
+    return db;
+  },
+  save(){ scheduleSync(); return true; },
+};
+async function syncAll(){
+  const db = DB;
+  const plan = [];
+  MAP.forEach(m=>plan.push({t:m.t, id:m.id, noDelete:m.noDelete, rows:db[m.k].map(m.to)}));
+  VIRTUAL.forEach(v=>plan.push({t:v.t, id:v.id, noDelete:v.noDelete, rows:v.rows(db)}));
+  // 1) ajouts et modifications, parents d'abord
+  for(const p of plan){
+    const prev = SNAP[p.t] || new Map();
+    const changed = p.rows.filter(r=>prev.get(r[p.id])!==JSON.stringify(r));
+    const lots = {}; changed.forEach(r=>{ const k=Object.keys(r).sort().join(','); (lots[k]=lots[k]||[]).push(r); });
+    for(const L of Object.values(lots)) for(let i=0;i<L.length;i+=500){
+      const {error} = await SB.from(p.t).upsert(L.slice(i,i+500), {onConflict:p.id});
+      if(error) throw error;
+    }
+    changed.forEach(r=>prev.set(r[p.id], JSON.stringify(r)));
+    SNAP[p.t] = prev;
+  }
+  // 2) suppressions, enfants d'abord
+  for(const p of [...plan].reverse()){
+    if(p.noDelete) continue;
+    const prev = SNAP[p.t], now = new Set(p.rows.map(r=>r[p.id]));
+    const gone = [...prev.keys()].filter(id=>!now.has(id));
+    for(let i=0;i<gone.length;i+=200){
+      const {error} = await SB.from(p.t).delete().in(p.id, gone.slice(i,i+200));
+      if(error) throw error;
+    }
+    gone.forEach(id=>prev.delete(id));
+  }
+}
+async function refreshTables(){
+  const ent = await fetchAll('entitlements'); const m = MAP.find(x=>x.k==='entitlements');
+  DB.entitlements = ent.map(m.from); SNAP.entitlements = new Map(DB.entitlements.map(o=>{ const r=m.to(o); return [r.id, JSON.stringify(r)]; }));
+  DB.payments = await fetchAll('payments');
+}
+let syncTimer=null, syncing=false, syncAgain=false, syncState='ok', syncMsg='';
+function scheduleSync(){ setSync('pending'); clearTimeout(syncTimer); syncTimer = setTimeout(runSync, 600); }
+async function runSync(){
+  if(syncing){ syncAgain = true; return; }
+  syncing = true;
+  try{ await syncAll(); setSync('ok'); }
+  catch(e){ setSync('error', frErr(e)); toast('Non enregistré dans Supabase : '+frErr(e)); }
+  syncing = false;
+  if(syncAgain){ syncAgain = false; runSync(); }
+}
+function setSync(s, msg=''){ syncState = s; syncMsg = msg; paintSync(); }
+function paintSync(){
+  const el = $('#sync'); if(!el) return;
+  if(MODE!=='supabase'){ el.className='pill hid syncpill'; el.textContent='Données locales'; el.title='Enregistré dans ce navigateur'; return; }
+  const m = {ok:['ok','Enregistré dans Supabase'], pending:['warn','Enregistrement…'], error:['bad','Erreur · réessayer']}[syncState];
+  el.className = 'pill syncpill '+m[0]; el.textContent = m[1]; el.title = syncMsg || m[1];
+}
+window.addEventListener('beforeunload', e=>{ if(MODE==='supabase' && (syncState==='pending' || syncing)){ e.preventDefault(); e.returnValue=''; } });
+
+/* Les anciens identifiants (u1004…) deviennent des UUID, comme dans la base */
+const isUUID = s => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(s||''));
+function normalizeIds(db){
+  const map = {};
+  const fix = id => isUUID(id) ? id : (map[id] || (map[id] = uid()));
+  db.profiles.forEach(p=>p.id = fix(p.id));
+  db.entitlements = db.entitlements.filter(e=>isUUID(e.user_id) || map[e.user_id]);
+  db.entitlements.forEach(e=>{ e.id = fix(e.id); e.user_id = fix(e.user_id); });
+  db.reports.forEach(r=>{ r.id = fix(r.id); r.user_id = isUUID(r.user_id) ? r.user_id : (map[r.user_id] || null); });
+  ['announcements','audit_log'].forEach(t=>(db[t]||[]).forEach(x=>x.id = fix(x.id)));
+  return db;
+}
+
+const api = {
+  list(table){ return DB[table]; },
+  get(table,id){ return DB[table].find(r=>r.id===id); },
+  insert(table,row){ row.id = row.id || uid(); DB[table].push(row); persist(); return row; },
+  update(table,id,patch){ const r=api.get(table,id); if(r){ Object.assign(r,patch); persist(); } return r; },
+  remove(table,id){ DB[table] = DB[table].filter(r=>r.id!==id); persist(); },
+};
+function persist(){ DB.meta.savedAt = new Date().toISOString(); source.save(DB); }
+function audit(action, cible){ DB.audit_log.unshift({id:uid(), date:new Date().toISOString(), admin:ADMIN_NAME, action, cible}); DB.audit_log = DB.audit_log.slice(0,400); persist(); }
+
+/* =========================================================
+   4. DONNÉES FICTIVES (déterministes)
+   ========================================================= */
+function rng(seed){ return function(){ seed|=0; seed=seed+0x6D2B79F5|0; let t=Math.imul(seed^seed>>>15,1|seed); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+function uid(){
+  if(window.crypto && crypto.randomUUID) return crypto.randomUUID();
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c=>{ const r=Math.random()*16|0; return (c==='x'?r:(r&3|8)).toString(16); });
+}
+const DAY = 864e5;
+const today0 = (()=>{ const d=new Date(); d.setHours(0,0,0,0); return d.getTime(); })();
+
+function seed(){
+  const R = rng(20261106);
+  const pick = a => a[Math.floor(R()*a.length)];
+  const ruuid = () => 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c=>{ const r=Math.floor(R()*16); return (c==='x'?r:(r&3|8)).toString(16); });
+  const prenoms = ['Aïcha','Fatou','Mariam','Awa','Adjoua','Akissi','Affoué','Ruth','Grâce','Esther','Prisca','Christelle','Salimata','Bintou','Nadège','Lydie','Estelle','Jean','Yves','Serge','Arnaud','Ibrahim','Moussa','Emmanuel','Hervé','Franck','Ange','Kadi','Rebecca','Sandrine','Inès','Josué'];
+  const noms = ['Kouassi','Koné','Traoré','Yao','N’Guessan','Kouamé','Bamba','Ouattara','Diabaté','Koffi','Aka','Gnagne','Zadi','Coulibaly','Touré','Doumbia','Assi','Brou','Kra','Gueu','Séry','Tanoh','Kobenan','Ahoua','Dembélé','Konan'];
+  const profiles=[], entitlements=[];
+  const N = 264;
+  for(let i=0;i<N;i++){
+    const ageDays = Math.floor(Math.pow(R(),0.75)*240);
+    const created = today0 - ageDays*DAY + Math.floor(R()*DAY);
+    const engagement = R();
+    const lastGap = engagement>0.55 ? Math.floor(R()*6) : engagement>0.3 ? Math.floor(R()*25) : Math.floor(R()*90);
+    const last = Math.max(created, today0 - lastGap*DAY + Math.floor(R()*DAY*0.9));
+    const filiere = R()<0.42?'SF':'IDE';
+    const annee = pick(['L1','L1','L2','L2','L2','L3']);
+    const p = {
+      id:ruuid(), prenom:pick(prenoms), nom:pick(noms), filiere, annee,
+      programme: pick(['3 mois','6 mois','6 mois','6 mois','1 an']),
+      telephone:'07 ' + String(Math.floor(R()*90+10)) + ' •• •• ' + String(Math.floor(R()*90+10)),
+      role:'eleve', statut: R()<0.015?'bloque':'actif',
+      created_at:new Date(created).toISOString(), last_seen:new Date(last).toISOString(),
+      quiz: engagement<0.14 ? 0 : Math.floor(engagement*engagement*160 + R()*6),
+      appareils: R()<0.18 ? ['Samsung A16','Tecno Spark 20'] : [pick(['Samsung A16','Tecno Spark 20','Itel A70','Infinix Hot 40','iPhone 11','Redmi 13C'])],
+    };
+    profiles.push(p);
+    if(engagement>0.72 && R()<0.6){
+      const plan = pick(['pass-mois','pass-semestre','pass-semestre','pass-annee']);
+      const dur = {'pass-mois':30,'pass-semestre':180,'pass-annee':365}[plan];
+      const start = Math.min(today0, created + Math.floor(R()*20)*DAY);
+      entitlements.push({id:uid(), user_id:p.id, plan, start:new Date(start).toISOString(), end:new Date(start+dur*DAY).toISOString(), source:pick(['cadeau','manuel','manuel','promo']), note:''});
+    }
+  }
+  // quelques pass qui expirent bientôt
+  entitlements.slice(0,4).forEach((e,k)=>{ e.end = new Date(today0 + (k+1)*2*DAY).toISOString(); });
+
+  // statistiques d'usage journalières (120 jours)
+  const daily=[];
+  for(let d=119; d>=0; d--){
+    const t = today0 - d*DAY, wd = new Date(t).getDay();
+    const trend = 30 + (119-d)*0.85;
+    const wk = (wd===0?0.6:wd===6?0.8:1);
+    const exam = (d<20?1.25:1);
+    const actifs = Math.round(trend*wk*exam*(0.85+R()*0.3));
+    daily.push({date:new Date(t).toISOString().slice(0,10), actifs, quiz:Math.round(actifs*(2.1+R()*1.2)), inscriptions:Math.round(1+R()*4+(119-d)/40)});
+  }
+  const usageMatieres = {};
+  CATALOGUE.forEach(r=>r.matieres.forEach(m=>{ usageMatieres[m.id] = Math.round(200 + R()*1800 + (['xmvkq66ok','xmvkq5gqn','xmvkq4zed','pathotrop'].includes(m.id)?1600:0)); }));
+  const notions = [
+    ['Calcul du taux de mortalité infantile','xformules',0.71,412],
+    ['Score d’Apgar : critères','xmvkq5cba',0.64,388],
+    ['Classification des déshydratations (PCIME)','xmvkq5gqn',0.62,520],
+    ['Cycle du Plasmodium','pathotrop',0.59,467],
+    ['Stades OMS de l’infection à VIH','vih',0.57,301],
+    ['Partogramme : ligne d’alerte et d’action','gyneco',0.55,355],
+    ['Nerfs crâniens : fonctions','xmvkq5tml',0.53,290],
+    ['Posologies du paracétamol chez l’enfant','xmvkq53re',0.51,248],
+  ].map(([notion,mat,err,tent])=>({notion,mat,err,tent}));
+
+  const rules = {
+    'rubrique:de':{acces:'premium', quotaGratuit:2},
+    'fonction:explications':{acces:'premium'},
+  };
+  CATALOGUE.forEach(r=>{ if(r.id!=='de') r.matieres.forEach(m=>{ rules['matiere:'+m.id] = {acces:'premium', quotaGratuit:1}; rules['matiere:'+m.id+'/resumes']={acces:'gratuit'}; }); });
+
+  const ago = (d,h=10)=> new Date(today0 - d*DAY + h*3600e3).toISOString();
+  return {
+    meta:{version:1, created:new Date().toISOString(), demo:true},
+    profiles, entitlements,
+    plans:[
+      {id:'pass-mois', nom:'Pass Mois', jours:30, prix:1000, actif:true},
+      {id:'pass-semestre', nom:'Pass Semestre', jours:180, prix:4000, actif:true},
+      {id:'pass-annee', nom:'Pass Année', jours:365, prix:7000, actif:true},
+    ],
+    access:{version:1, defaut:'gratuit', regles:rules, misAJour:new Date().toISOString()},
+    stats:{daily, usageMatieres, notions},
+    goals:[
+      {id:'g1', titre:'Élèves inscrits', cible:500, mesure:'inscrits', echeance:'2027-03-31'},
+      {id:'g2', titre:'Élèves Premium actifs', cible:100, mesure:'premium', echeance:'2027-03-31'},
+      {id:'g3', titre:'Élèves actifs sur 7 jours', cible:200, mesure:'actifs7', echeance:'2026-12-31'},
+    ],
+    announcements:[
+      {id:uid(), titre:'Examens blancs', texte:'Les sujets type examen de pédiatrie sont en ligne. Bonnes révisions !', cible:'tous', couleur:'#6C3BF5', du:ago(3).slice(0,10), au:new Date(today0+10*DAY).toISOString().slice(0,10), actif:true},
+      {id:uid(), titre:'Nouveau cours', texte:'Ophtalmologie L3 vient d’arriver dans la rubrique Médecine.', cible:'IDE-L3', couleur:'#17B3A3', du:ago(8).slice(0,10), au:new Date(today0+2*DAY).toISOString().slice(0,10), actif:true},
+      {id:uid(), titre:'Maintenance', texte:'L’appli sera mise à jour dimanche soir.', cible:'tous', couleur:'#E89A2C', du:ago(30).slice(0,10), au:ago(25).slice(0,10), actif:false},
+    ],
+    paiementCfg: PAY_DEFAUT(),
+    payments: [
+      {id:ruuid(), user_id:profiles[12].id, plan:'pass-semestre', montant_xof:4000, operateur:'wave', telephone:'0701223344', reference:'T2611A7XQ', statut:'a_verifier', motif:'', created_at:ago(0,9)},
+      {id:ruuid(), user_id:profiles[40].id, plan:'pass-mois', montant_xof:1000, operateur:'orange', telephone:'0757889900', reference:'MP261106.1432.B12345', statut:'a_verifier', motif:'', created_at:ago(0,7)},
+      {id:ruuid(), user_id:profiles[77].id, plan:'pass-annee', montant_xof:7000, operateur:'wave', telephone:'0102030405', reference:'T2611Z9PL', statut:'valide', motif:'', created_at:ago(2,15), traite_at:ago(2,16)},
+      {id:ruuid(), user_id:profiles[95].id, plan:'pass-mois', montant_xof:1000, operateur:'mtn', telephone:'0546372819', reference:'5524178893', statut:'valide', motif:'', created_at:ago(5,11), traite_at:ago(5,12)},
+      {id:ruuid(), user_id:profiles[130].id, plan:'pass-semestre', montant_xof:4000, operateur:'orange', telephone:'0788112233', reference:'MP261030.0915.C55555', statut:'refuse', motif:'Paiement non reçu', created_at:ago(7,9), traite_at:ago(7,18)},
+      {id:ruuid(), user_id:profiles[150].id, plan:'pass-semestre', montant_xof:4000, operateur:'wave', telephone:'0709090909', reference:'T2610K3MM', statut:'valide', motif:'', created_at:ago(12,10), traite_at:ago(12,11)},
+    ],
+    reports:[
+      {id:uid(), user_id:profiles[4].id, mat:'vih', question:'Quel est le délai de séroconversion le plus fréquent ?', message:'La bonne réponse indiquée ne correspond pas au cours page 14.', statut:'nouveau', date:ago(0,8), note:''},
+      {id:uid(), user_id:profiles[31].id, mat:'xmvkq5gqn', question:'Dose de SRO pour un enfant de 12 kg avec plan B ?', message:'Deux réponses semblent correctes.', statut:'nouveau', date:ago(1,15), note:''},
+      {id:uid(), user_id:profiles[77].id, mat:'xmvkq5y0h', question:'Combien d’os compte le carpe ?', message:'L’image ne s’affiche pas sur mon téléphone.', statut:'en-cours', date:ago(2,19), note:'Image trop lourde, à compresser.'},
+      {id:uid(), user_id:profiles[102].id, mat:'xformules', question:'Formule du taux brut de natalité', message:'Faute de frappe dans l’explication (pour 1000 habitants).', statut:'nouveau', date:ago(3,11), note:''},
+      {id:uid(), user_id:profiles[150].id, mat:'gyneco', question:'Signes de la pré-éclampsie sévère', message:'Il manque la protéinurie dans les choix.', statut:'corrige', date:ago(9,9), note:'Choix ajouté.'},
+      {id:uid(), user_id:profiles[188].id, mat:'pathotrop', question:'Hôte définitif du Schistosoma', message:'Question en double avec le sujet 4.', statut:'corrige', date:ago(12,17), note:'Doublon supprimé.'},
+    ],
+    audit_log:[
+      {id:uid(), date:ago(0,9), admin:'Daniel', action:'Pass offert (Pass Semestre)', cible:'Mariam Koné'},
+      {id:uid(), date:ago(1,18), admin:'Daniel', action:'Règle d’accès : Gratuit', cible:'Résumés · VIH'},
+      {id:uid(), date:ago(2,12), admin:'Daniel', action:'Annonce publiée', cible:'Examens blancs'},
+    ],
+  };
+}
+
+/* =========================================================
+   5. OUTILS
+   ========================================================= */
+const $ = s => document.querySelector(s);
+const esc = s => String(s??'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pct = (a,b) => b ? Math.round(a/b*100) : 0;
+const fmt = n => new Intl.NumberFormat('fr-FR').format(n);
+const dfr = (iso,opt={day:'numeric',month:'short',year:'numeric'}) => new Date(iso).toLocaleDateString('fr-FR',opt);
+const hfr = iso => new Date(iso).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+const fullName = p => p ? `${p.prenom} ${p.nom}` : 'Élève supprimé';
+const initials = p => (p.prenom[0]+p.nom.replace(/[^A-Za-zÀ-ÿ]/g,'')[0]).toUpperCase();
+const avColor = id => ['#6C3BF5','#17B3A3','#E25DB8','#E89A2C','#3B82F6','#1E9E6A'][[...id].reduce((a,c)=>a+c.charCodeAt(0),0)%6];
+const matName = id => { for(const r of CATALOGUE) for(const m of r.matieres) if(m.id===id) return m.nom; return id; };
+function relTime(iso){
+  const d = Math.floor((today0 + DAY - new Date(iso).getTime())/DAY);
+  if(d<=0) return 'aujourd’hui'; if(d===1) return 'hier'; if(d<7) return `il y a ${d} j`; if(d<30) return `il y a ${Math.floor(d/7)} sem.`; return `il y a ${Math.floor(d/30)} mois`;
+}
+function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('on'); clearTimeout(toast.t); toast.t=setTimeout(()=>t.classList.remove('on'),2400); }
+function download(name, obj){
+  const blob = new Blob([typeof obj==='string'?obj:JSON.stringify(obj,null,2)], {type: name.endsWith('.csv')?'text/csv;charset=utf-8':'application/json'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href); a.remove();},500);
+}
+function pickFile(cb){ const f=$('#filein'); f.value=''; f.onchange=()=>{ const file=f.files[0]; if(!file) return; const rd=new FileReader(); rd.onload=()=>{ try{ cb(JSON.parse(rd.result)); }catch(e){ toast('Fichier illisible : ce n’est pas un JSON valide.'); } }; rd.readAsText(file); }; f.click(); }
+
+/* droits Premium */
+const activePass = uid_ => DB.entitlements.filter(e=>e.user_id===uid_ && new Date(e.start).getTime()<=Date.now()+DAY && new Date(e.end).getTime()>Date.now()).sort((a,b)=>new Date(b.end)-new Date(a.end))[0];
+const isPremium = uid_ => !!activePass(uid_);
+const daysLeft = e => Math.ceil((new Date(e.end).getTime()-Date.now())/DAY);
+
+/* résolution des règles d'accès : la règle la plus précise gagne */
+function effective(key){
+  const n = NODES[key]; const rules = DB.access.regles;
+  if(rules[key]) return {acces:rules[key].acces, source:'explicite'};
+  if(!n) return {acces:DB.access.defaut, source:'defaut'};
+  if(n.type==='sujet'){
+    const parent = effective(n.parent);
+    const q = quotaOf(n.parent);
+    if(parent.acces==='premium' && n.n <= q) return {acces:'gratuit', source:'quota'};
+    return {acces:parent.acces, source:'herite'};
+  }
+  if(n.parent){
+    const p = effective(n.parent);
+    return {acces:p.acces, source: p.source==='defaut'?'defaut':'herite'};
+  }
+  return {acces:DB.access.defaut, source:'defaut'};
+}
+function quotaOf(key){
+  let k = key;
+  while(k){ const r = DB.access.regles[k]; if(r && r.quotaGratuit!=null) return r.quotaGratuit; k = NODES[k]?.parent; }
+  return 0;
+}
+function setRule(key, acces){
+  const rules = DB.access.regles;
+  if(acces==='inh'){ delete rules[key]; }
+  else { rules[key] = Object.assign({}, rules[key]||{}, {acces}); }
+  DB.access.version++; DB.access.misAJour = new Date().toISOString();
+  const lab = {inh:'Hériter', gratuit:'Gratuit', premium:'Premium', masque:'Masqué'}[acces];
+  audit('Règle d’accès : '+lab, labelOf(key));
+}
+function labelOf(key){ const n=NODES[key]; if(!n) return key; if(n.type==='sujet'||n.type==='resumes'||n.type==='appli') return n.label+' · '+NODES[n.parent].label; return n.label; }
+function exportConfig(){
+  return {version:DB.access.version, defaut:DB.access.defaut, misAJour:DB.access.misAJour, regles:DB.access.regles};
+}
+
+/* =========================================================
+   6. GRAPHIQUES SVG (sans bibliothèque externe)
+   ========================================================= */
+function niceMax(v){ v = Math.max(v,4); const p = Math.pow(10, Math.floor(Math.log10(Math.max(v,1)))); return Math.ceil(v/p)*p; }
+function areaChart(series, labels, opt={}){
+  const W=640, H=230, pl=36, pr=8, pt=12, pb=26;
+  const max = niceMax(Math.max(...series.flatMap(s=>s.data)));
+  const x = i => pl + i*(W-pl-pr)/(labels.length-1);
+  const y = v => pt + (H-pt-pb)*(1 - v/max);
+  const smooth = pts => pts.map((p,i)=> i? `C${(pts[i-1][0]+p[0])/2},${pts[i-1][1]} ${(pts[i-1][0]+p[0])/2},${p[1]} ${p[0]},${p[1]}` : `M${p[0]},${p[1]}`).join(' ');
+  let g='';
+  for(let k=0;k<=4;k++){ const v=max*k/4, yy=y(v); g+=`<line x1="${pl}" x2="${W-pr}" y1="${yy}" y2="${yy}" stroke="var(--line)" ${k?'stroke-dasharray="3 4"':''}/><text x="${pl-8}" y="${yy+4}" text-anchor="end" font-size="11" fill="var(--muted)">${v>=1000?(v/1000)+'k':v}</text>`; }
+  const step = Math.ceil(labels.length/7);
+  labels.forEach((l,i)=>{ if(i%step===0 || i===labels.length-1) g+=`<text x="${x(i)}" y="${H-6}" text-anchor="middle" font-size="11" fill="var(--muted)">${l}</text>`; });
+  let defs='', paths='';
+  series.forEach((s,si)=>{
+    const pts = s.data.map((v,i)=>[x(i),y(v)]);
+    const line = smooth(pts);
+    defs += `<linearGradient id="ag${si}${opt.id||''}" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="${s.color}" stop-opacity="${si?0.12:0.28}"/><stop offset="1" stop-color="${s.color}" stop-opacity="0"/></linearGradient>`;
+    paths += `<path d="${line} L${x(pts.length-1)},${y(0)} L${x(0)},${y(0)} Z" fill="url(#ag${si}${opt.id||''})"/><path d="${line}" fill="none" stroke="${s.color}" stroke-width="2.2"/>`;
+  });
+  const id = 'c'+uid();
+  setTimeout(()=>bindHover(id, labels.length, i=>x(i), W, i=>{
+    return `<div class="muted" style="color:inherit;opacity:.75">${opt.full?opt.full[i]:labels[i]}</div>`+series.map(s=>`<div><span class="dot" style="background:${s.color}"></span> ${s.name} : <b>${fmt(s.data[i])}</b></div>`).join('');
+  }, i=>y(series[0].data[i]), H), 0);
+  return `<div class="chart" id="${id}"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(opt.label||'Graphique')}"><defs>${defs}</defs>${g}${paths}<line class="hl" x1="0" x2="0" y1="${pt}" y2="${H-pb}" stroke="var(--violet)" stroke-dasharray="3 3" opacity="0"/><circle class="hp" r="5" fill="var(--violet)" stroke="var(--card)" stroke-width="2" opacity="0"/><rect class="ov" x="${pl}" y="0" width="${W-pl-pr}" height="${H}" fill="transparent"/></svg><div class="tip"></div></div>`;
+}
+function bindHover(id, n, xf, W, html, yf, H){
+  const el = document.getElementById(id); if(!el) return;
+  const svg = el.querySelector('svg'), ov = el.querySelector('.ov'), tip = el.querySelector('.tip'), hl = el.querySelector('.hl'), hp = el.querySelector('.hp');
+  const move = ev => {
+    const r = svg.getBoundingClientRect(); const cx = ((ev.touches?ev.touches[0].clientX:ev.clientX) - r.left) * W / r.width;
+    let best=0, bd=1e9; for(let i=0;i<n;i++){ const d=Math.abs(xf(i)-cx); if(d<bd){bd=d;best=i;} }
+    const px = xf(best);
+    if(hl){ hl.setAttribute('x1',px); hl.setAttribute('x2',px); hl.setAttribute('opacity',1); }
+    if(hp && yf){ hp.setAttribute('cx',px); hp.setAttribute('cy',yf(best)); hp.setAttribute('opacity',1); }
+    tip.innerHTML = html(best); tip.style.left = (px*r.width/W)+'px'; tip.style.top = ((yf?yf(best):30)*r.height/H)+'px'; tip.style.opacity=1;
+  };
+  const out = ()=>{ tip.style.opacity=0; hl&&hl.setAttribute('opacity',0); hp&&hp.setAttribute('opacity',0); };
+  ov.addEventListener('mousemove',move); ov.addEventListener('touchstart',move,{passive:true}); ov.addEventListener('touchmove',move,{passive:true}); ov.addEventListener('mouseleave',out); ov.addEventListener('touchend',()=>setTimeout(out,1500));
+}
+function barChart(data, labels, color, opt={}){
+  const W=640, H=200, pl=34, pr=6, pt=10, pb=24;
+  const max = niceMax(Math.max(...data));
+  const bw = (W-pl-pr)/data.length;
+  const y = v => pt + (H-pt-pb)*(1 - v/max);
+  let g='';
+  for(let k=0;k<=4;k++){ const v=max*k/4, yy=y(v); g+=`<line x1="${pl}" x2="${W-pr}" y1="${yy}" y2="${yy}" stroke="var(--line)" ${k?'stroke-dasharray="3 4"':''}/><text x="${pl-6}" y="${yy+4}" text-anchor="end" font-size="11" fill="var(--muted)">${v>=1000?(v/1000)+'k':v}</text>`; }
+  data.forEach((v,i)=>{ const h = y(0)-y(v); g+=`<rect x="${pl+i*bw+bw*0.18}" y="${y(v)}" width="${bw*0.64}" height="${Math.max(h,1)}" rx="${Math.min(4,bw*0.3)}" fill="${color}" opacity="${i===data.length-1?1:0.55}"/>`; });
+  const step = Math.ceil(labels.length/8);
+  labels.forEach((l,i)=>{ if(i%step===0) g+=`<text x="${pl+i*bw+bw/2}" y="${H-6}" text-anchor="middle" font-size="11" fill="var(--muted)">${l}</text>`; });
+  const id='b'+uid();
+  setTimeout(()=>bindHover(id, data.length, i=>pl+i*bw+bw/2, W, i=>`<div style="opacity:.75">${opt.full?opt.full[i]:labels[i]}</div><b>${fmt(data[i])}</b> ${opt.unit||''}`, i=>y(data[i]), H),0);
+  return `<div class="chart" id="${id}"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(opt.label||'Graphique en barres')}">${g}<rect class="ov" x="${pl}" y="0" width="${W-pl-pr}" height="${H}" fill="transparent"/></svg><div class="tip"></div></div>`;
+}
+function donut(parts, centerTop, centerBig){
+  const total = parts.reduce((a,p)=>a+p.v,0)||1; const R=70, r=48, C=90;
+  let a0=-Math.PI/2, segs='';
+  const gap = 0.035;
+  parts.forEach(p=>{
+    if(!p.v) return;
+    const a1 = a0 + 2*Math.PI*p.v/total;
+    const s = a0+gap/2, e = Math.max(s+0.001, a1-gap/2), large = (e-s)>Math.PI?1:0;
+    const P = (rad,a)=>[C+rad*Math.cos(a), C+rad*Math.sin(a)];
+    const [x1,y1]=P(R,s),[x2,y2]=P(R,e),[x3,y3]=P(r,e),[x4,y4]=P(r,s);
+    segs += `<path d="M${x1},${y1} A${R},${R} 0 ${large} 1 ${x2},${y2} L${x3},${y3} A${r},${r} 0 ${large} 0 ${x4},${y4} Z" fill="${p.c}"><title>${esc(p.l)} : ${fmt(p.v)}</title></path>`;
+    a0 = a1;
+  });
+  return `<svg viewBox="0 0 180 180" width="180" height="180" role="img" aria-label="Répartition">${segs}<text x="90" y="84" text-anchor="middle" font-size="12" fill="var(--muted)">${esc(centerTop)}</text><text x="90" y="108" text-anchor="middle" font-size="24" font-weight="700" font-family="var(--display)" fill="var(--ink)">${esc(centerBig)}</text></svg>`;
+}
+function ring(pct, color){
+  const r=19, c=2*Math.PI*r, v=Math.max(0,Math.min(1,pct));
+  return `<svg width="50" height="50" viewBox="0 0 50 50" role="img" aria-label="${Math.round(v*100)} %"><circle cx="25" cy="25" r="${r}" fill="none" stroke="var(--soft)" stroke-width="5"/><circle cx="25" cy="25" r="${r}" fill="none" stroke="${color}" stroke-width="5" stroke-linecap="round" stroke-dasharray="${c*v} ${c}" transform="rotate(-90 25 25)"/><text x="25" y="29" text-anchor="middle" font-size="11" font-weight="700" fill="var(--ink)">${Math.round(v*100)}%</text></svg>`;
+}
+
+/* =========================================================
+   7. NAVIGATION
+   ========================================================= */
+const PAGES = [
+  {id:'overview', nom:'Vue d’ensemble', icon:'home', grp:1},
+  {id:'eleves', nom:'Élèves', icon:'users', grp:1, count:()=>DB.profiles.length},
+  {id:'paiements', nom:'Paiements', icon:'card', grp:1, count:()=>(DB.payments||[]).filter(x=>x.statut==='a_verifier').length},
+  {id:'acces', nom:'Contenu et accès', icon:'lock', grp:1},
+  {id:'engagement', nom:'Engagement', icon:'chart', grp:2},
+  {id:'annonces', nom:'Annonces', icon:'bell', grp:2, count:()=>DB.announcements.filter(a=>annonceLive(a)).length},
+  {id:'signalements', nom:'Signalements', icon:'flag', grp:2, count:()=>DB.reports.filter(r=>r.statut!=='corrige').length},
+  {id:'reglages', nom:'Réglages', icon:'gear', grp:3},
+];
+const VIEWS = {}, AFTER = {};
+let page = 'overview';
+const UI = { period:30, eleves:{q:'',fil:'tous',an:'tous',acc:'tous',type:'tous',page:1,sel:new Set()}, acces:{open:new Set(['matiere:vih']), fil:'tous'}, sig:'nouveau' };
+
+function renderNav(){
+  [1,2,3].forEach(g=>{
+    $('#nav'+g).innerHTML = PAGES.filter(p=>p.grp===g).map(p=>`<button class="nav ${p.id===page?'on':''}" data-page="${p.id}">${ic(p.icon)}<span>${p.nom}</span>${p.count?`<span class="count">${p.count()}</span>`:''}</button>`).join('');
+  });
+  renderPhase(); paintSync();
+}
+function renderPhase(){
+  const sb = MODE==='supabase', n = sb ? 2 : 1;
+  $('#phasecard').innerHTML = `<b>${sb?'Phase 2 · Supabase':'Phase 1 · données locales'}</b>
+    <p>${sb?'Connecté en administrateur'+(SB_EMAIL?' ('+esc(SB_EMAIL)+')':'')+'. Les modifications partent dans la base.':'Tout est enregistré dans ce navigateur. Branchez Supabase dans Réglages.'}</p>
+    <div class="steps" aria-label="Avancement : phase ${n} sur 5">${[1,2,3,4,5].map(i=>`<i class="${i<=n?'done':''}"></i>`).join('')}</div>`;
+  $('#mename').textContent = ADMIN_NAME;
+}
+function go(p){ if(!DB) return; page=p; $('#crumb').textContent = PAGES.find(x=>x.id===p).nom; closeSide(); render(); window.scrollTo({top:0}); try{ history.replaceState(null,'','#'+p); }catch(e){} }
+function render(){ if(!DB) return; renderNav(); const v=$('#view'); v.innerHTML = VIEWS[page](); if(AFTER[page]) AFTER[page](); }
+document.addEventListener('click', e=>{ const b=e.target.closest('[data-page]'); if(b) go(b.dataset.page); });
+function closeSide(){ $('#side').classList.remove('on'); if(!$('#drawer').classList.contains('on') && !$('#modal').classList.contains('on')) $('#scrim').classList.remove('on'); }
+$('#burger').onclick = ()=>{ $('#side').classList.add('on'); $('#scrim').classList.add('on'); };
+$('#scrim').onclick = ()=>{ closeSide(); closeDrawer(); closeModal(); };
+document.addEventListener('keydown', e=>{ if(e.key==='Escape'){ closeSide(); closeDrawer(); closeModal(); } });
+$('#theme').onclick = ()=>{ const r=document.documentElement; const d = r.dataset.theme==='dark'?'light':'dark'; r.dataset.theme=d; try{localStorage.setItem('rinfas_theme',d);}catch(e){} render(); };
+$('#gsearch').addEventListener('keydown', e=>{ if(e.key==='Enter'){ UI.eleves.q = e.target.value; UI.eleves.page=1; go('eleves'); } });
+
+function headHTML(title, sub, right=''){ return `<div class="head"><div><h1>${title}</h1><p>${sub}</p></div><div class="grow"></div>${right}</div>`; }
+const demoTag = ()=> DB.meta.demo ? `<span class="demo">Élèves fictifs de test</span>` : '';
+const realTag = ()=> REAL ? `<span class="pill ok">Statistiques réelles du portail</span>` : '';
+
+/* =========================================================
+   8. VUE D'ENSEMBLE
+   ========================================================= */
+function kpiData(){
+  const P = DB.profiles, now = Date.now(), per = UI.period;
+  const since = per ? now - per*DAY : 0;
+  const inscrits = P.length;
+  const nouveaux = P.filter(p=>new Date(p.created_at).getTime()>=since).length;
+  const prevNouveaux = per ? P.filter(p=>{const t=new Date(p.created_at).getTime(); return t>=since-per*DAY && t<since;}).length : 0;
+  const actifs7 = REAL ? REAL.totaux.actifs_7j : P.filter(p=>now-new Date(p.last_seen).getTime() < 7*DAY).length;
+  const premium = P.filter(p=>isPremium(p.id)).length;
+  const srcDays = REAL ? REAL.jours : DB.stats.daily;
+  const days = per ? srcDays.slice(-per) : srcDays;
+  const prevDays = per ? srcDays.slice(-2*per,-per) : [];
+  const quiz = days.reduce((a,d)=>a+d.quiz,0), prevQuiz = prevDays.reduce((a,d)=>a+d.quiz,0);
+  return {inscrits, nouveaux, prevNouveaux, actifs7, premium, quiz, prevQuiz, days};
+}
+const delta = (a,b)=> !b ? '' : (a>=b?`<span class="up">+${Math.round((a-b)/b*100)} %</span>`:`<span class="down">−${Math.round((b-a)/b*100)} %</span>`);
+VIEWS.overview = ()=>{
+  const k = kpiData(); const P=DB.profiles;
+  const sf = P.filter(p=>p.filiere==='SF').length;
+  const periods = [[7,'7 jours'],[30,'30 jours'],[90,'90 jours'],[0,'Tout']];
+  const lab = k.days.map(d=>dfr(d.date,{day:'numeric',month:'short'}));
+  const full = k.days.map(d=>dfr(d.date,{weekday:'long',day:'numeric',month:'long'}));
+  const free = P.length - k.premium;
+  const recent = [
+    ...P.map(p=>({t:p.created_at, a:'Inscription', p, st:'<span class="pill free">Gratuit</span>'})),
+    ...DB.entitlements.map(e=>({t:e.start, a:'Pass '+(e.source==='cadeau'?'offert':e.source==='promo'?'promo':'accordé'), p:api.get('profiles',e.user_id), st:'<span class="pill prem">Premium</span>'})),
+    ...(DB.payments||[]).map(x=>({t:x.created_at, a:'Paiement '+fmt(x.montant_xof)+' FCFA · '+(OPS[x.operateur]||[x.operateur])[0], p:api.get('profiles',x.user_id), st: x.statut==='valide'?'<span class="pill ok">Validé</span>':x.statut==='refuse'?'<span class="pill bad">Refusé</span>':'<span class="pill warn">À vérifier</span>'})),
+    ...DB.reports.map(r=>({t:r.date, a:'Signalement · '+matName(r.mat), p:api.get('profiles',r.user_id), st: r.statut==='corrige'?'<span class="pill ok">Corrigé</span>':r.statut==='en-cours'?'<span class="pill warn">En cours</span>':'<span class="pill bad">Nouveau</span>'})),
+  ].filter(x=>x.p).sort((a,b)=>new Date(b.t)-new Date(a.t)).slice(0,7);
+  const goalVal = g => g.mesure==='inscrits'?k.inscrits : g.mesure==='premium'?k.premium : k.actifs7;
+  const levelCards = FILIERES.flatMap(f=>ANNEES.map(a=>{
+    const L = P.filter(p=>p.filiere===f && p.annee===a); const pr = L.filter(p=>isPremium(p.id)).length;
+    const act = L.filter(p=>Date.now()-new Date(p.last_seen).getTime()<7*DAY).length;
+    const rule = effective(`niveau:${f}-${a}`).acces;
+    return `<div class="lvl"><div class="t"><span class="dot" style="background:${f==='SF'?'var(--rose)':'var(--teal)'}"></span>${f} · ${a}</div><div class="n num">${fmt(L.length)}</div><div class="s">${pr} Premium · ${L.length?Math.round(act/L.length*100):0} % actifs</div><div class="bar"><span style="width:${L.length?pr/L.length*100:0}%"></span></div>${rule!=='gratuit'?`<div style="margin-top:8px"><span class="pill ${rule==='premium'?'prem':'hid'}">${rule==='premium'?'Niveau Premium':'Niveau masqué'}</span></div>`:''}</div>`;
+  })).join('');
+
+  return headHTML('Vue d’ensemble', 'L’activité de Révision INFAS en un coup d’œil.', `${realTag()}${demoTag()}<div class="chips" role="group" aria-label="Période">${periods.map(([v,l])=>`<button class="chip ${UI.period===v?'on':''}" data-period="${v}">${l}</button>`).join('')}</div>`) + `
+  <div class="grid kpis">
+    <div class="hero">
+      <div class="lab">Élèves inscrits</div>
+      <div class="big">${fmt(k.inscrits)}</div>
+      <span class="delta">+${fmt(k.nouveaux)} ${UI.period?`sur ${UI.period} jours`:'au total'}</span>
+      <div class="split" aria-hidden="true"><span style="flex:${sf};background:#FFB4E6"></span><span style="flex:${P.length-sf};background:#7FF0E2"></span></div>
+      <div class="legend"><span>Sage-femme ${fmt(sf)}</span><span>Infirmier ${fmt(P.length-sf)}</span><span>${fmt(P.filter(p=>p.auth_id).length)} vrais comptes</span></div>
+    </div>
+    <div class="card kpi"><div class="lab"><span class="ic">${ic('pulse')}</span>Actifs sur 7 jours</div><div class="big">${fmt(k.actifs7)}</div><div class="foot">${REAL?'appareils, d’après le portail':pct(k.actifs7,k.inscrits)+' % des inscrits'}</div></div>
+    <div class="card kpi"><div class="lab"><span class="ic">${ic('star')}</span>Premium actifs</div><div class="big">${fmt(k.premium)}</div><div class="foot">${k.inscrits?(k.premium/k.inscrits*100).toFixed(1).replace('.',','):0} % des inscrits</div></div>
+    <div class="card kpi"><div class="lab"><span class="ic">${ic('quiz')}</span>Quiz terminés</div><div class="big">${fmt(k.quiz)}</div><div class="foot">${UI.period?delta(k.quiz,k.prevQuiz)+' vs période précédente':'depuis le début'}</div></div>
+  </div>
+
+  <div class="grid row2">
+    <div class="card">
+      <div class="cardhead"><div class="grow"><h3>Activité quotidienne</h3><p class="sub">${REAL?'Appareils actifs et sujets terminés par jour, d’après le portail':'Élèves actifs et quiz terminés par jour'}</p></div>
+        <div class="legendrow"><span><span class="dot" style="background:var(--violet)"></span>Quiz</span><span><span class="dot" style="background:var(--teal)"></span>Élèves actifs</span></div></div>
+      ${areaChart([{name:'Quiz',color:'var(--violet)',data:k.days.map(d=>d.quiz)},{name:'Élèves actifs',color:'var(--teal)',data:k.days.map(d=>d.actifs)}], lab, {full, label:'Activité quotidienne', id:'ov'})}
+    </div>
+    <div class="card">
+      <div class="cardhead"><div class="grow"><h3>Gratuit et Premium</h3><p class="sub">Répartition des inscrits aujourd’hui</p></div><button class="btn sm" data-page="eleves">Voir les élèves</button></div>
+      <div style="display:flex;justify-content:center">${donut([{l:'Premium',v:k.premium,c:'var(--violet)'},{l:'Gratuit',v:free,c:'var(--teal)'}],'Premium',pct(k.premium,k.inscrits)+' %')}</div>
+      <div class="legendrow" style="justify-content:center;margin-top:8px"><span><span class="dot" style="background:var(--violet)"></span>Premium ${fmt(k.premium)}</span><span><span class="dot" style="background:var(--teal)"></span>Gratuit ${fmt(free)}</span></div>
+      <div style="margin-top:14px;font-size:13.5px" class="muted">${DB.entitlements.filter(e=>{const d=daysLeft(e);return d>0&&d<=7;}).length} pass expirent dans les 7 jours.</div>
+    </div>
+  </div>
+
+  <div class="grid row3">
+    <div class="card">
+      <div class="cardhead"><div class="grow"><h3>Par filière et année</h3><p class="sub">Inscrits, Premium et taux d’activité</p></div><button class="btn sm" data-page="acces">Règles des niveaux</button></div>
+      <div class="levels">${levelCards}</div>
+    </div>
+    <div class="card">
+      <div class="cardhead"><div class="grow"><h3>Objectifs</h3><p class="sub">Modifiables dans les réglages</p></div><button class="btn sm" data-page="reglages">Modifier</button></div>
+      ${DB.goals.map((g,i)=>{ const v=goalVal(g); return `<div class="goal">${ring(v/g.cible, ['var(--violet)','var(--teal)','var(--rose)'][i%3])}<div class="gt"><b>${esc(g.titre)}</b><span>Échéance : ${dfr(g.echeance)}</span></div><div class="gv"><b class="num">${fmt(v)}</b>sur ${fmt(g.cible)}</div></div>`; }).join('')}
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:18px">
+    <div class="cardhead"><div class="grow"><h3>Activité récente</h3><p class="sub">Inscriptions, pass et signalements</p></div></div>
+    <div class="tablewrap"><table class="t"><thead><tr><th>Activité</th><th>Élève</th><th>Niveau</th><th>Date</th><th>Heure</th><th>Statut</th></tr></thead><tbody>
+    ${recent.map(r=>`<tr class="click" data-user="${r.p.id}"><td>${esc(r.a)}</td><td><div class="who"><div class="av" style="background:${avColor(r.p.id)}">${initials(r.p)}</div><b>${esc(fullName(r.p))}</b></div></td><td style="white-space:nowrap">${r.p.filiere} · ${r.p.annee}</td><td>${dfr(r.t)}</td><td>${hfr(r.t)}</td><td>${r.st}</td></tr>`).join('')}
+    </tbody></table></div>
+  </div>`;
+};
+AFTER.overview = ()=>{
+  document.querySelectorAll('[data-period]').forEach(b=>b.onclick=()=>{ UI.period=+b.dataset.period; render(); });
+  bindUserRows();
+};
+function bindUserRows(){ document.querySelectorAll('[data-user]').forEach(tr=>tr.onclick=e=>{ if(e.target.closest('input,button')) return; openUser(tr.dataset.user); }); }
+
+/* =========================================================
+   9. ÉLÈVES
+   ========================================================= */
+function filteredUsers(){
+  const s = UI.eleves, q = s.q.trim().toLowerCase();
+  return DB.profiles.filter(p=>{
+    if(q && !(fullName(p)+' '+p.telephone+' '+p.id+' '+(p.email||'')).toLowerCase().includes(q)) return false;
+    if(s.type==='compte' && !p.auth_id) return false;
+    if(s.type==='test' && p.auth_id) return false;
+    if(s.fil!=='tous' && p.filiere!==s.fil) return false;
+    if(s.an!=='tous' && p.annee!==s.an) return false;
+    const pass = activePass(p.id);
+    if(s.acc==='premium' && !pass) return false;
+    if(s.acc==='gratuit' && pass) return false;
+    if(s.acc==='expire' && !(pass && daysLeft(pass)<=7)) return false;
+    if(s.acc==='bloque' && p.statut!=='bloque') return false;
+    return true;
+  }).sort((a,b)=>new Date(b.last_seen)-new Date(a.last_seen));
+}
+function accessPill(p){
+  if(p.statut==='bloque') return '<span class="pill bad">Bloqué</span>';
+  const pass = activePass(p.id);
+  if(!pass) return '<span class="pill free">Gratuit</span>';
+  const d = daysLeft(pass);
+  return d<=7 ? `<span class="pill warn">Premium · ${d} j</span>` : `<span class="pill prem">Premium · ${dfr(pass.end,{day:'numeric',month:'short'})}</span>`;
+}
+VIEWS.eleves = ()=>{
+  const s = UI.eleves, L = filteredUsers(), per = 20, pages = Math.max(1,Math.ceil(L.length/per));
+  s.page = Math.min(s.page, pages);
+  const rows = L.slice((s.page-1)*per, s.page*per);
+  const sel = (name,val,opts)=>`<select class="field" style="width:auto" data-f="${name}" aria-label="${name}">${opts.map(([v,l])=>`<option value="${v}" ${val===v?'selected':''}>${l}</option>`).join('')}</select>`;
+  const nReal = DB.profiles.filter(p=>p.auth_id).length;
+  return headHTML('Élèves', `${fmt(DB.profiles.length)} élèves dont ${fmt(nReal)} vrai${nReal>1?'s':''} compte${nReal>1?'s':''} · cliquez sur un élève pour ouvrir sa fiche.`, `${demoTag()}${MODE==='supabase'?`<button class="btn" id="ureload">Actualiser</button>`:''}<button class="btn" id="csv">${ic('dl')}Exporter en CSV</button><button class="btn pri" id="adduser">${ic('plus')}Ajouter un élève</button>`) + `
+  <div class="card">
+    <div class="row wrap" style="margin-bottom:12px">
+      <input class="field" id="uq" placeholder="Nom, téléphone ou identifiant" value="${esc(s.q)}" style="flex:1;min-width:200px" aria-label="Rechercher">
+      ${sel('fil',s.fil,[['tous','Toutes filières'],['SF','Sage-femme'],['IDE','Infirmier']])}
+      ${sel('an',s.an,[['tous','Toutes années'],['L1','L1'],['L2','L2'],['L3','L3']])}
+      ${sel('acc',s.acc,[['tous','Tous les accès'],['gratuit','Gratuit'],['premium','Premium'],['expire','Expire sous 7 jours'],['bloque','Bloqués']])}
+      ${sel('type',s.type,[['tous','Comptes et tests'],['compte','Vrais comptes'],['test','Élèves de test']])}
+    </div>
+    ${s.sel.size?`<div class="row wrap" style="background:var(--soft);border-radius:12px;padding:8px 12px;margin-bottom:10px"><b>${s.sel.size} sélectionné${s.sel.size>1?'s':''}</b><div class="grow" style="flex:1"></div><button class="btn sm pri" id="bulkgift">${ic('gift')}Offrir un pass</button><button class="btn sm" id="bulkclear">Désélectionner</button></div>`:''}
+    <div class="tablewrap"><table class="t"><thead><tr><th style="width:30px"><input type="checkbox" id="selall" aria-label="Tout sélectionner" ${rows.length && rows.every(p=>s.sel.has(p.id))?'checked':''}></th><th>Élève</th><th>Niveau</th><th>Accès</th><th>Dernière visite</th><th>Quiz</th><th>Appareils</th></tr></thead><tbody>
+    ${rows.map(p=>`<tr class="click" data-user="${p.id}"><td><input type="checkbox" data-sel="${p.id}" ${s.sel.has(p.id)?'checked':''} aria-label="Sélectionner ${esc(fullName(p))}"></td>
+      <td><div class="who"><div class="av" style="background:${avColor(p.id)}">${initials(p)}</div><div><b>${esc(fullName(p))}${p.auth_id?' <span class="pill ok" style="font-size:11px">Compte</span>':''}</b><small>${esc(p.email||p.telephone)}</small></div></div></td>
+      <td style="white-space:nowrap">${p.filiere} · ${p.annee}</td><td>${accessPill(p)}</td><td>${relTime(p.last_seen)}</td><td class="num">${fmt(p.quiz)}</td><td>${p.appareils.length}${p.appareils.length>1?' <span class="pill warn">2</span>':''}</td></tr>`).join('') || `<tr><td colspan="7"><div class="empty">Aucun élève ne correspond à ces filtres. Modifiez la recherche ou réinitialisez les filtres.</div></td></tr>`}
+    </tbody></table></div>
+    <div class="pager"><span>${L.length?`${(s.page-1)*per+1}–${Math.min(s.page*per,L.length)} sur ${fmt(L.length)}`:'0 résultat'}</span><div class="row"><button class="btn sm" id="pprev" ${s.page<=1?'disabled':''}>Précédent</button><span>Page ${s.page} / ${pages}</span><button class="btn sm" id="pnext" ${s.page>=pages?'disabled':''}>Suivant</button></div></div>
+  </div>`;
+};
+AFTER.eleves = ()=>{
+  const s = UI.eleves;
+  const uq = $('#uq'); uq.oninput = ()=>{ s.q = uq.value; s.page=1; clearTimeout(uq.t); uq.t=setTimeout(()=>{ render(); const n=$('#uq'); n.focus(); n.setSelectionRange(n.value.length,n.value.length); },250); };
+  document.querySelectorAll('[data-f]').forEach(el=>el.onchange=()=>{ s[el.dataset.f]=el.value; s.page=1; render(); });
+  document.querySelectorAll('[data-sel]').forEach(cb=>cb.onchange=()=>{ cb.checked?s.sel.add(cb.dataset.sel):s.sel.delete(cb.dataset.sel); render(); });
+  $('#selall').onchange = e=>{ const L=filteredUsers().slice((s.page-1)*20, s.page*20); L.forEach(p=> e.target.checked?s.sel.add(p.id):s.sel.delete(p.id)); render(); };
+  $('#pprev').onclick=()=>{ s.page--; render(); }; $('#pnext').onclick=()=>{ s.page++; render(); };
+  $('#adduser').onclick = addUserModal;
+  if($('#ureload')) $('#ureload').onclick = async ()=>{ try{ toast('Actualisation…'); DB = await SupabaseSource.load(); await loadReal(); render(); toast('Liste à jour.'); }catch(e){ toast(frErr(e)); } };
+  $('#csv').onclick = ()=>{
+    const L = filteredUsers();
+    const rows = [['id','prenom','nom','filiere','annee','programme','acces','fin_pass','inscrit_le','derniere_visite','quiz','statut']].concat(L.map(p=>{ const pa=activePass(p.id); return [p.id,p.prenom,p.nom,p.filiere,p.annee,p.programme,pa?'premium':'gratuit',pa?pa.end.slice(0,10):'',p.created_at.slice(0,10),p.last_seen.slice(0,10),p.quiz,p.statut]; }));
+    download('eleves-revision-infas.csv', '﻿'+rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(';')).join('\n'));
+    toast(`${L.length} élèves exportés.`);
+  };
+  if($('#bulkgift')) $('#bulkgift').onclick = ()=>giftModal([...s.sel]);
+  if($('#bulkclear')) $('#bulkclear').onclick = ()=>{ s.sel.clear(); render(); };
+  bindUserRows();
+};
+
+/* fiche élève */
+function openUser(id){
+  const p = api.get('profiles',id); if(!p) return;
+  const pass = activePass(id);
+  const hist = DB.entitlements.filter(e=>e.user_id===id).sort((a,b)=>new Date(b.start)-new Date(a.start));
+  const plan = pid => DB.plans.find(x=>x.id===pid)?.nom || pid;
+  const reps = DB.reports.filter(r=>r.user_id===id);
+  $('#drawer').innerHTML = `
+    <button class="iconbtn x" id="dclose" aria-label="Fermer">${ic('x')}</button>
+    <div class="row" style="gap:14px;margin-top:4px"><div class="av" style="width:52px;height:52px;font-size:17px;background:${avColor(id)}">${initials(p)}</div><div><h2 style="margin:0;font-family:var(--display);font-size:22px">${esc(fullName(p))}</h2><div class="muted" style="font-size:13.5px">${FIL_NOM[p.filiere]||'—'} · ${p.annee||'—'} · n° ${esc(p.id.slice(0,8))}</div></div></div>
+    <div style="margin-top:12px">${accessPill(p)}</div>
+    <div class="kv">
+      <span>Compte</span><b>${p.auth_id?'✅ '+esc(p.email||'connecté'):'Élève de test (sans compte)'}</b>
+      <span>Téléphone</span><b>${esc(p.telephone)}</b>
+      <span>Programme</span><b>${esc(p.programme)}</b>
+      <span>Inscrit le</span><b>${dfr(p.created_at)}</b>
+      <span>Dernière visite</span><b>${relTime(p.last_seen)} (${dfr(p.last_seen)})</b>
+      <span>Quiz terminés</span><b>${fmt(p.quiz)}</b>
+      ${pass?`<span>Pass en cours</span><b>${plan(pass.plan)} jusqu’au ${dfr(pass.end)}</b>`:''}
+    </div>
+    <div class="row wrap">
+      <button class="btn pri" id="dgift">${ic('gift')}${pass?'Prolonger le pass':'Offrir un pass'}</button>
+      ${pass?`<button class="btn" id="drevoke">Retirer le Premium</button>`:''}
+      <button class="btn ${p.statut==='bloque'?'':'danger'}" id="dblock">${p.statut==='bloque'?'Débloquer le compte':'Bloquer le compte'}</button>
+    </div>
+    <div class="sect">Appareils connectés · ${p.appareils.length} sur 2</div>
+    ${p.appareils.map((a,i)=>`<div class="row" style="padding:8px 0;border-top:1px solid var(--line)"><span class="ic" style="width:30px;height:30px;border-radius:9px;background:var(--soft);display:grid;place-items:center">${ic('phone')}</span><span style="flex:1">${esc(String(a).split(' · dev-')[0])}</span><button class="btn sm" data-rmdev="${i}">Retirer</button></div>`).join('') || '<div class="muted">Aucun appareil.</div>'}
+    <div class="sect">Historique des accès</div>
+    ${hist.length? `<table class="t"><thead><tr><th>Pass</th><th>Du</th><th>Au</th><th>Origine</th></tr></thead><tbody>${hist.map(e=>`<tr><td>${plan(e.plan)}</td><td>${dfr(e.start,{day:'numeric',month:'short'})}</td><td>${dfr(e.end,{day:'numeric',month:'short',year:'2-digit'})}</td><td>${{cadeau:'Offert',manuel:'Manuel',promo:'Code promo'}[e.source]||e.source}</td></tr>`).join('')}</tbody></table>` : '<div class="muted">Jamais Premium.</div>'}
+    ${reps.length?`<div class="sect">Signalements envoyés · ${reps.length}</div>${reps.map(r=>`<div style="padding:6px 0;font-size:14px">${esc(matName(r.mat))} — <span class="muted">${esc(r.message)}</span></div>`).join('')}`:''}
+    <div style="margin-top:26px;border-top:1px solid var(--line);padding-top:14px"><button class="btn sm danger" id="ddel">Supprimer le compte</button></div>`;
+  $('#drawer').classList.add('on'); $('#scrim').classList.add('on');
+  $('#dclose').onclick = closeDrawer;
+  $('#dgift').onclick = ()=>giftModal([id]);
+  if($('#drevoke')) $('#drevoke').onclick = ()=>{ const now=new Date().toISOString(); DB.entitlements.filter(e=>e.user_id===id && new Date(e.end)>new Date()).forEach(e=>e.end=now); persist(); audit('Premium retiré', fullName(p)); toast('Premium retiré.'); openUser(id); render(); };
+  $('#dblock').onclick = ()=>{ const b = p.statut!=='bloque'; api.update('profiles',id,{statut:b?'bloque':'actif'}); audit(b?'Compte bloqué':'Compte débloqué', fullName(p)); toast(b?'Compte bloqué.':'Compte débloqué.'); openUser(id); render(); };
+  document.querySelectorAll('[data-rmdev]').forEach(b=>b.onclick=()=>{ const a=p.appareils.splice(+b.dataset.rmdev,1)[0]; persist(); audit('Appareil retiré ('+a+')', fullName(p)); toast('Appareil retiré.'); openUser(id); render(); });
+  $('#ddel').onclick = ()=>confirmModal('Supprimer ce compte ?', `Le compte de ${esc(fullName(p))} et ses accès seront supprimés de ces données locales.`, 'Supprimer le compte', ()=>{ api.remove('profiles',id); DB.entitlements=DB.entitlements.filter(e=>e.user_id!==id); persist(); audit('Compte supprimé', fullName(p)); closeDrawer(); toast('Compte supprimé.'); render(); });
+}
+function closeDrawer(){ $('#drawer').classList.remove('on'); if(!$('#modal').classList.contains('on') && !$('#side').classList.contains('on')) $('#scrim').classList.remove('on'); }
+
+/* modales */
+function openModal(html){ $('#modal').innerHTML = html; $('#modal').classList.add('on'); $('#scrim').classList.add('on'); const f=$('#modal').querySelector('input,select,textarea,button.pri'); if(f) f.focus(); }
+function closeModal(){ $('#modal').classList.remove('on'); if(!$('#drawer').classList.contains('on') && !$('#side').classList.contains('on')) $('#scrim').classList.remove('on'); }
+function confirmModal(title, text, okLabel, ok){
+  openModal(`<h2 style="margin:0 0 6px;font-family:var(--display)">${title}</h2><p class="muted">${text}</p><div class="row" style="justify-content:flex-end;margin-top:16px"><button class="btn" id="mno">Annuler</button><button class="btn pri" id="mok">${okLabel}</button></div>`);
+  $('#mno').onclick = closeModal; $('#mok').onclick = ()=>{ closeModal(); ok(); };
+}
+function giftModal(ids){
+  const names = ids.map(i=>api.get('profiles',i)).filter(Boolean);
+  openModal(`<button class="iconbtn x" id="mx" aria-label="Fermer">${ic('x')}</button><h2 style="margin:0 0 4px;font-family:var(--display)">Offrir un pass Premium</h2>
+    <p class="muted" style="margin:0">${names.length===1?esc(fullName(names[0])):names.length+' élèves'}. Si un pass est en cours, la durée s’ajoute à sa date de fin.</p>
+    <label class="lbl" for="gplan">Pass</label><select class="field" id="gplan">${DB.plans.filter(p=>p.actif).map(p=>`<option value="${p.id}">${esc(p.nom)} · ${p.jours} jours</option>`).join('')}<option value="custom">Durée libre</option></select>
+    <div id="gcustom" style="display:none"><label class="lbl" for="gdays">Nombre de jours</label><input class="field" id="gdays" type="number" min="1" value="14"></div>
+    <label class="lbl" for="gsrc">Origine</label><select class="field" id="gsrc"><option value="cadeau">Offert</option><option value="manuel">Paiement reçu hors appli</option><option value="promo">Code promo</option></select>
+    <label class="lbl" for="gnote">Note (facultatif)</label><input class="field" id="gnote" placeholder="Ex. major de promotion">
+    <div class="row" style="justify-content:flex-end;margin-top:18px"><button class="btn" id="mno">Annuler</button><button class="btn pri" id="mok">${ic('gift')}Offrir le pass</button></div>`);
+  $('#mx').onclick = $('#mno').onclick = closeModal;
+  $('#gplan').onchange = e=> $('#gcustom').style.display = e.target.value==='custom'?'block':'none';
+  $('#mok').onclick = ()=>{
+    const pid = $('#gplan').value, plan = DB.plans.find(p=>p.id===pid);
+    const jours = pid==='custom' ? Math.max(1, +$('#gdays').value||1) : plan.jours;
+    names.forEach(p=>{
+      const cur = activePass(p.id); const start = cur ? new Date(cur.end).getTime() : Date.now();
+      DB.entitlements.push({id:uid(), user_id:p.id, plan: pid==='custom'?'libre':pid, start:new Date(cur?start:Date.now()).toISOString(), end:new Date(start + jours*DAY).toISOString(), source:$('#gsrc').value, note:$('#gnote').value});
+      audit(`Pass offert (${pid==='custom'?jours+' jours':plan.nom})`, fullName(p));
+    });
+    persist(); closeModal(); UI.eleves.sel.clear(); toast(names.length===1?'Pass offert.':`Pass offert à ${names.length} élèves.`);
+    render(); if($('#drawer').classList.contains('on') && names.length===1) openUser(names[0].id);
+  };
+}
+function addUserModal(){
+  openModal(`<button class="iconbtn x" id="mx" aria-label="Fermer">${ic('x')}</button><h2 style="margin:0 0 4px;font-family:var(--display)">Ajouter un élève</h2><p class="muted" style="margin:0">Compte de test, enregistré dans ce navigateur.</p>
+    <div class="row"><div style="flex:1"><label class="lbl" for="np">Prénom</label><input class="field" id="np"></div><div style="flex:1"><label class="lbl" for="nn">Nom</label><input class="field" id="nn"></div></div>
+    <div class="row"><div style="flex:1"><label class="lbl" for="nf">Filière</label><select class="field" id="nf"><option value="SF">Sage-femme</option><option value="IDE">Infirmier</option></select></div><div style="flex:1"><label class="lbl" for="na">Année</label><select class="field" id="na"><option>L1</option><option>L2</option><option>L3</option></select></div></div>
+    <label class="lbl" for="nt">Téléphone</label><input class="field" id="nt" placeholder="07 00 00 00 00">
+    <div class="row" style="justify-content:flex-end;margin-top:18px"><button class="btn" id="mno">Annuler</button><button class="btn pri" id="mok">Ajouter l’élève</button></div>`);
+  $('#mx').onclick = $('#mno').onclick = closeModal;
+  $('#mok').onclick = ()=>{
+    const pr=$('#np').value.trim(), no=$('#nn').value.trim();
+    if(!pr || !no){ toast('Saisissez le prénom et le nom.'); return; }
+    const now = new Date().toISOString();
+    const p = api.insert('profiles',{id:uid(), prenom:pr, nom:no, filiere:$('#nf').value, annee:$('#na').value, programme:'6 mois', telephone:$('#nt').value||'—', role:'eleve', statut:'actif', created_at:now, last_seen:now, quiz:0, appareils:[]});
+    audit('Élève ajouté', fullName(p)); closeModal(); toast('Élève ajouté.'); render();
+  };
+}
+
+/* =========================================================
+   9 bis. PAIEMENTS (Mobile Money, validation manuelle)
+   ========================================================= */
+const fcfa = n => fmt(n||0)+' FCFA';
+const opPill = k => `<span class="pill" style="background:color-mix(in srgb,${(OPS[k]||['',''])[1]} 16%,transparent);color:${(OPS[k]||['','var(--muted)'])[1]}">${esc((OPS[k]||[k])[0])}</span>`;
+const planNom = id => (DB.plans.find(p=>p.id===id)||{}).nom || id;
+VIEWS.paiements = ()=>{
+  const L = DB.payments||[], st = UI.pay||'a_verifier';
+  const mois = new Date(); mois.setDate(1); mois.setHours(0,0,0,0);
+  const val = L.filter(x=>x.statut==='valide'), att = L.filter(x=>x.statut==='a_verifier');
+  const sum = a=>a.reduce((t,x)=>t+(x.montant_xof||0),0);
+  const moisVal = val.filter(x=>new Date(x.traite_at||x.created_at)>=mois);
+  const cfg = DB.paiementCfg||PAY_DEFAUT();
+  const rows = L.filter(x=>st==='tous'||x.statut===st).sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
+  const tabs = [['a_verifier','À vérifier'],['valide','Validés'],['refuse','Refusés'],['tous','Tous']];
+  const ops = Object.keys(OPS).map(k=>{ const v=val.filter(x=>x.operateur===k); return `<div class="lvl"><div class="t"><span class="dot" style="background:${OPS[k][1]}"></span>${OPS[k][0]}</div><div class="n num">${fcfa(sum(v))}</div><div class="s">${v.length} paiement${v.length>1?'s':''} validé${v.length>1?'s':''} · ${cfg.numeros&&cfg.numeros[k]?'numéro '+esc(cfg.numeros[k]):'non proposé'}</div></div>`; }).join('');
+  return headHTML('Paiements', 'Paiements Mobile Money déclarés par les élèves. Vérifie la réception sur ton téléphone avant de valider.',
+    `${MODE==='supabase'?'<button class="btn" id="payreload">Actualiser</button>':'<span class="demo">Paiements fictifs de test</span>'}<button class="btn" id="paycsv">${ic('dl')}Exporter en CSV</button>`) +
+  (cfg.actif ? '' : `<div class="card" style="margin-bottom:18px;border:2px solid var(--amber)"><b>Le paiement est fermé dans l’appli.</b> <span class="muted">Les élèves ne voient pas encore le bouton « Payer ». Renseigne tes numéros et ouvre le paiement dans Réglages.</span> <button class="btn sm" data-page="reglages" style="margin-left:6px">Ouvrir les réglages</button></div>`) +
+  (DB.paymentsErreur ? `<div class="card" style="margin-bottom:18px;border:2px solid var(--red)"><b>Paiements illisibles :</b> ${esc(DB.paymentsErreur)} <span class="muted">Lance d’abord supabase-paiements.sql dans Supabase.</span></div>` : '') + `
+  <div class="grid kpis">
+    <div class="hero"><div class="lab">Encaissé ce mois</div><div class="big">${fmt(sum(moisVal))}</div><span class="delta">FCFA · ${moisVal.length} paiement${moisVal.length>1?'s':''} validé${moisVal.length>1?'s':''}</span></div>
+    <div class="card kpi"><div class="lab"><span class="ic">${ic('card')}</span>À vérifier</div><div class="big">${att.length}</div><div class="foot">${fcfa(sum(att))} en attente</div></div>
+    <div class="card kpi"><div class="lab"><span class="ic">${ic('star')}</span>Encaissé au total</div><div class="big">${fmt(sum(val))}</div><div class="foot">FCFA · ${val.length} paiement${val.length>1?'s':''}</div></div>
+    <div class="card kpi"><div class="lab"><span class="ic">${ic('flag')}</span>Refusés</div><div class="big">${L.filter(x=>x.statut==='refuse').length}</div><div class="foot">argent non reçu ou incorrect</div></div>
+  </div>
+  <div class="card" style="margin-top:18px"><div class="cardhead"><div class="grow"><h3>Par moyen de paiement</h3><p class="sub">Montants validés</p></div></div><div class="levels" style="grid-template-columns:repeat(auto-fit,minmax(170px,1fr))">${ops}</div></div>
+  <div class="card" style="margin-top:18px">
+    <div class="chips" style="margin-bottom:12px">${tabs.map(([v,l])=>`<button class="chip ${st===v?'on':''}" data-pay="${v}">${l}${v==='a_verifier'?' · '+att.length:''}</button>`).join('')}</div>
+    <div class="tablewrap"><table class="t paycards"><thead><tr><th>Date</th><th>Élève</th><th>Pass</th><th>Montant</th><th>Moyen</th><th>Numéro payeur</th><th>Référence</th><th>Statut</th></tr></thead><tbody>
+    ${rows.map(x=>{ const p=api.get('profiles',x.user_id); return `<tr>
+      <td data-l="Date" style="white-space:nowrap">${dfr(x.created_at,{day:'numeric',month:'short'})} · ${hfr(x.created_at)}</td>
+      <td class="pc-who">${p?`<div class="who" style="min-width:150px"><div class="av" style="background:${avColor(p.id)}">${initials(p)}</div><div><b>${esc(fullName(p))}</b><small>${esc(p.email||p.filiere+' · '+p.annee)}</small></div></div>`:'<span class="muted">Élève supprimé</span>'}</td>
+      <td data-l="Pass">${esc(planNom(x.plan))}</td><td data-l="Montant" class="num" style="white-space:nowrap"><b>${fcfa(x.montant_xof)}</b></td><td data-l="Moyen">${opPill(x.operateur)}</td>
+      <td data-l="Numéro payeur" style="white-space:nowrap"><b>${esc(x.telephone)}</b></td><td data-l="Référence">${x.reference?`<b style="letter-spacing:.3px">${esc(x.reference)}</b>`:'<span class="muted">—</span>'}</td>
+      <td class="pc-act">${x.statut==='a_verifier'?`<div class="row" style="flex-wrap:nowrap"><button class="btn sm pri" data-ok="${x.id}">Valider</button><button class="btn sm" data-ko="${x.id}">Refuser</button></div>`:x.statut==='valide'?`<span class="pill ok">Validé</span>`:`<span class="pill bad" title="${esc(x.motif||'')}">Refusé</span>${x.motif?`<div class="muted" style="font-size:12px">${esc(x.motif)}</div>`:''}`}</td></tr>`; }).join('') || `<tr><td colspan="8"><div class="empty">${st==='a_verifier'?'Aucun paiement à vérifier. Les nouveaux paiements déclarés par les élèves apparaîtront ici.':'Aucun paiement dans cette liste.'}</div></td></tr>`}
+    </tbody></table></div>
+  </div>`;
+};
+AFTER.paiements = ()=>{
+  document.querySelectorAll('[data-pay]').forEach(b=>b.onclick=()=>{ UI.pay=b.dataset.pay; render(); });
+  if($('#payreload')) $('#payreload').onclick = async ()=>{ try{ toast('Actualisation…'); await refreshTables(); render(); toast('Paiements à jour.'); }catch(e){ toast(frErr(e)); } };
+  $('#paycsv').onclick = ()=>{ const L=DB.payments||[]; const rows=[['date','eleve','email','pass','montant_fcfa','moyen','numero_payeur','reference','statut','motif']].concat(L.map(x=>{const p=api.get('profiles',x.user_id);return [x.created_at.slice(0,16).replace('T',' '),p?fullName(p):'',p&&p.email||'',planNom(x.plan),x.montant_xof,(OPS[x.operateur]||[x.operateur])[0],x.telephone,x.reference,x.statut,x.motif||'']}));
+    download('paiements-revision-infas.csv','﻿'+rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(';')).join('\n')); toast(`${L.length} paiements exportés.`); };
+  document.querySelectorAll('[data-ok]').forEach(b=>b.onclick=()=>{
+    const x=(DB.payments||[]).find(y=>y.id===b.dataset.ok), p=api.get('profiles',x.user_id);
+    openModal(`<h2 style="margin:0 0 6px;font-family:var(--display)">Valider ce paiement ?</h2>
+      <p>As-tu bien reçu <b>${fcfa(x.montant_xof)}</b> par <b>${esc(OPS[x.operateur][0])}</b> depuis le <b>${esc(x.telephone)}</b>${x.reference?`, avec la référence <b>${esc(x.reference)}</b>`:''} ?</p>${(()=>{const d=(DB.payments||[]).filter(y=>y.id!==x.id&&y.statut==='valide'&&y.telephone===x.telephone&&y.montant_xof===x.montant_xof&&Math.abs(new Date(y.created_at)-new Date(x.created_at))<7*DAY);return d.length?`<p style="color:var(--bad,#c0392b)"><b>Attention :</b> un paiement de ${fcfa(x.montant_xof)} depuis ce numéro a déjà été validé le ${esc(new Date(d[0].created_at).toLocaleDateString('fr-FR'))}. Vérifie que tu as bien reçu deux envois différents.</p>`:''})()}
+      <p class="muted">Vérifie dans tes SMS ou ton application ${esc(OPS[x.operateur][0])} avant de valider. ${p?esc(fullName(p))+' recevra':'L’élève recevra'} aussitôt son ${esc(planNom(x.plan))}, à la suite de son pass en cours s’il en a un.</p>
+      <div class="row" style="justify-content:flex-end;margin-top:16px"><button class="btn" id="mno">Annuler</button><button class="btn pri" id="mok">Oui, j’ai reçu l’argent</button></div>`);
+    $('#mno').onclick=closeModal;
+    $('#mok').onclick=async()=>{ $('#mok').disabled=true;
+      try{
+        if(MODE==='supabase'){ const {data,error}=await SB.rpc('valider_paiement',{p_id:x.id}); if(error) throw error; if(!data||!data.ok) throw new Error(data&&data.raison==='deja_traite'?'Ce paiement a déjà été traité.':'Validation impossible.'); await refreshTables(); }
+        else { const cur=activePass(x.user_id), deb=cur?new Date(cur.end).getTime():Date.now(), pl=DB.plans.find(q=>q.id===x.plan); const e={id:uid(), user_id:x.user_id, plan:x.plan, start:new Date(deb).toISOString(), end:new Date(deb+(pl?pl.jours:30)*DAY).toISOString(), source:'paiement', note:x.operateur+' '+x.reference}; DB.entitlements.push(e); Object.assign(x,{statut:'valide', traite_at:new Date().toISOString(), entitlement_id:e.id}); persist(); }
+        audit('Paiement validé ('+fcfa(x.montant_xof)+', '+OPS[x.operateur][0]+')', p?fullName(p):'—'); closeModal(); toast('Paiement validé : Premium activé.'); render();
+      }catch(e){ closeModal(); toast(frErr(e)); } };
+  });
+  document.querySelectorAll('[data-ko]').forEach(b=>b.onclick=()=>{
+    const x=(DB.payments||[]).find(y=>y.id===b.dataset.ko), p=api.get('profiles',x.user_id);
+    const motifs=['Paiement non reçu','Montant incorrect','Référence introuvable','Paiement déjà utilisé'];
+    openModal(`<h2 style="margin:0 0 6px;font-family:var(--display)">Refuser ce paiement ?</h2><p class="muted">${fcfa(x.montant_xof)} · ${esc(OPS[x.operateur][0])} · réf. ${esc(x.reference)}${p?' · '+esc(fullName(p)):''}</p>
+      <label class="lbl" for="kom">Motif affiché à l’élève</label><select class="field" id="kom">${motifs.map(m=>`<option>${m}</option>`).join('')}<option value="autre">Autre…</option></select>
+      <input class="field" id="kot" placeholder="Précise le motif" style="margin-top:8px;display:none" maxlength="200">
+      <div class="row" style="justify-content:flex-end;margin-top:16px"><button class="btn" id="mno">Annuler</button><button class="btn danger" id="mok">Refuser le paiement</button></div>`);
+    $('#kom').onchange=e=>$('#kot').style.display=e.target.value==='autre'?'block':'none';
+    $('#mno').onclick=closeModal;
+    $('#mok').onclick=async()=>{ const motif=$('#kom').value==='autre'?($('#kot').value.trim()||'Paiement refusé'):$('#kom').value; $('#mok').disabled=true;
+      try{
+        if(MODE==='supabase'){ const {data,error}=await SB.rpc('refuser_paiement',{p_id:x.id,p_motif:motif}); if(error) throw error; if(!data||!data.ok) throw new Error('Ce paiement a déjà été traité.'); await refreshTables(); }
+        else { Object.assign(x,{statut:'refuse', motif, traite_at:new Date().toISOString()}); persist(); }
+        audit('Paiement refusé ('+motif+')', p?fullName(p):'—'); closeModal(); toast('Paiement refusé.'); render();
+      }catch(e){ closeModal(); toast(frErr(e)); } };
+  });
+};
+
+/* =========================================================
+   10. CONTENU ET ACCÈS
+   ========================================================= */
+const ACC_LABEL = {gratuit:'Gratuit', premium:'Premium', masque:'Masqué'};
+function seg(key, withInherit=true){
+  const r = DB.access.regles[key]?.acces || (withInherit?'inh':DB.access.defaut);
+  const opts = (withInherit?[['inh','Hériter']]:[]).concat([['gratuit','Gratuit'],['premium','Premium'],['masque','Masqué']]);
+  return `<div class="seg" role="radiogroup" aria-label="Accès : ${esc(labelOf(key))}">${opts.map(([v,l])=>`<button role="radio" aria-checked="${r===v}" class="${v} ${r===v?'on':''}" data-rule="${key}" data-v="${v}">${l}</button>`).join('')}</div>`;
+}
+function effText(key){
+  const e = effective(key);
+  const src = {explicite:'', quota:' · offert (quota)', herite:' · hérité', defaut:' · par défaut'}[e.source];
+  return `<span class="pill ${e.acces==='gratuit'?'free':e.acces==='premium'?'prem':'hid'}">${ACC_LABEL[e.acces]}</span><span class="muted">${src}</span>`;
+}
+function accessSummary(){
+  const c={gratuit:0,premium:0,masque:0};
+  for(const k in NODES){ const t=NODES[k].type; if(t==='sujet'||t==='resumes'||t==='appli') c[effective(k).acces]++; }
+  return c;
+}
+VIEWS.acces = ()=>{
+  const S = accessSummary(), A = UI.acces;
+  const visibleMat = m => A.fil==='tous' || m.niv.includes(A.fil);
+  return headHTML('Contenu et accès', 'Choisissez ce qui est gratuit, Premium ou masqué. La règle la plus précise l’emporte.',
+    `${orphans().length?`<button class="btn danger" id="orph">Nettoyer ${orphans().length} règle${orphans().length>1?'s':''} sans cours</button>`:''}<button class="btn" id="preview">${ic('eye')}Voir comme élève gratuit</button><button class="btn" id="impcfg">${ic('ul')}Importer</button><button class="btn pri" id="expcfg">${ic('dl')}Exporter access-config.json</button>`) + `
+  <div class="summary">
+    <div class="s"><b style="color:var(--free)">${S.gratuit}</b><span>éléments gratuits</span></div>
+    <div class="s"><b style="color:var(--prem)">${S.premium}</b><span>éléments Premium</span></div>
+    <div class="s"><b style="color:var(--hidden)">${S.masque}</b><span>éléments masqués</span></div>
+    <div class="s"><b>v${DB.access.version}</b><span>version des règles · ${relTime(DB.access.misAJour)}</span></div>
+  </div>
+
+  <div class="grid accgrid" style="margin-top:18px">
+    <div class="card">
+      <div class="cardhead"><div class="grow"><h3>Règle par défaut et niveaux</h3><p class="sub">S’applique à tout ce qui n’a pas de règle propre</p></div></div>
+      <div class="row wrap" style="margin-bottom:16px"><span style="flex:1;font-weight:600">Par défaut</span>${segDefault()}</div>
+      ${FILIERES.flatMap(f=>ANNEES.map(a=>{ const n=DB.profiles.filter(p=>p.filiere===f&&p.annee===a).length; return `<div class="feat"><div class="ft"><b>${FIL_NOM[f]} · ${a}</b><span>${n} élève${n>1?'s':''}</span></div>${seg3(`niveau:${f}-${a}`)}</div>`; })).join('')}
+      <p class="sub" style="margin-top:12px">Un niveau Premium rend tout le contenu Premium pour les élèves de ce niveau ; Masqué le retire de leur accueil.</p>
+    </div>
+    <div class="card">
+      <div class="cardhead"><div class="grow"><h3>Fonctions de l’appli</h3><p class="sub">Outils activés selon l’accès de l’élève</p></div></div>
+      ${FONCTIONS.map(f=>`<div class="feat"><div class="ft"><b>${esc(f.nom)}</b><span>${esc(f.d)}</span></div>${seg3('fonction:'+f.id)}</div>`).join('')}
+    </div>
+  </div>
+
+  <div class="row wrap" style="margin-top:24px"><h2 style="margin:0;font-family:var(--display);font-size:22px;flex:1">Matières</h2>
+    <div class="chips" role="group" aria-label="Filtrer par année">${[['tous','Toutes années'],['L1','L1'],['L2','L2'],['L3','L3']].map(([v,l])=>`<button class="chip ${A.fil===v?'on':''}" data-afil="${v}">${l}</button>`).join('')}</div>
+    <button class="btn sm" id="openall">Tout déplier</button><button class="btn sm" id="closeall">Tout replier</button></div>
+
+  ${CATALOGUE.map(r=>{ const ms=r.matieres.filter(visibleMat); if(!ms.length) return ''; return `
+    <div class="rub">
+      <div class="rubhead"><h3>${esc(r.nom)}</h3><span class="muted" style="font-size:13px;flex:1">${ms.length} matière${ms.length>1?'s':''}</span>${seg('rubrique:'+r.id)}</div>
+      ${ms.map(m=>{ const mk='matiere:'+m.id, e=effective(mk), open=A.open.has(mk), ns=sujetsOf(m), q=quotaOf(mk);
+        return `<div class="mat st-${e.acces} ${open?'open':''}">
+          <div class="mathead">
+            <button class="mt" data-toggle="${mk}" aria-expanded="${open}">${ic('chev','chev')}<span><b>${esc(m.nom)}</b><small>${m.niv.join(' · ')} · ${fmt(m.q)} questions · ${ns} sujet${ns>1?'s':''}</small></span></button>
+            ${e.acces==='premium'?`<label class="quota">Sujets offerts<input type="number" min="0" max="${ns}" value="${q}" data-quota="${mk}" aria-label="Sujets offerts pour ${esc(m.nom)}"></label>`:''}
+            ${seg(mk)}
+          </div>
+          <div class="matbody">${open? matBody(m):''}</div>
+        </div>`; }).join('')}
+    </div>`; }).join('')}`;
+};
+function segDefault(){ const v=DB.access.defaut; return `<div class="seg" role="radiogroup" aria-label="Règle par défaut">${[['gratuit','Gratuit'],['premium','Premium']].map(([k,l])=>`<button role="radio" aria-checked="${v===k}" class="${k} ${v===k?'on':''}" data-def="${k}">${l}</button>`).join('')}</div>`; }
+function seg3(key){ // pour niveaux et fonctions : pas d'héritage visible, valeur = règle ou défaut
+  const r = DB.access.regles[key]?.acces || DB.access.defaut;
+  return `<div class="seg" role="radiogroup" aria-label="Accès : ${esc(labelOf(key))}">${[['gratuit','Gratuit'],['premium','Premium'],['masque','Masqué']].map(([v,l])=>`<button role="radio" aria-checked="${r===v}" class="${v} ${r===v?'on':''}" data-rule="${key}" data-v="${v}">${l}</button>`).join('')}</div>`;
+}
+function matBody(m){
+  const mk='matiere:'+m.id; let h='';
+  h += `<div class="item"><span class="it">Résumés de cours</span><span class="eff">${effText(mk+'/resumes')}</span>${seg(mk+'/resumes')}</div>`;
+  h += `<div class="item"><span class="it">Application complète</span><span class="eff">${effText(mk+'/appli')}</span>${seg(mk+'/appli')}</div>`;
+  for(let i=1;i<=sujetsOf(m);i++){ const k=`${mk}/sujet:${i}`; h+=`<div class="item"><span class="it">Sujet ${i} <span class="muted">· questions ${(i-1)*50+1} à ${Math.min(i*50,m.q)}</span></span><span class="eff">${effText(k)}</span>${seg(k)}</div>`; }
+  return h;
+}
+AFTER.acces = ()=>{
+  document.querySelectorAll('[data-rule]').forEach(b=>b.onclick=()=>{ setRule(b.dataset.rule, b.dataset.v); render(); });
+  document.querySelectorAll('[data-def]').forEach(b=>b.onclick=()=>{ DB.access.defaut=b.dataset.def; DB.access.version++; DB.access.misAJour=new Date().toISOString(); audit('Règle par défaut : '+ACC_LABEL[b.dataset.def],'Tout le contenu'); render(); });
+  document.querySelectorAll('[data-toggle]').forEach(b=>b.onclick=()=>{ const k=b.dataset.toggle; UI.acces.open.has(k)?UI.acces.open.delete(k):UI.acces.open.add(k); render(); });
+  document.querySelectorAll('[data-quota]').forEach(inp=>inp.onchange=()=>{ const k=inp.dataset.quota; const v=Math.max(0,Math.min(+inp.max, Math.round(+inp.value||0))); const r=DB.access.regles[k]; if(r) r.quotaGratuit=v; else DB.access.regles[k]={acces:effective(k).acces, quotaGratuit:v}; DB.access.version++; DB.access.misAJour=new Date().toISOString(); audit(`Sujets offerts : ${v}`, labelOf(k)); render(); });
+  document.querySelectorAll('[data-afil]').forEach(b=>b.onclick=()=>{ UI.acces.fil=b.dataset.afil; render(); });
+  $('#openall').onclick=()=>{ CATALOGUE.forEach(r=>r.matieres.forEach(m=>UI.acces.open.add('matiere:'+m.id))); render(); };
+  $('#closeall').onclick=()=>{ UI.acces.open.clear(); render(); };
+  $('#expcfg').onclick=()=>{ download('access-config.json', exportConfig()); toast('access-config.json téléchargé.'); };
+  $('#impcfg').onclick=()=>pickFile(obj=>{ if(!obj || typeof obj.regles!=='object'){ toast('Ce fichier ne contient pas de règles d’accès.'); return; } DB.access.regles=obj.regles; DB.access.defaut=obj.defaut==='premium'?'premium':'gratuit'; DB.access.version=(obj.version||DB.access.version)+1; DB.access.misAJour=new Date().toISOString(); audit('Règles importées','access-config.json'); toast('Règles importées.'); render(); });
+  $('#preview').onclick = previewModal;
+  if($('#orph')) $('#orph').onclick = ()=>{ const L=orphans(); confirmModal('Nettoyer les règles sans cours ?', `${L.length} règle(s) visent des cours qui n’existent plus dans le portail (anciens identifiants de test). Elles seront supprimées.`, 'Supprimer ces règles', ()=>{ L.forEach(k=>delete DB.access.regles[k]); DB.access.version++; DB.access.misAJour=new Date().toISOString(); audit('Règles sans cours supprimées', L.length+' règles'); render(); }); };
+};
+function orphans(){ return Object.keys(DB.access.regles).filter(k=>!NODES[k]); }
+function previewModal(){
+  const html = CATALOGUE.map(r=>{
+    const items = r.matieres.map(m=>{
+      const mk='matiere:'+m.id, e=effective(mk);
+      if(e.acces==='masque') return '';
+      const ns=sujetsOf(m); let ok=0; for(let i=1;i<=ns;i++) if(effective(`${mk}/sujet:${i}`).acces==='gratuit') ok++;
+      const lock = ok===0 && effective(mk+'/resumes').acces!=='gratuit';
+      return `<div style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:12px;background:var(--soft);margin:6px 0"><span style="font-size:18px" aria-hidden="true">${lock?'🔒':ok===ns?'📗':'📘'}</span><span style="flex:1"><b style="font-size:14px">${esc(m.nom)}</b><small class="muted" style="display:block">${ok}/${ns} sujets ouverts · résumés ${effective(mk+'/resumes').acces==='gratuit'?'ouverts':'verrouillés'}</small></span>${ok<ns?'<span class="pill prem">Premium</span>':''}</div>`;
+    }).join('');
+    return items? `<div class="sect" style="margin-top:12px">${esc(r.nom)}</div>${items}`:'';
+  }).join('');
+  openModal(`<button class="iconbtn x" id="mx" aria-label="Fermer">${ic('x')}</button><h2 style="margin:0 0 4px;font-family:var(--display)">Accueil d’un élève gratuit</h2><p class="muted" style="margin:0 0 6px">Ce que verrait un élève sans pass, avec les règles actuelles. Les matières masquées n’apparaissent pas.</p>${html}`);
+  $('#mx').onclick = closeModal;
+}
+
+/* =========================================================
+   11. ENGAGEMENT
+   ========================================================= */
+VIEWS.engagement = ()=>{
+  if(REAL) return engagementReal();
+  const P=DB.profiles, days=DB.stats.daily.slice(-30);
+  const inscrits=P.length, quiz1=P.filter(p=>p.quiz>0).length, offre=Math.round(quiz1*0.46), prem=DB.profiles.filter(p=>DB.entitlements.some(e=>e.user_id===p.id)).length;
+  const funnel=[['Inscrits',inscrits],['Ont fait un 1er quiz',quiz1],['Ont vu l’offre Premium',offre],['Sont passés Premium',prem]];
+  const um = Object.entries(DB.stats.usageMatieres).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  const umMax = um.length ? Math.max(um[0][1],1) : 1;
+  const actifs = P.filter(p=>Date.now()-new Date(p.last_seen).getTime()<7*DAY);
+  const qpa = actifs.length ? Math.round(actifs.reduce((a,p)=>a+p.quiz,0)/actifs.length) : 0;
+  // cohortes : semaines d'inscription (6 dernières)
+  const R = rng(77); const cohorts=[];
+  for(let w=6; w>=1; w--){ const n = P.filter(p=>{const d=(today0-new Date(p.created_at).getTime())/DAY; return d>=w*7-7 && d<w*7+0;}).length; const row=[]; for(let k=1;k<=4;k++){ row.push(k<w? Math.round((0.62 - k*0.09 + R()*0.08)*100) : null); } cohorts.push({lab:`Sem. −${w}`, n, row}); }
+  const heat = v => v==null ? '' : `background:color-mix(in srgb,var(--violet) ${Math.round(v*0.9)}%,var(--soft));color:${v>45?'#fff':'var(--ink)'}`;
+  return headHTML('Engagement', 'Où les élèves travaillent, et où ils décrochent.', demoTag()) + `
+  <div class="grid kpis">
+    <div class="card kpi"><div class="lab"><span class="ic">${ic('quiz')}</span>Quiz par élève actif</div><div class="big">${qpa}</div><div class="foot">Moyenne cumulée, actifs sur 7 jours</div></div>
+    <div class="card kpi"><div class="lab"><span class="ic">${ic('pulse')}</span>Ont fait un 1er quiz</div><div class="big">${pct(quiz1,inscrits)} %</div><div class="foot">${fmt(quiz1)} élèves sur ${fmt(inscrits)}</div></div>
+    <div class="card kpi"><div class="lab"><span class="ic">${ic('users')}</span>Retour après 1 semaine</div><div class="big">${cohorts.filter(c=>c.row[0]!=null).length? Math.round(cohorts.filter(c=>c.row[0]!=null).reduce((a,c)=>a+c.row[0],0)/cohorts.filter(c=>c.row[0]!=null).length):0} %</div><div class="foot">Moyenne des 5 dernières semaines</div></div>
+    <div class="card kpi"><div class="lab"><span class="ic">${ic('flag')}</span>Signalements ouverts</div><div class="big">${DB.reports.filter(r=>r.statut!=='corrige').length}</div><div class="foot"><button class="btn sm" data-page="signalements">Traiter</button></div></div>
+  </div>
+  <div class="grid row2">
+    <div class="card"><div class="cardhead"><div class="grow"><h3>Quiz terminés par jour</h3><p class="sub">30 derniers jours</p></div></div>
+      ${barChart(days.map(d=>d.quiz), days.map(d=>dfr(d.date,{day:'numeric',month:'short'})), 'var(--violet)', {unit:'quiz', full:days.map(d=>dfr(d.date,{weekday:'long',day:'numeric',month:'long'})), label:'Quiz par jour'})}</div>
+    <div class="card"><div class="cardhead"><div class="grow"><h3>Parcours vers Premium</h3><p class="sub">Combien passent chaque étape</p></div></div>
+      ${funnel.map(([l,v],i)=>`<div style="margin:10px 0"><div class="row" style="font-size:14px"><span style="flex:1">${l}</span><b class="num">${fmt(v)}</b>${i?`<span class="muted" style="width:52px;text-align:right">${pct(v,funnel[i-1][1])} %</span>`:'<span style="width:52px"></span>'}</div><div class="bar" style="height:12px"><span style="width:${inscrits?v/inscrits*100:0}%;background:${['var(--teal)','var(--violet)','var(--rose)','var(--violet-ink)'][i]}"></span></div></div>`).join('')}
+      <p class="sub" style="margin-top:12px">L’étape « offre vue » sera mesurée par l’appli élève dès qu’elle enverra ses événements.</p></div>
+  </div>
+  <div class="grid row3">
+    <div class="card"><div class="cardhead"><div class="grow"><h3>Matières les plus travaillées</h3><p class="sub">Questions répondues, toutes périodes</p></div></div>
+      ${um.map(([id,v])=>`<div style="margin:9px 0"><div class="row" style="font-size:14px"><span style="flex:1">${esc(matName(id))}</span><b class="num">${fmt(v)}</b></div><div class="bar" style="height:9px"><span style="width:${v/umMax*100}%"></span></div></div>`).join('')}</div>
+    <div class="card"><div class="cardhead"><div class="grow"><h3>Retour des élèves par semaine d’inscription</h3><p class="sub">Part encore active 1 à 4 semaines plus tard</p></div></div>
+      <table class="hm"><thead><tr><th></th><th>Inscrits</th><th>S+1</th><th>S+2</th><th>S+3</th><th>S+4</th></tr></thead><tbody>
+      ${cohorts.map(c=>`<tr><td class="l">${c.lab}</td><td>${c.n}</td>${c.row.map(v=>`<td style="${heat(v)}">${v==null?'<span class="muted">·</span>':v+' %'}</td>`).join('')}</tr>`).join('')}</tbody></table></div>
+  </div>
+  <div class="card" style="margin-top:18px"><div class="cardhead"><div class="grow"><h3>Notions difficiles</h3><p class="sub">Questions où les élèves se trompent le plus — à enrichir en explications</p></div></div>
+    <div class="tablewrap"><table class="t"><thead><tr><th>Notion</th><th>Matière</th><th>Taux d’erreur</th><th>Tentatives</th></tr></thead><tbody>
+    ${DB.stats.notions.map(n=>`<tr><td><b style="font-weight:600">${esc(n.notion)}</b></td><td>${esc(matName(n.mat))}</td><td><div class="row"><div class="bar" style="width:90px;margin:0"><span style="width:${n.err*100}%;background:var(--red)"></span></div><span>${Math.round(n.err*100)} %</span></div></td><td class="num">${fmt(n.tent)}</td></tr>`).join('')}
+    </tbody></table></div></div>`;
+};
+
+function engagementReal(){
+  const T0 = REAL.totaux, days = REAL.jours.slice(-30);
+  const um = Object.entries(REAL.matieres||{}).sort((a,b)=>b[1]-a[1]).slice(0,8); const umMax = um.length ? Math.max(um[0][1],1) : 1;
+  const funnel = [['Appareils qui ont ouvert l’appli',T0.appareils],['Ont terminé au moins un sujet',T0.avec_quiz],['Ont vu l’offre Premium',T0.offre_vue]];
+  const niv = (REAL.niveaux||[]).filter(x=>x.fil).sort((a,b)=>b.appareils-a.appareils);
+  return headHTML('Engagement', 'Statistiques réelles envoyées par le portail élève (appareils anonymes, sans nom).', realTag()) + `
+  <div class="grid kpis">
+    <div class="card kpi"><div class="lab"><span class="ic">${ic('phone')}</span>Appareils suivis</div><div class="big">${fmt(T0.appareils)}</div><div class="foot">depuis la mise en route</div></div>
+    <div class="card kpi"><div class="lab"><span class="ic">${ic('pulse')}</span>Actifs sur 7 jours</div><div class="big">${fmt(T0.actifs_7j)}</div><div class="foot">${pct(T0.actifs_7j,T0.appareils)} % des appareils</div></div>
+    <div class="card kpi"><div class="lab"><span class="ic">${ic('quiz')}</span>Sujets terminés</div><div class="big">${fmt(T0.quiz_periode)}</div><div class="foot">sur 120 jours</div></div>
+    <div class="card kpi"><div class="lab"><span class="ic">${ic('flag')}</span>Signalements ouverts</div><div class="big">${DB.reports.filter(r=>r.statut!=='corrige').length}</div><div class="foot"><button class="btn sm" data-page="signalements">Traiter</button></div></div>
+  </div>
+  <div class="grid row2">
+    <div class="card"><div class="cardhead"><div class="grow"><h3>Sujets terminés par jour</h3><p class="sub">30 derniers jours</p></div></div>
+      ${barChart(days.map(d=>d.quiz), days.map(d=>dfr(d.date,{day:'numeric',month:'short'})), 'var(--violet)', {unit:'sujets', full:days.map(d=>dfr(d.date,{weekday:'long',day:'numeric',month:'long'})), label:'Sujets terminés par jour'})}</div>
+    <div class="card"><div class="cardhead"><div class="grow"><h3>Parcours vers Premium</h3><p class="sub">Appareils à chaque étape</p></div></div>
+      ${funnel.map(([l,v],i)=>`<div style="margin:10px 0"><div class="row" style="font-size:14px"><span style="flex:1">${l}</span><b class="num">${fmt(v)}</b>${i?`<span class="muted" style="width:52px;text-align:right">${pct(v,funnel[i-1][1])} %</span>`:'<span style="width:52px"></span>'}</div><div class="bar" style="height:12px"><span style="width:${pct(v,T0.appareils)}%;background:${['var(--teal)','var(--violet)','var(--rose)'][i]}"></span></div></div>`).join('')}
+      <p class="sub" style="margin-top:12px">Le passage Premium sera mesuré quand les comptes élèves existeront (phase 3).</p></div>
+  </div>
+  <div class="grid row3">
+    <div class="card"><div class="cardhead"><div class="grow"><h3>Matières les plus travaillées</h3><p class="sub">Questions répondues dans les sujets terminés</p></div></div>
+      ${um.map(([id,v])=>`<div style="margin:9px 0"><div class="row" style="font-size:14px"><span style="flex:1">${esc(matName(id))}</span><b class="num">${fmt(v)}</b></div><div class="bar" style="height:9px"><span style="width:${v/umMax*100}%"></span></div></div>`).join('') || '<div class="empty">Aucun sujet terminé pour l’instant.</div>'}</div>
+    <div class="card"><div class="cardhead"><div class="grow"><h3>Contenus Premium les plus demandés</h3><p class="sub">Contenus verrouillés que les élèves ont essayé d’ouvrir</p></div><button class="btn sm" data-page="acces">Règles d’accès</button></div>
+      ${(REAL.bloques||[]).length?`<table class="t"><thead><tr><th>Contenu</th><th>Essais</th><th>Appareils</th></tr></thead><tbody>${REAL.bloques.map(b=>`<tr><td>${esc(labelOf(b.cle))}</td><td class="num">${fmt(b.n)}</td><td class="num">${fmt(b.appareils)}</td></tr>`).join('')}</tbody></table>`:'<div class="empty">Aucun contenu Premium demandé pour l’instant.</div>'}</div>
+  </div>
+  <div class="card" style="margin-top:18px"><div class="cardhead"><div class="grow"><h3>Appareils par filière et année</h3><p class="sub">D’après le profil choisi dans l’appli</p></div></div>
+    ${niv.length?`<div class="levels">${niv.map(x=>`<div class="lvl"><div class="t">${esc(x.fil)} · ${esc(x.niv||'—')}</div><div class="n num">${fmt(x.appareils)}</div><div class="s">appareils</div></div>`).join('')}</div>`:'<div class="empty">Pas encore de données.</div>'}
+    <p class="sub" style="margin-top:12px">Les notions difficiles et le retour des élèves semaine par semaine arriveront avec les comptes élèves (phase 3).</p></div>`;
+}
+
+/* =========================================================
+   12. ANNONCES
+   ========================================================= */
+const annonceLive = a => a.actif && a.du <= new Date().toISOString().slice(0,10) && a.au >= new Date().toISOString().slice(0,10);
+const cibleLabel = c => c==='tous'?'Tous les élèves': c==='gratuit'?'Élèves gratuits': c==='premium'?'Élèves Premium': c.replace('-',' · ');
+VIEWS.annonces = ()=>{
+  const L = [...DB.announcements].sort((a,b)=>b.du.localeCompare(a.du));
+  return headHTML('Annonces', 'Bannières affichées en haut de l’appli des élèves.', `<button class="btn pri" id="newann">${ic('plus')}Nouvelle annonce</button>`) + `
+  <div class="card">${L.map(a=>{ const live=annonceLive(a); return `<div class="annonce">
+    <div style="flex:1;min-width:0"><div class="banner" style="background:${esc(a.couleur)}"><b>${esc(a.titre)}</b> — ${esc(a.texte)}</div>
+      <div class="row wrap" style="margin-top:8px;font-size:13px"><span class="pill ${live?'ok':'hid'}">${live?'En ligne':a.actif?'Programmée ou terminée':'Désactivée'}</span><span class="muted">${cibleLabel(a.cible)} · du ${dfr(a.du)} au ${dfr(a.au)}</span></div></div>
+    <div class="row" style="flex:none"><button class="btn sm" data-ann-toggle="${a.id}">${a.actif?'Désactiver':'Activer'}</button><button class="btn sm" data-ann-edit="${a.id}">Modifier</button></div>
+  </div>`; }).join('') || '<div class="empty">Aucune annonce. Créez-en une pour informer vos élèves.</div>'}</div>`;
+};
+AFTER.annonces = ()=>{
+  $('#newann').onclick = ()=>annonceModal();
+  document.querySelectorAll('[data-ann-toggle]').forEach(b=>b.onclick=()=>{ const a=api.get('announcements',b.dataset.annToggle); api.update('announcements',a.id,{actif:!a.actif}); audit(a.actif?'Annonce activée':'Annonce désactivée', a.titre); render(); });
+  document.querySelectorAll('[data-ann-edit]').forEach(b=>b.onclick=()=>annonceModal(api.get('announcements',b.dataset.annEdit)));
+};
+function annonceModal(a){
+  const t = new Date().toISOString().slice(0,10);
+  a = a || {titre:'', texte:'', cible:'tous', couleur:'#6C3BF5', du:t, au:new Date(Date.now()+7*DAY).toISOString().slice(0,10), actif:true};
+  const cibles = [['tous','Tous les élèves'],['gratuit','Élèves gratuits'],['premium','Élèves Premium']].concat(FILIERES.flatMap(f=>ANNEES.map(y=>[`${f}-${y}`,`${FIL_NOM[f]} · ${y}`])));
+  const couleurs = ['#6C3BF5','#17B3A3','#E25DB8','#E89A2C','#E04848','#1F1A3D'];
+  openModal(`<button class="iconbtn x" id="mx" aria-label="Fermer">${ic('x')}</button><h2 style="margin:0 0 10px;font-family:var(--display)">${a.id?'Modifier l’annonce':'Nouvelle annonce'}</h2>
+    <div class="banner" id="aprev" style="background:${a.couleur}"></div>
+    <label class="lbl" for="at">Titre</label><input class="field" id="at" value="${esc(a.titre)}" maxlength="40">
+    <label class="lbl" for="ax">Message</label><textarea class="field" id="ax" rows="3" maxlength="160">${esc(a.texte)}</textarea>
+    <label class="lbl" for="ac">Public</label><select class="field" id="ac">${cibles.map(([v,l])=>`<option value="${v}" ${a.cible===v?'selected':''}>${l}</option>`).join('')}</select>
+    <label class="lbl">Couleur</label><div class="row">${couleurs.map(c=>`<button class="iconbtn" data-col="${c}" aria-label="Couleur ${c}" style="background:${c};border:${a.couleur===c?'3px solid var(--ink)':'1px solid var(--line)'}"></button>`).join('')}</div>
+    <div class="row"><div style="flex:1"><label class="lbl" for="ad">Du</label><input class="field" type="date" id="ad" value="${a.du}"></div><div style="flex:1"><label class="lbl" for="aa">Au</label><input class="field" type="date" id="aa" value="${a.au}"></div></div>
+    <div class="row" style="justify-content:space-between;margin-top:18px">${a.id?'<button class="btn danger" id="adel">Supprimer</button>':'<span></span>'}<div class="row"><button class="btn" id="mno">Annuler</button><button class="btn pri" id="mok">${a.id?'Enregistrer':'Publier l’annonce'}</button></div></div>`);
+  let col = a.couleur;
+  const upd = ()=>{ $('#aprev').style.background=col; $('#aprev').innerHTML = `<b>${esc($('#at').value||'Titre')}</b> — ${esc($('#ax').value||'Votre message')}`; };
+  upd(); $('#at').oninput=upd; $('#ax').oninput=upd;
+  document.querySelectorAll('[data-col]').forEach(b=>b.onclick=()=>{ col=b.dataset.col; document.querySelectorAll('[data-col]').forEach(x=>x.style.border= x===b?'3px solid var(--ink)':'1px solid var(--line)'); upd(); });
+  $('#mx').onclick=$('#mno').onclick=closeModal;
+  if($('#adel')) $('#adel').onclick=()=>{ api.remove('announcements',a.id); audit('Annonce supprimée',a.titre); closeModal(); toast('Annonce supprimée.'); render(); };
+  $('#mok').onclick=()=>{
+    const row={titre:$('#at').value.trim(), texte:$('#ax').value.trim(), cible:$('#ac').value, couleur:col, du:$('#ad').value, au:$('#aa').value};
+    if(!row.titre||!row.texte){ toast('Ajoutez un titre et un message.'); return; }
+    if(row.au<row.du){ toast('La date de fin doit suivre la date de début.'); return; }
+    if(a.id){ api.update('announcements',a.id,row); audit('Annonce modifiée',row.titre); toast('Annonce enregistrée.'); }
+    else { api.insert('announcements',Object.assign(row,{actif:true})); audit('Annonce publiée',row.titre); toast('Annonce publiée.'); }
+    closeModal(); render();
+  };
+}
+
+/* =========================================================
+   13. SIGNALEMENTS
+   ========================================================= */
+VIEWS.signalements = ()=>{
+  const st = UI.sig, cnt = s=>DB.reports.filter(r=>r.statut===s).length;
+  const L = DB.reports.filter(r=>r.statut===st).sort((a,b)=>new Date(b.date)-new Date(a.date));
+  const tabs = [['nouveau','Nouveaux'],['en-cours','En cours'],['corrige','Corrigés']];
+  return headHTML('Signalements', 'Erreurs de questions remontées par les élèves.', demoTag()) + `
+  <div class="chips" style="margin-bottom:14px">${tabs.map(([v,l])=>`<button class="chip ${st===v?'on':''}" data-sig="${v}">${l} · ${cnt(v)}</button>`).join('')}</div>
+  <div class="card">${L.map(r=>{ const p=api.get('profiles',r.user_id); return `<div class="report">
+    <div class="row wrap"><b style="flex:1">${esc(matName(r.mat))}</b><span class="muted" style="font-size:13px">${p?esc(fullName(p))+' · ':r.appareil?'Élève anonyme ('+esc(r.appareil.slice(4,10))+') · ':''}${dfr(r.date)} à ${hfr(r.date)}</span></div>
+    <q>${esc(r.question)}</q>${r.qid?`<div class="muted" style="font-size:12px">Question n° ${esc(r.qid)}</div>`:''}
+    <div style="font-size:14px">${esc(r.message)}</div>
+    ${r.note?`<div class="muted" style="font-size:13px;margin-top:4px">Note : ${esc(r.note)}</div>`:''}
+    <div class="row wrap" style="margin-top:10px">${r.statut!=='en-cours'&&r.statut!=='corrige'?`<button class="btn sm" data-rs="${r.id}" data-to="en-cours">Prendre en charge</button>`:''}${r.statut!=='corrige'?`<button class="btn sm pri" data-rs="${r.id}" data-to="corrige">Marquer corrigé</button>`:`<button class="btn sm" data-rs="${r.id}" data-to="nouveau">Rouvrir</button>`}</div>
+  </div>`; }).join('') || `<div class="empty">${st==='corrige'?'Aucun signalement corrigé pour l’instant.':'Rien à traiter ici. Les nouveaux signalements des élèves apparaîtront dans cette liste.'}</div>`}</div>`;
+};
+AFTER.signalements = ()=>{
+  document.querySelectorAll('[data-sig]').forEach(b=>b.onclick=()=>{ UI.sig=b.dataset.sig; render(); });
+  document.querySelectorAll('[data-rs]').forEach(b=>b.onclick=()=>{
+    const r = api.get('reports',b.dataset.rs), to=b.dataset.to;
+    if(to==='corrige'){
+      openModal(`<h2 style="margin:0 0 6px;font-family:var(--display)">Marquer comme corrigé</h2><p class="muted">${esc(r.question)}</p><label class="lbl" for="rn">Ce qui a été corrigé (facultatif)</label><input class="field" id="rn" value="${esc(r.note)}"><div class="row" style="justify-content:flex-end;margin-top:16px"><button class="btn" id="mno">Annuler</button><button class="btn pri" id="mok">Marquer corrigé</button></div>`);
+      $('#mno').onclick=closeModal; $('#mok').onclick=()=>{ api.update('reports',r.id,{statut:'corrige',note:$('#rn').value}); audit('Signalement corrigé', matName(r.mat)); closeModal(); toast('Signalement marqué corrigé.'); render(); };
+    } else { api.update('reports',r.id,{statut:to}); audit(to==='en-cours'?'Signalement pris en charge':'Signalement rouvert', matName(r.mat)); render(); }
+  });
+};
+
+/* =========================================================
+   14. RÉGLAGES
+   ========================================================= */
+VIEWS.reglages = ()=>{
+  const snippet = `// Dans le portail élève — à brancher en phase 1
+// access-config.json est exporté depuis « Contenu et accès »
+function peutAcceder(cle, eleve, config) {
+  // cle : "matiere:vih/sujet:3", "matiere:vih/resumes", "fonction:explications"…
+  if (eleve.premium) return regle(cle, config) !== "masque";
+  return regle(cle, config) === "gratuit";
+}
+function regle(cle, config) {
+  const r = config.regles;
+  if (r[cle]) return r[cle].acces;
+  const [mat, sous] = cle.split("/");
+  if (sous && sous.startsWith("sujet:")) {
+    const n = +sous.slice(6), m = r[mat];
+    if (m && m.acces === "premium" && n <= (m.quotaGratuit || 0)) return "gratuit";
+  }
+  if (sous && r[mat]) return r[mat].acces;
+  return config.defaut;
+}`;
+  return headHTML('Réglages', 'Offres, objectifs, données et journal des actions.') + `
+  <div class="grid accgrid">
+    <div class="card"><div class="cardhead"><div class="grow"><h3>Pass Premium</h3><p class="sub">Prix payés par les élèves, et pass que tu peux offrir.</p></div></div>
+      <div class="tablewrap"><table class="t"><thead><tr><th>Nom</th><th>Jours</th><th>Prix (FCFA)</th><th>Actif</th></tr></thead><tbody>
+      ${DB.plans.map(p=>`<tr><td><input class="field" data-plan="${p.id}" data-k="nom" value="${esc(p.nom)}" aria-label="Nom"></td><td><input class="field" type="number" min="1" style="width:80px" data-plan="${p.id}" data-k="jours" value="${p.jours}" aria-label="Jours"></td><td><input class="field" type="number" min="0" step="100" style="width:110px" data-plan="${p.id}" data-k="prix" value="${p.prix}" aria-label="Prix"></td><td><input type="checkbox" data-plan="${p.id}" data-k="actif" ${p.actif?'checked':''} aria-label="Actif"></td></tr>`).join('')}
+      </tbody></table></div></div>
+    <div class="card"><div class="cardhead"><div class="grow"><h3>Objectifs</h3><p class="sub">Affichés sur la vue d’ensemble</p></div></div>
+      ${DB.goals.map(g=>`<div class="row wrap" style="padding:8px 0;border-top:1px solid var(--line)"><input class="field" style="flex:2;min-width:150px" data-goal="${g.id}" data-k="titre" value="${esc(g.titre)}" aria-label="Titre"><input class="field" type="number" min="1" style="width:90px" data-goal="${g.id}" data-k="cible" value="${g.cible}" aria-label="Cible"><input class="field" type="date" style="width:160px" data-goal="${g.id}" data-k="echeance" value="${g.echeance}" aria-label="Échéance"></div>`).join('')}</div>
+  </div>
+  ${payCard()}
+  <div class="grid accgrid" style="margin-top:18px">
+    <div class="card"><div class="cardhead"><div class="grow"><h3>Données</h3><p class="sub">${MODE==='supabase'?'Source actuelle : votre projet Supabase':'Source actuelle : ce navigateur (localStorage)'}</p></div></div>
+      <div class="kv"><span>Source</span><b>${MODE==='supabase'?'Supabase · phase 2':'Locale · phase 1'}</b><span>Dernier enregistrement</span><b>${DB.meta.savedAt?dfr(DB.meta.savedAt)+' à '+hfr(DB.meta.savedAt):'—'}</b><span>Contenu</span><b>${fmt(DB.profiles.length)} élèves · ${DB.entitlements.length} pass · ${Object.keys(DB.access.regles).length} règles</b></div>
+      <div class="row wrap"><button class="btn" id="expall">${ic('dl')}Sauvegarder toutes les données</button><button class="btn" id="impall">${ic('ul')}Restaurer une sauvegarde</button></div>
+      <div class="row wrap" style="margin-top:10px"><button class="btn" id="reseed">Régénérer les données fictives</button><button class="btn danger" id="wipe">Vider les élèves de test</button></div></div>
+    <div class="card"><div class="cardhead"><div class="grow"><h3>Brancher le portail élève</h3><p class="sub">Fonction à ajouter au portail pour lire les règles exportées</p></div><button class="btn sm" id="copysn">Copier</button></div>
+      <pre class="code">${esc(snippet)}</pre></div>
+  </div>
+  <div class="card" style="margin-top:18px"><div class="cardhead"><div class="grow"><h3>Liste des cours</h3><p class="sub">Relue dans le portail publié à chaque ouverture du tableau de bord</p></div><button class="btn sm" id="catreload">Recharger</button></div>
+    <div class="kv"><span>Source</span><b>${CAT_INFO.source==='portail'?'Portail publié':CAT_INFO.source==='cache'?'Dernière liste reçue (hors ligne)':'Liste intégrée au tableau de bord'}</b><span>Publiée le</span><b>${CAT_INFO.genere?dfr(CAT_INFO.genere)+' à '+hfr(CAT_INFO.genere):'—'}</b><span>Contenu</span><b>${CATALOGUE.length} rubriques · ${CATALOGUE.reduce((a,r)=>a+r.matieres.length,0)} cours</b>${CAT_INFO.erreur?`<span>Dernier essai</span><b style="color:var(--red)">${esc(CAT_INFO.erreur)}</b>`:''}</div>
+    <label class="lbl" for="porturl">Adresse du portail publié</label><input class="field" id="porturl" value="${esc(portailUrl())}">
+  </div>
+  ${supabaseCard()}
+  <div class="card" style="margin-top:18px"><div class="cardhead"><div class="grow"><h3>Journal des actions</h3><p class="sub">Chaque modification faite dans ce tableau de bord</p></div></div>
+    <div class="tablewrap"><table class="t"><thead><tr><th>Date</th><th>Action</th><th>Sur</th></tr></thead><tbody>
+    ${DB.audit_log.slice(0,40).map(a=>`<tr><td style="white-space:nowrap">${dfr(a.date,{day:'numeric',month:'short'})} · ${hfr(a.date)}</td><td>${esc(a.action)}</td><td>${esc(a.cible)}</td></tr>`).join('')}
+    </tbody></table></div></div>`;
+  AFTER.reglages.snippet = snippet;
+};
+AFTER.reglages = ()=>{
+  document.querySelectorAll('[data-plan]').forEach(el=>el.onchange=()=>{ const p=DB.plans.find(x=>x.id===el.dataset.plan), k=el.dataset.k; p[k]= k==='actif'?el.checked : k==='nom'?el.value : Math.max(0,+el.value||0); persist(); audit('Pass modifié', p.nom); toast('Pass enregistré.'); });
+  document.querySelectorAll('[data-goal]').forEach(el=>el.onchange=()=>{ const g=DB.goals.find(x=>x.id===el.dataset.goal), k=el.dataset.k; g[k]= k==='cible'?Math.max(1,+el.value||1):el.value; persist(); toast('Objectif enregistré.'); });
+  $('#expall').onclick=()=>{ download(`sauvegarde-admin-${new Date().toISOString().slice(0,10)}.json`, DB); toast('Sauvegarde téléchargée.'); };
+  $('#impall').onclick=()=>pickFile(obj=>{ if(!obj||!Array.isArray(obj.profiles)||!obj.access){ toast('Ce fichier n’est pas une sauvegarde du tableau de bord.'); return; } DB=normalizeIds(obj); persist(); audit('Sauvegarde restaurée','—'); toast('Sauvegarde restaurée.'); render(); });
+  $('#reseed').onclick=()=>confirmModal('Régénérer les données fictives ?',MODE==='supabase'?'Les élèves, règles et annonces de votre base Supabase seront remplacés par le jeu de test de départ.':'Vos élèves, règles et annonces actuels seront remplacés par le jeu de test de départ.','Régénérer',()=>{ DB=seed(); persist(); toast('Données fictives régénérées.'); render(); });
+  $('#wipe').onclick=()=>confirmModal('Vider les élèves de test ?','Les élèves de test (sans compte), leurs pass et les statistiques fictives seront effacés. Les vrais comptes élèves, vos règles d’accès, pass et annonces sont conservés.','Vider',()=>{ const garde=new Set(DB.profiles.filter(p=>p.auth_id).map(p=>p.id)); DB.profiles=DB.profiles.filter(p=>garde.has(p.id)); DB.entitlements=DB.entitlements.filter(e=>garde.has(e.user_id)); DB.reports=DB.reports.filter(r=>!r.user_id||garde.has(r.user_id)); DB.stats.daily=DB.stats.daily.map(d=>({...d,actifs:0,quiz:0,inscriptions:0})); Object.keys(DB.stats.usageMatieres).forEach(k=>DB.stats.usageMatieres[k]=0); DB.stats.notions=[]; DB.meta.demo=false; persist(); audit('Données de test vidées','—'); toast('Élèves de test effacés.'); render(); });
+  bindSupabaseCard();
+  bindPayCard();
+  $('#catreload').onclick = async ()=>{ toast('Lecture de la liste des cours…'); const ok = await loadCatalogue(); render(); toast(ok?'Liste des cours à jour.':'Liste non mise à jour : '+CAT_INFO.erreur); };
+  $('#porturl').onchange = e=>{ const v=e.target.value.trim(); setCfg(Object.assign(getCfg(),{portail:v||PORTAIL_DEFAUT})); toast('Adresse enregistrée.'); };
+  $('#copysn').onclick=()=>{ const t=AFTER.reglages.snippet; (navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(()=>toast('Code copié.')).catch(()=>toast('Copie impossible : sélectionnez le code à la main.')); };
+};
+
+/* =========================================================
+   15. CONNEXION SUPABASE (réglages, connexion admin)
+   ========================================================= */
+function supabaseCard(){
+  const c = getCfg();
+  if(MODE==='supabase') return `
+  <div class="card" style="margin-top:18px"><div class="cardhead"><div class="grow"><h3>Supabase</h3><p class="sub">Connecté à ${esc(c.url||'')}</p></div><span class="pill ok">Connecté</span></div>
+    <div class="kv"><span>Compte admin</span><b>${esc(SB_EMAIL||'—')}</b><span>État</span><b>${syncState==='error'?'Erreur : '+esc(syncMsg):syncState==='pending'?'Enregistrement en cours':'À jour'}</b></div>
+    <div class="row wrap">
+      <button class="btn" id="sbreload">Recharger depuis Supabase</button>
+      <button class="btn" id="sbpush">${ic('ul')}Envoyer les données locales vers Supabase</button>
+      <button class="btn" id="sblocal">Revenir aux données locales</button>
+      <button class="btn danger" id="sbout">Se déconnecter</button>
+    </div>
+    <p class="sub" style="margin-top:10px">« Envoyer les données locales » ajoute à la base les élèves, pass, règles et annonces enregistrés dans ce navigateur (rien n’est supprimé dans Supabase).</p>
+  </div>`;
+  return `
+  <div class="card" style="margin-top:18px"><div class="cardhead"><div class="grow"><h3>Brancher Supabase</h3><p class="sub">Étape 2 : collez l’URL et la clé publique de votre projet (réglages API de Supabase). N’utilisez jamais la clé secrète ou service_role.</p></div></div>
+    <div class="grid accgrid" style="gap:12px">
+      <div><label class="lbl" for="sburl">URL du projet</label><input class="field" id="sburl" placeholder="https://xxxxxxxx.supabase.co" value="${esc(c.url||'')}" autocomplete="off"></div>
+      <div><label class="lbl" for="sbkey">Clé publique (publishable ou anon)</label><input class="field" id="sbkey" placeholder="sb_publishable_… ou eyJ…" value="${esc(c.key||'')}" autocomplete="off"></div>
+    </div>
+    <div class="row wrap" style="margin-top:14px"><button class="btn" id="sbtest">Tester la connexion</button><button class="btn pri" id="sbuse">Utiliser Supabase</button></div>
+    <div id="sbmsg"></div>
+  </div>`;
+}
+function payCard(){
+  const c = DB.paiementCfg || PAY_DEFAUT();
+  return `<div class="card" style="margin-top:18px"><div class="cardhead"><div class="grow"><h3>Paiement Mobile Money</h3><p class="sub">Numéros affichés aux élèves dans l’écran « Payer ». Laisse vide un moyen que tu n’utilises pas.</p></div>
+    <label class="row" style="gap:8px;font-weight:600;cursor:pointer"><input type="checkbox" id="payon" ${c.actif?'checked':''}> Paiement ouvert</label></div>
+    <div class="grid accgrid" style="gap:12px">
+      ${Object.keys(OPS).map(k=>`<div><label class="lbl" for="pn-${k}"><span class="dot" style="background:${OPS[k][1]}"></span> ${OPS[k][0]}</label><input class="field" id="pn-${k}" data-num="${k}" inputmode="tel" placeholder="Ex. 07 00 00 00 00" value="${esc(c.numeros[k]||'')}"></div>`).join('')}
+      <div><label class="lbl" for="pnom">Nom affiché pour le bénéficiaire</label><input class="field" id="pnom" maxlength="60" placeholder="Ex. Daniel N." value="${esc(c.nom||'')}"></div>
+      <div><label class="lbl" for="pcons">Consigne (facultatif)</label><input class="field" id="pcons" maxlength="160" placeholder="Ex. Validation dans la journée" value="${esc(c.consigne||'')}"></div>
+    </div>
+    <p class="sub" style="margin-top:10px">${c.actif?'✅ Les élèves connectés voient le bouton « Payer par Mobile Money ».':'Le paiement est fermé : les élèves voient « Le paiement arrive bientôt ».'} Les changements arrivent dans l’appli à sa prochaine ouverture.</p></div>`;
+}
+function bindPayCard(){
+  const save = (msg)=>{ DB.paiementCfg = DB.paiementCfg || PAY_DEFAUT(); persist(); audit('Réglages de paiement modifiés', msg); toast('Réglages de paiement enregistrés.'); };
+  document.querySelectorAll('[data-num]').forEach(el=>el.onchange=()=>{ const v=el.value.trim(); if(v && v.replace(/[^0-9]/g,'').length<8){ toast('Numéro trop court.'); return; } DB.paiementCfg.numeros[el.dataset.num]=v; save(OPS[el.dataset.num][0]); render(); });
+  $('#pnom').onchange=e=>{ DB.paiementCfg.nom=e.target.value.trim(); save('Bénéficiaire'); };
+  $('#pcons').onchange=e=>{ DB.paiementCfg.consigne=e.target.value.trim(); save('Consigne'); };
+  $('#payon').onchange=e=>{ const c=DB.paiementCfg; if(e.target.checked && !Object.values(c.numeros).some(Boolean)){ e.target.checked=false; toast('Renseigne au moins un numéro avant d’ouvrir le paiement.'); return; } c.actif=e.target.checked; save(c.actif?'Paiement ouvert':'Paiement fermé'); render(); };
+}
+function sbMsg(kind, text){ const el=$('#sbmsg'); if(el) el.innerHTML = `<div class="msg ${kind}">${esc(text)}</div>`; }
+function readCfgFields(){ return {url:($('#sburl').value||'').trim(), key:($('#sbkey').value||'').trim()}; }
+function bindSupabaseCard(){
+  if(MODE==='supabase'){
+    $('#sbreload').onclick = async ()=>{ try{ toast('Chargement…'); DB = await SupabaseSource.load(); await loadReal(); render(); toast('Données rechargées depuis Supabase.'); }catch(e){ toast(frErr(e)); } };
+    $('#sbpush').onclick = pushLocalToSupabase;
+    $('#sblocal').onclick = ()=>confirmModal('Revenir aux données locales ?','Le tableau de bord affichera de nouveau les données de ce navigateur. Vos données Supabase restent intactes.','Revenir au local',()=>{ setCfg(Object.assign(getCfg(),{mode:'local'})); location.reload(); });
+    $('#sbout').onclick = signOut;
+    return;
+  }
+  $('#sbtest').onclick = async ()=>{
+    const c = readCfgFields();
+    if(!/^https:\/\/.+/.test(c.url)) return sbMsg('bad','L’URL doit commencer par https:// (ex. https://abcd.supabase.co).');
+    const kp = keyProblem(c.key); if(kp) return sbMsg('bad', kp);
+    sbMsg('ok','Test en cours…');
+    try{
+      const cl = await sbClient(c);
+      const {error} = await cl.from('plans').select('id').limit(1);
+      if(error) throw error;
+      sbMsg('ok','Connexion réussie : les tables Révision INFAS sont en place.');
+    }catch(e){ sbMsg('bad', frErr(e)); }
+  };
+  $('#sbuse').onclick = ()=>{
+    const c = readCfgFields();
+    if(!/^https:\/\/.+/.test(c.url)) return sbMsg('bad','L’URL doit commencer par https:// (ex. https://abcd.supabase.co).');
+    const kp = keyProblem(c.key); if(kp) return sbMsg('bad', kp);
+    setCfg({url:c.url, key:c.key, mode:'supabase'});
+    location.reload();
+  };
+}
+async function signOut(){ try{ if(SB) await SB.auth.signOut(); }catch(e){} location.reload(); }
+async function pushLocalToSupabase(){
+  const local = LocalSource.load();
+  if(!local || !local.profiles){ toast('Aucune donnée locale à envoyer.'); return; }
+  normalizeIds(local); LocalSource.save(local);
+  confirmModal('Envoyer les données locales ?', `${local.profiles.length} élèves, ${local.entitlements.length} pass, ${Object.keys(local.access.regles).length} règles et ${local.announcements.length} annonces seront ajoutés à Supabase. Les éléments déjà présents avec le même identifiant seront mis à jour.`, 'Envoyer vers Supabase', async ()=>{
+    const merge = (a,b)=>{ const ids=new Set(b.map(x=>x.id)); return a.filter(x=>!ids.has(x.id)).concat(b); };
+    ['profiles','entitlements','reports','announcements','plans'].forEach(k=>{ DB[k] = merge(DB[k], local[k]||[]); });
+    DB.access.regles = Object.assign({}, DB.access.regles, local.access.regles);
+    DB.access.defaut = local.access.defaut; DB.access.version = Math.max(DB.access.version, local.access.version)+1; DB.access.misAJour = new Date().toISOString();
+    if(local.goals) DB.goals = local.goals;
+    if(local.stats) DB.stats = local.stats;
+    DB.meta.demo = DB.meta.demo || !!local.meta.demo;
+    audit('Données locales envoyées vers Supabase', `${local.profiles.length} élèves`);
+    render(); toast('Envoi en cours…');
+  });
+}
+
+/* écrans plein cadre (chargement, connexion) */
+function lockedView(html){ document.body.classList.add('locked'); $('#sync').style.display='none'; $('#view').innerHTML = `<div class="login card">${html}</div>`; $('#crumb').textContent='Connexion'; renderPhase(); paintSync(); }
+function showLoading(text){ lockedView(`<h1>Révision INFAS</h1><p class="muted">${esc(text)}</p>`); }
+function showLogin(err=''){
+  lockedView(`<h1>Connexion administrateur</h1><p class="muted" style="margin:0">Projet Supabase : ${esc(getCfg().url||'')}</p>
+    <form id="loginf" autocomplete="on">
+      <label class="lbl" for="lemail">E-mail</label><input class="field" id="lemail" type="email" autocomplete="username" required>
+      <label class="lbl" for="lpass">Mot de passe</label><input class="field" id="lpass" type="password" autocomplete="current-password" required>
+      <button class="btn pri" style="width:100%;justify-content:center;margin-top:16px" type="submit">Se connecter</button>
+    </form>
+    <div id="lmsg">${err?`<div class="msg bad">${esc(err)}</div>`:''}</div>
+    <button class="btn sm" style="margin-top:16px" id="backlocal">Revenir aux données locales</button>`);
+  $('#backlocal').onclick = ()=>{ setCfg(Object.assign(getCfg(),{mode:'local'})); location.reload(); };
+  $('#loginf').onsubmit = async e=>{
+    e.preventDefault();
+    $('#lmsg').innerHTML = '<div class="msg ok">Connexion…</div>';
+    const {error} = await SB.auth.signInWithPassword({email:$('#lemail').value.trim(), password:$('#lpass').value});
+    if(error){ $('#lmsg').innerHTML = `<div class="msg bad">${esc(frErr(error))}</div>`; return; }
+    enterSupabase();
+  };
+  const f = $('#lemail'); if(f) f.focus();
+}
+function showProblem(title, text, sql=''){
+  lockedView(`<h1>${esc(title)}</h1><p class="muted">${text}</p>${sql?`<pre class="code">${esc(sql)}</pre>`:''}
+    <div class="row wrap" style="margin-top:14px"><button class="btn" id="retry">Réessayer</button><button class="btn" id="backlocal">Revenir aux données locales</button>${SB?'<button class="btn danger" id="lout">Se déconnecter</button>':''}</div>`);
+  $('#retry').onclick = ()=>location.reload();
+  $('#backlocal').onclick = ()=>{ setCfg(Object.assign(getCfg(),{mode:'local'})); location.reload(); };
+  if($('#lout')) $('#lout').onclick = signOut;
+}
+async function enterSupabase(){
+  showLoading('Chargement des données depuis Supabase…');
+  try{
+    const {data:{session}} = await SB.auth.getSession();
+    if(!session) return showLogin();
+    SB_EMAIL = session.user.email || '';
+    const {data:isAdm, error} = await SB.rpc('is_admin');
+    if(error) throw error;
+    if(!isAdm) return showProblem('Compte non administrateur', `Le compte ${esc(SB_EMAIL)} est connecté, mais il n’a pas le rôle admin. Lancez ce bloc dans l’éditeur SQL de Supabase, puis réessayez :`,
+      `insert into public.profiles (auth_id, prenom, nom, role)\nselect id, 'Daniel', 'Noufe', 'admin' from auth.users where email = '${SB_EMAIL}'\non conflict (auth_id) do update set role = 'admin', statut = 'actif';`);
+    DB = await SupabaseSource.load();
+    MODE = 'supabase'; source = SupabaseSource; setSync('ok'); await loadReal();
+    document.body.classList.remove('locked'); $('#sync').style.display='';
+    $('#crumb').textContent = PAGES.find(x=>x.id===page).nom;
+    render();
+  }catch(e){ showProblem('Connexion impossible', esc(frErr(e))); }
+}
+
+/* =========================================================
+   16. DÉMARRAGE
+   ========================================================= */
+$('#sync').onclick = ()=>{ if(!DB) return; if(MODE==='supabase' && syncState==='error') runSync(); else go('reglages'); };
+$('#me').onclick = ()=>{
+  openModal(`<button class="iconbtn x" id="mx" aria-label="Fermer">${ic('x')}</button><h2 style="margin:0 0 6px;font-family:var(--display)">Mon compte</h2>
+    <div class="kv"><span>Nom</span><b>${esc(ADMIN_NAME)}</b><span>Source</span><b>${MODE==='supabase'?'Supabase':'Ce navigateur'}</b>${SB_EMAIL?`<span>E-mail</span><b>${esc(SB_EMAIL)}</b>`:''}</div>
+    <div class="row wrap"><button class="btn" id="tosettings">Réglages</button>${MODE==='supabase'?'<button class="btn danger" id="mout">Se déconnecter</button>':''}</div>`);
+  $('#mx').onclick = closeModal; $('#tosettings').onclick = ()=>{ closeModal(); go('reglages'); };
+  if($('#mout')) $('#mout').onclick = signOut;
+};
+function bootLocal(){
+  MODE = 'local'; source = LocalSource;
+  DB = LocalSource.load();
+  if(!DB || !DB.profiles || !DB.access){ DB = seed(); }
+  else normalizeIds(DB);
+  if(!Array.isArray(DB.payments)) DB.payments = [];
+  if(!DB.paiementCfg) DB.paiementCfg = PAY_DEFAUT();
+  persist();
+  render();
+}
+(async function boot(){
+  try{ const t=localStorage.getItem('rinfas_theme'); if(t) document.documentElement.dataset.theme=t; }catch(e){}
+  const h = (location.hash||'').slice(1); if(PAGES.some(p=>p.id===h)) page=h;
+  $('#crumb').textContent = PAGES.find(x=>x.id===page).nom;
+  loadCatalogueCache();
+  loadCatalogue().then(ok=>{ if(ok && DB) render(); });
+  const cfg = getCfg();
+  if(cfg.mode==='supabase' && cfg.url && cfg.key){
+    showLoading('Connexion à Supabase…');
+    try{ SB = await sbClient(cfg); }
+    catch(e){ return showProblem('Connexion impossible', esc(frErr(e))); }
+    return enterSupabase();
+  }
+  bootLocal();
+})();
+</script>
+</body>
+</html>
