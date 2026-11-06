@@ -282,6 +282,16 @@ pre.code{background:var(--ink);color:#E9E4FF;border-radius:var(--r-md);padding:1
   .paycards td.pc-act .row{width:100%}.paycards td.pc-act .btn{flex:1;justify-content:center;padding:12px}
   .paycards td[colspan]{display:block}
 }
+.live{margin-bottom:18px}
+.live-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.live-top .muted{font-size:13px;flex:1}
+.live-dot{width:10px;height:10px;border-radius:50%;background:var(--green);box-shadow:0 0 0 0 color-mix(in srgb,var(--green) 60%,transparent);animation:livepulse 2s infinite}
+.live-dot.off{background:var(--muted);animation:none}
+@keyframes livepulse{70%{box-shadow:0 0 0 9px transparent}100%{box-shadow:0 0 0 0 transparent}}
+@media (prefers-reduced-motion:reduce){.live-dot{animation:none}}
+.live-main{display:flex;align-items:center;gap:16px;margin-top:10px}.live-main .big{font-size:44px;font-weight:800;line-height:1}
+.live-list{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.live-who{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:99px;padding:4px 12px 4px 4px;font:inherit;font-size:14px;cursor:pointer}
+.live-who .av{width:26px;height:26px;font-size:11px}
 </style>
 </head>
 <body>
@@ -970,6 +980,7 @@ VIEWS.overview = ()=>{
   })).join('');
 
   return headHTML('Vue d’ensemble', 'L’activité de Révision INFAS en un coup d’œil.', `${realTag()}${demoTag()}<div class="chips" role="group" aria-label="Période">${periods.map(([v,l])=>`<button class="chip ${UI.period===v?'on':''}" data-period="${v}">${l}</button>`).join('')}</div>`) + `
+  <div id="live">${liveHTML()}</div>
   <div class="grid kpis">
     <div class="hero">
       <div class="lab">Élèves inscrits</div>
@@ -1016,9 +1027,46 @@ VIEWS.overview = ()=>{
   </div>`;
 };
 AFTER.overview = ()=>{
+  if(!PRES || Date.now()-PRES_T>25e3) loadPresence();
   document.querySelectorAll('[data-period]').forEach(b=>b.onclick=()=>{ UI.period=+b.dataset.period; render(); });
-  bindUserRows();
+  bindUserRows(); bindLive();
 };
+/* ---------- « En ce moment » : élèves présents dans l'appli (3 dernières minutes) ---------- */
+let PRES = null, PRES_T = 0, PRES_BUSY = false;
+async function loadPresence(){
+  if(PRES_BUSY) return; PRES_BUSY = true;
+  try{
+    if(MODE==='supabase' && SB){
+      const {data,error} = await SB.rpc('presents', {p_minutes:3});
+      PRES = error ? {err: /presents|function/i.test(error.message||'') ? 'sql' : 'reseau'} : data;
+    } else {
+      const P = DB.profiles.slice(0, 3), n = 4 + (Date.now()/6e4|0)%5;
+      PRES = {demo:true, total:n+P.length, comptes:P.length, anonymes:n, aujourdhui:n*6+P.length,
+        niveaux:{'SF L1':2,'SF L2':Math.max(1,n-3),'IDE L3':P.length+1}, eleves:P.map(p=>({id:p.id,prenom:p.prenom,nom:p.nom,filiere:p.filiere,annee:p.annee}))};
+    }
+  }catch(e){ PRES = {err:'reseau'}; }
+  PRES_T = Date.now(); PRES_BUSY = false;
+  const el = document.getElementById('live'); if(el){ el.innerHTML = liveHTML(); bindLive(); }
+}
+function liveHTML(){
+  const X = PRES;
+  if(!X) return `<div class="card live"><div class="live-top"><span class="live-dot off"></span><b>En ce moment</b><span class="muted">Chargement…</span></div></div>`;
+  if(X.err) return `<div class="card live"><div class="live-top"><span class="live-dot off"></span><b>En ce moment</b><span class="muted">${X.err==='sql'?'Lance le script supabase-presence.sql dans Supabase pour voir qui est dans l’appli.':'Impossible de joindre Supabase. Nouvel essai dans 30 secondes.'}</span></div></div>`;
+  const niv = Object.entries(X.niveaux||{}).sort((a,b)=>b[1]-a[1]).map(([k,n])=>`<span class="chip">${esc(k.replace(/\?/g,'–'))} · ${n}</span>`).join('');
+  const el = (X.eleves||[]).slice(0,12).map(p=>`<button class="live-who" data-user="${esc(p.id)}"><span class="av" style="background:${avColor(p.id)}">${initials(p)}</span>${esc(((p.prenom||'')+' '+(p.nom||'')).trim()||'Élève')}</button>`).join('');
+  return `<div class="card live">
+    <div class="live-top"><span class="live-dot ${X.total?'':'off'}"></span><b>En ce moment</b><span class="muted">${X.demo?'exemple · ':''}actualisé à ${hfr(new Date(PRES_T).toISOString())}</span><button class="btn sm" id="liveR">Actualiser</button></div>
+    <div class="live-main"><div class="big num">${fmt(X.total||0)}</div><div><b>${(X.total||0)>1?'élèves dans l’appli':'élève dans l’appli'}</b><div class="muted">${fmt(X.comptes||0)} avec compte · ${fmt(X.anonymes||0)} sans compte · ${fmt(X.aujourdhui||0)} appareils aujourd’hui</div></div></div>
+    ${niv?`<div class="chips" style="margin-top:12px">${niv}</div>`:''}
+    ${el?`<div class="live-list">${el}</div>`:''}
+  </div>`;
+}
+function bindLive(){
+  const r = document.getElementById('liveR'); if(r) r.onclick = ()=>loadPresence();
+  document.querySelectorAll('#live [data-user]').forEach(b=>b.onclick=()=>openUser(b.dataset.user));
+}
+setInterval(()=>{ if(DB && page==='overview' && !document.hidden) loadPresence(); }, 30e3);
+document.addEventListener('visibilitychange', ()=>{ if(!document.hidden && DB && page==='overview' && Date.now()-PRES_T>20e3) loadPresence(); });
 function bindUserRows(){ document.querySelectorAll('[data-user]').forEach(tr=>tr.onclick=e=>{ if(e.target.closest('input,button')) return; openUser(tr.dataset.user); }); }
 
 /* =========================================================
