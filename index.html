@@ -472,7 +472,8 @@ function buildNodes(){
     NODES['rubrique:'+r.id] = {key:'rubrique:'+r.id, parent:null, label:r.nom, type:'rubrique'};
     for(const m of r.matieres){
       const mk='matiere:'+m.id;
-      NODES[mk] = {key:mk, parent:'rubrique:'+r.id, label:m.nom, type:'matiere', m};
+      /* un contenu ajouté qui « suit » un cours (ex. Exercices corrigés → Pédiatrie) hérite de ce cours, comme dans l'appli des élèves */
+      NODES[mk] = {key:mk, parent:m.suit?'matiere:'+m.suit:'rubrique:'+r.id, label:m.nom, type:'matiere', m};
       for(let i=1;i<=sujetsOf(m);i++) NODES[`${mk}/sujet:${i}`] = {key:`${mk}/sujet:${i}`, parent:mk, label:`Sujet ${i}`, type:'sujet', n:i};
       NODES[mk+'/resumes'] = {key:mk+'/resumes', parent:mk, label:'Résumés de cours', type:'resumes'};
       NODES[mk+'/appli'] = {key:mk+'/appli', parent:mk, label:'Application complète', type:'appli'};
@@ -491,7 +492,7 @@ let CAT_INFO = {source:'interne', genere:null, erreur:''};
 function prettyRub(n){ n = String(n||''); if(n.length>4 && n===n.toUpperCase()) n = n[0]+n.slice(1).toLowerCase(); return n.replace(/\bd\.e\b/i,'D.E'); }
 function applyCatalogue(c, src){
   if(!c || !Array.isArray(c.rubriques) || !c.rubriques.length) return false;
-  CATALOGUE = c.rubriques.map(r=>({id:r.id, nom:prettyRub(r.nom), matieres:(r.matieres||[]).map(m=>({id:m.id, nom:m.nom, court:m.court, niv:m.niv||[], fil:m.fil, q:m.q||0, nsuj:m.nsuj||1}))})).filter(r=>r.matieres.length);
+  CATALOGUE = c.rubriques.map(r=>({id:r.id, nom:prettyRub(r.nom), matieres:(r.matieres||[]).map(m=>Object.assign({id:m.id, nom:m.nom, court:m.court, niv:m.niv||[], fil:m.fil, q:m.q||0, nsuj:m.nsuj||1}, m.suit?{suit:m.suit}:{}))})).filter(r=>r.matieres.length);
   buildNodes(); CAT_INFO = {source:src, genere:c.genere||null, erreur:''}; return true;
 }
 function portailUrl(){ return String((typeof getCfg==='function' && getCfg().portail) || PORTAIL_DEFAUT).trim().replace(/\/?$/,'/'); }
@@ -1485,7 +1486,8 @@ function syncBox(){
 function courseCard(m){
   const mk='matiere:'+m.id, e=effective(mk), own=DB.access.regles[mk], ns=sujetsOf(m), q=Math.min(quotaOf(mk),ns), C=UI.cours, sel=C.sel.has(mk), fine=C.fine.has(mk);
   const fil = [].concat(m.fil||[]).map(f=>FIL_NOM[f]||f).join(' & ');
-  const src = own ? '' : e.source==='herite' ? 'Suit le réglage de son groupe' : `Suit la règle par défaut (${ACC_LABEL[DB.access.defaut]})`;
+  const pn = NODES[mk] && NODES[mk].parent, suitNom = pn && pn.startsWith('matiere:') && NODES[pn] ? NODES[pn].label : '';
+  const src = own ? '' : suitNom ? `Suit le cours « ${esc(suitNom)} »` : e.source==='herite' ? 'Suit le réglage de son groupe' : `Suit la règle par défaut (${ACC_LABEL[DB.access.defaut]})`;
   return `<article class="course st-${e.acces} ${sel?'sel':''}">
     <div class="ctop"><input type="checkbox" data-csel="${mk}" ${sel?'checked':''} aria-label="Sélectionner ${esc(m.nom)}"><div style="flex:1;min-width:0"><h4>${esc(m.nom)}</h4>
       <div class="cmeta">${(m.niv||[]).map(n=>`<span class="tag">${esc(n)}</span>`).join('')}${fil?`<span class="tag">${esc(fil)}</span>`:''}<span class="tag">${fmt(m.q)} questions</span><span class="tag">${ns} sujet${ns>1?'s':''}</span></div></div></div>
