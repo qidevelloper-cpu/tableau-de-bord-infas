@@ -84,6 +84,7 @@ body.locked .side nav,body.locked .side .navlabel,body.locked .sidesearch{displa
 
 /* ---------- atoms ---------- */
 .card{background:var(--card);border-radius:var(--r-lg);box-shadow:var(--shadow);padding:20px;min-width:0}
+.wadest{margin-bottom:14px;padding:16px}
 .card h3{font-size:16px;margin:0;font-weight:600}
 .card .sub{color:var(--muted);font-size:13px;margin:2px 0 0}
 .cardhead{display:flex;align-items:flex-start;gap:10px;margin-bottom:14px}
@@ -357,6 +358,11 @@ body.bigtxt .app{zoom:1.15}
 .step{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:10px;background:var(--card)}
 .step button{border:0;background:transparent;width:36px;height:36px;font-size:20px;font-weight:700;color:var(--ink)}
 .step b{min-width:30px;text-align:center;font-size:17px}
+.qgin{width:58px;border:0;background:transparent;text-align:center;font-size:17px;font-weight:700;color:var(--ink);-moz-appearance:textfield}
+.qgin::-webkit-inner-spin-button,.qgin::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+.qgseg button{font-size:14px;padding:7px 10px}
+.qgseg{flex-wrap:wrap;flex:0 1 auto}
+.qgseg button.on{background:var(--prem);color:#fff}
 .cfoot{display:flex;gap:6px 12px;align-items:center;flex-wrap:wrap}
 .cnote{font-size:14px;color:var(--muted)}
 .lnk{border:0;background:transparent;color:var(--violet-ink);font-weight:700;font-size:14.5px;padding:2px 0;text-decoration:underline;text-underline-offset:3px}
@@ -380,6 +386,18 @@ details.adv .accgrid .card{box-shadow:none;border:1px solid var(--line)}
 .sigq .lab,.sigmsg .lab{display:block;font-size:13px;font-weight:700;color:var(--muted);margin-bottom:3px;text-transform:uppercase;letter-spacing:.03em}
 .sigph{margin-top:10px}.sigph img{max-width:min(100%,420px);max-height:320px;border-radius:12px;display:block;border:1px solid var(--line)}
 a.btn{text-decoration:none}
+
+/* ---------- codes d'activation ---------- */
+.codeform{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-start}
+.code{font-family:ui-monospace,Menlo,Consolas,monospace;font-weight:800;letter-spacing:1px;font-size:16px}
+.code.big{background:var(--soft);border-radius:10px;padding:6px 10px;cursor:pointer;font-size:17px}
+.codesneufs{margin-top:14px;padding:14px;border-radius:14px;border:2px dashed var(--green);background:color-mix(in srgb,var(--green) 7%,var(--card))}
+.codelist{display:grid;gap:8px}
+.coderow{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.coderow .cc{display:flex;flex-direction:column;gap:2px;min-width:0}.coderow small{font-size:13.5px;color:var(--muted)}
+.coderow small.ok{color:var(--green);font-weight:600}.coderow small.bad{color:var(--red);font-weight:600}
+.coderow.used,.coderow.off{opacity:.8}
+.btn.wa{background:#25D366;color:#fff;border-color:#25D366}
 </style>
 </head>
 <body>
@@ -588,7 +606,7 @@ const MAP = [
 const VIRTUAL = [
   {t:'access_rules', id:'cle', rows:db=>Object.entries(db.access.regles).map(([cle,v])=>({cle, acces:v.acces, quota_gratuit:v.quotaGratuit==null?null:v.quotaGratuit}))},
   {t:'app_settings', id:'cle', noDelete:true, rows:db=>[
-    {cle:'public.access', valeur:{defaut:db.access.defaut, version:db.access.version, misAJour:db.access.misAJour}},
+    {cle:'public.access', valeur:{defaut:db.access.defaut, version:db.access.version, misAJour:db.access.misAJour, questions:db.access.questions||{}}},
     {cle:'goals', valeur:db.goals},
     {cle:'demo_stats', valeur:db.stats},
     {cle:'meta', valeur:{demo:!!db.meta.demo}},
@@ -632,7 +650,7 @@ const SupabaseSource = {
     const rawRules = await fetchAll('access_rules'), rawSettings = await fetchAll('app_settings');
     rawRules.forEach(r=>{ db.access.regles[r.cle] = r.quota_gratuit==null ? {acces:r.acces} : {acces:r.acces, quotaGratuit:r.quota_gratuit}; });
     rawSettings.forEach(r=>{
-      if(r.cle==='public.access'){ db.access.defaut = r.valeur.defaut||'gratuit'; db.access.version = r.valeur.version||1; db.access.misAJour = r.valeur.misAJour||db.access.misAJour; }
+      if(r.cle==='public.access'){ db.access.defaut = r.valeur.defaut||'gratuit'; db.access.version = r.valeur.version||1; db.access.misAJour = r.valeur.misAJour||db.access.misAJour; db.access.questions = (r.valeur.questions&&typeof r.valeur.questions==='object')?r.valeur.questions:{}; }
       if(r.cle==='goals' && Array.isArray(r.valeur)) db.goals = r.valeur;
       if(r.cle==='demo_stats' && r.valeur && r.valeur.daily) db.stats = r.valeur;
       if(r.cle==='meta' && r.valeur) db.meta.demo = !!r.valeur.demo;
@@ -900,6 +918,25 @@ function quotaOf(key){
   while(k){ const r = DB.access.regles[k]; if(r && r.quotaGratuit!=null) return r.quotaGratuit; k = NODES[k]?.parent; }
   return 0;
 }
+/* questions gratuites dans les sujets Premium : {n, mode:'sujet'|'cours'} — même héritage que l'appli des élèves */
+function qgOf(key){
+  const Q = DB.access.questions||{}; let k = key;
+  while(k){ const r = Q[k]; if(r && r.n!=null) return Object.assign({n:0, mode:'sujet'}, r, {de:k}); k = NODES[k]?.parent; }
+  return {n:0, mode:'sujet', de:null};
+}
+function setQg(key, patch){
+  const Q = DB.access.questions = DB.access.questions||{}; const cur = qgOf(key);
+  const v = Object.assign({n:cur.n, mode:cur.mode}, patch); v.n = Math.max(0, Math.min(500, parseInt(v.n,10)||0)); v.mode = v.mode==='cours'?'cours':'sujet';
+  Q[key] = v; DB.access.version++; DB.access.misAJour = new Date().toISOString();
+  audit(`Questions gratuites : ${v.n} ${v.mode==='cours'?'au total pour le cours':'dans chaque sujet'}`, labelOf(key));
+}
+function qgCard(mk, ns, nq){
+  const g = qgOf(mk), own = !!(DB.access.questions||{})[mk], maxN = g.mode==='cours' ? Math.max(1,nq) : 50;
+  const hint = !g.n ? 'Aucune : les sujets Premium restent fermés.' : g.mode==='cours' ? `L’élève non Premium peut faire ${g.n} question${g.n>1?'s':''} en tout dans les sujets Premium de ce cours.` : `Dans chaque sujet Premium, les ${g.n} première${g.n>1?'s':''} question${g.n>1?'s':''} sont gratuites.`;
+  return `<div class="trial qg"><span>🎁 Questions gratuites</span><span class="step"><button data-qgn="${mk}" data-d="-1" aria-label="Une question gratuite de moins" ${g.n<=0?'disabled':''}>−</button><input type="number" min="0" max="${maxN}" value="${g.n}" data-qgv="${mk}" aria-label="Nombre de questions gratuites" class="qgin"><button data-qgn="${mk}" data-d="1" aria-label="Une question gratuite de plus" ${g.n>=maxN?'disabled':''}>+</button></span>
+    <div class="seg qgseg" role="radiogroup" aria-label="Comment compter les questions gratuites">${[['sujet','N premières de chaque sujet'],['cours','N au total pour le cours']].map(([v,l])=>`<button role="radio" aria-checked="${g.mode===v}" class="${g.mode===v?'on':''}" data-qgm="${mk}" data-v="${v}">${l}</button>`).join('')}</div>
+    <span class="cnote" style="font-weight:500;flex-basis:100%">${hint}${!own&&g.de&&g.de!==mk?` (réglage de « ${esc(labelOf(g.de))} »)`:''}</span></div>`;
+}
 function setRule(key, acces){
   const rules = DB.access.regles;
   if(acces==='inh'){ delete rules[key]; }
@@ -910,7 +947,7 @@ function setRule(key, acces){
 }
 function labelOf(key){ const n=NODES[key]; if(!n) return key; if(n.type==='sujet'||n.type==='resumes'||n.type==='appli') return n.label+' · '+NODES[n.parent].label; return n.label; }
 function exportConfig(){
-  return {version:DB.access.version, defaut:DB.access.defaut, misAJour:DB.access.misAJour, regles:DB.access.regles};
+  return {version:DB.access.version, defaut:DB.access.defaut, misAJour:DB.access.misAJour, regles:DB.access.regles, questions:DB.access.questions||{}};
 }
 
 /* =========================================================
@@ -1358,9 +1395,49 @@ VIEWS.paiements = ()=>{
       <td data-l="Numéro payeur" style="white-space:nowrap"><b>${esc(x.telephone)}</b></td><td data-l="Référence">${x.reference?`<b style="letter-spacing:.3px">${esc(x.reference)}</b>`:'<span class="muted">—</span>'}</td>
       <td class="pc-act">${x.statut==='a_verifier'?`<div class="row" style="flex-wrap:nowrap"><button class="btn sm pri" data-ok="${x.id}">Valider</button><button class="btn sm" data-ko="${x.id}">Refuser</button></div>`:x.statut==='valide'?`<span class="pill ok">Validé</span>`:`<span class="pill bad" title="${esc(x.motif||'')}">Refusé</span>${x.motif?`<div class="muted" style="font-size:12px">${esc(x.motif)}</div>`:''}`}</td></tr>`; }).join('') || `<tr><td colspan="8"><div class="empty">${st==='a_verifier'?'Aucun paiement à vérifier. Les nouveaux paiements déclarés par les élèves apparaîtront ici.':'Aucun paiement dans cette liste.'}</div></td></tr>`}
     </tbody></table></div>
-  </div>`;
+  </div>
+  ${codesCard()}`;
 };
+/* ---------- codes d'activation à usage unique (supabase/codes/1_codes.sql) ---------- */
+let CODES = null, CODES_ERR = '', CODES_NEUFS = [];
+async function chargerCodes(){ if(MODE!=='supabase'||!SB){ CODES=null; return; } try{ const {data,error}=await SB.rpc('lister_codes',{p_limite:500}); if(error) throw error; CODES=data||[]; CODES_ERR=''; }catch(e){ CODES=[]; CODES_ERR=/function|PGRST|404/.test(String(e&&e.message||e))?'Lancez d’abord supabase/codes/1_codes.sql dans Supabase.':frErr(e); } }
+function waCode(code, planNomTxt, tel){ let n=String(tel||'').replace(/[^0-9]/g,''); if(/^0\d{9}$/.test(n)) n='225'+n; const t=`Bonjour ! Voici ton code d’activation Révision INFAS (${planNomTxt}) : ${code}\nDans l’appli : Mon compte → 🎟️ J’ai un code d’activation, puis tape le code. Bonne révision !`; return 'https://wa.me/'+(n||'')+'?text='+encodeURIComponent(t); }
+function codesCard(){
+  const f = UI.codesF||'libres', L=(CODES||[]).filter(c=>f==='tous'||(f==='libres'&&!c.utilise_at&&!c.annule)||(f==='utilises'&&c.utilise_at)||(f==='annules'&&c.annule&&!c.utilise_at));
+  const n = k=>(CODES||[]).filter(c=>k==='libres'?!c.utilise_at&&!c.annule:k==='utilises'?!!c.utilise_at:c.annule&&!c.utilise_at).length;
+  const ligne = c=>`<div class="coderow ${c.utilise_at?'used':c.annule?'off':''}"><div class="cc"><b class="code">${esc(c.code)}</b><small>${esc(c.plan_nom||planNom(c.plan))}${c.note?' · '+esc(c.note):''} · créé le ${dfr(c.cree_at,{day:'numeric',month:'short'})}</small>
+      ${c.utilise_at?`<small class="ok">✅ Utilisé par ${esc(c.eleve||'un élève')} le ${dfr(c.utilise_at,{day:'numeric',month:'short'})} à ${hfr(c.utilise_at)}</small>`:c.annule?'<small class="bad">Annulé</small>':''}</div>
+      ${!c.utilise_at&&!c.annule?`<div class="row" style="flex-wrap:wrap;gap:6px"><button class="btn sm" data-ccopy="${esc(c.code)}">Copier</button><button class="btn sm wa" data-cwa="${esc(c.code)}" data-cplan="${esc(c.plan_nom||planNom(c.plan))}">💬 WhatsApp</button><button class="btn sm" data-cann="${esc(c.code)}">Annuler</button></div>`:''}</div>`;
+  return `<div class="card" style="margin-top:18px" id="codes"><div class="cardhead"><div class="grow"><h3>🎟️ Codes d’activation</h3><p class="sub">Un code = un pass Premium, utilisable une seule fois. Envoyez-le par WhatsApp à l’élève qui a payé (Mobile Money, espèces, revendeur, cadeau) : il le tape dans l’appli et son Premium s’active aussitôt.</p></div></div>
+    ${MODE!=='supabase'?`<div class="msg warn">Connectez le tableau de bord à Supabase pour créer des codes.</div>`:CODES_ERR?`<div class="msg bad">${esc(CODES_ERR)}</div>`:`
+    <div class="codeform"><div><label class="lbl" for="cplan">Pass</label><select class="field" id="cplan">${DB.plans.filter(p=>p.actif).map(p=>`<option value="${esc(p.id)}">${esc(p.nom)} · ${p.jours} jours</option>`).join('')}</select></div>
+      <div><label class="lbl" for="cnb">Nombre de codes</label><input class="field" id="cnb" type="number" min="1" max="200" value="1" style="max-width:110px"></div>
+      <div style="flex:1 1 220px"><label class="lbl" for="cnote">Note (facultatif)</label><input class="field" id="cnote" maxlength="120" placeholder="Ex. Awa K. · payé en espèces"></div>
+      <div style="align-self:flex-end"><button class="btn pri" id="cgo">Créer</button></div></div>
+    ${CODES_NEUFS.length?`<div class="codesneufs"><b>Codes créés :</b> ${CODES_NEUFS.length} <button class="btn sm" id="ccopyall">Tout copier</button><div class="row" style="gap:6px;flex-wrap:wrap;margin-top:8px">${CODES_NEUFS.map(c=>`<span class="code big">${esc(c)}</span>`).join('')}</div>
+      <label class="lbl" for="ctel" style="margin-top:10px">Numéro WhatsApp de l’élève (facultatif, pour envoyer directement)</label><input class="field" id="ctel" inputmode="tel" placeholder="Ex. 07 01 02 03 04" style="max-width:260px"></div>`:''}
+    <div class="chips" style="margin:14px 0 10px">${[['libres','Disponibles'],['utilises','Utilisés'],['annules','Annulés'],['tous','Tous']].map(([v,l])=>`<button class="chip ${f===v?'on':''}" data-cf="${v}">${l}${v!=='tous'?' · '+n(v):''}</button>`).join('')}<button class="btn sm" id="creload" style="margin-left:auto">Actualiser</button></div>
+    <div class="codelist">${CODES===null?'<p class="sub">Chargement…</p>':L.map(ligne).join('')||'<p class="sub">Aucun code dans cette liste.</p>'}</div>`}
+  </div>`;
+}
+function bindCodes(){
+  if(MODE!=='supabase') return;
+  if(CODES===null){ chargerCodes().then(()=>{ if(page==='paiements') render(); }); return; }
+  const cp = t=>{ try{ navigator.clipboard.writeText(t); toast('Copié.'); }catch(e){ toast(t); } };
+  document.querySelectorAll('[data-cf]').forEach(b=>b.onclick=()=>{ UI.codesF=b.dataset.cf; render(); });
+  if($('#creload')) $('#creload').onclick=async()=>{ await chargerCodes(); render(); toast('Codes à jour.'); };
+  if($('#cgo')) $('#cgo').onclick=async()=>{ const nb=Math.max(1,Math.min(200,+$('#cnb').value||1)), pl=$('#cplan').value, note=$('#cnote').value.trim(); $('#cgo').disabled=true;
+    try{ const {data,error}=await SB.rpc('creer_codes',{p_plan:pl,p_nombre:nb,p_note:note}); if(error) throw error; if(!data||!data.ok) throw new Error('Création refusée ('+(data&&data.raison||'?')+').');
+      CODES_NEUFS=data.codes||[]; audit(`${CODES_NEUFS.length} code${CODES_NEUFS.length>1?'s':''} d’activation créé${CODES_NEUFS.length>1?'s':''}`, data.plan+(note?' · '+note:'')); await chargerCodes(); render(); toast(`${CODES_NEUFS.length} code${CODES_NEUFS.length>1?'s':''} créé${CODES_NEUFS.length>1?'s':''}.`);
+    }catch(e){ toast(frErr(e)); $('#cgo').disabled=false; } };
+  if($('#ccopyall')) $('#ccopyall').onclick=()=>cp(CODES_NEUFS.join('\n'));
+  document.querySelectorAll('[data-ccopy]').forEach(b=>b.onclick=()=>cp(b.dataset.ccopy));
+  document.querySelectorAll('[data-cwa]').forEach(b=>b.onclick=()=>{ const tel=($('#ctel')||{}).value||''; window.open(waCode(b.dataset.cwa,b.dataset.cplan,tel),'_blank','noopener'); });
+  document.querySelectorAll('.codesneufs .code').forEach(el=>el.onclick=()=>cp(el.textContent));
+  document.querySelectorAll('[data-cann]').forEach(b=>b.onclick=()=>confirmModal('Annuler ce code ?',`Le code ${b.dataset.cann} ne pourra plus être utilisé.`,'Annuler le code',async()=>{ closeModal(); try{ const {error}=await SB.rpc('annuler_code',{p_code:b.dataset.cann}); if(error) throw error; audit('Code d’activation annulé', b.dataset.cann); await chargerCodes(); render(); toast('Code annulé.'); }catch(e){ toast(frErr(e)); } }));
+}
 AFTER.paiements = ()=>{
+  bindCodes();
   document.querySelectorAll('[data-pay]').forEach(b=>b.onclick=()=>{ UI.pay=b.dataset.pay; render(); });
   if($('#payreload')) $('#payreload').onclick = async ()=>{ try{ toast('Actualisation…'); await refreshTables(); render(); toast('Paiements à jour.'); }catch(e){ toast(frErr(e)); } };
   $('#paycsv').onclick = ()=>{ const L=DB.payments||[]; const rows=[['date','eleve','email','pass','montant_fcfa','moyen','numero_payeur','reference','statut','motif']].concat(L.map(x=>{const p=api.get('profiles',x.user_id);return [x.created_at.slice(0,16).replace('T',' '),p?fullName(p):'',p&&p.email||'',planNom(x.plan),x.montant_xof,(OPS[x.operateur]||[x.operateur])[0],x.telephone,x.reference,x.statut,x.motif||'']}));
@@ -1492,7 +1569,7 @@ function courseCard(m){
     <div class="ctop"><input type="checkbox" data-csel="${mk}" ${sel?'checked':''} aria-label="Sélectionner ${esc(m.nom)}"><div style="flex:1;min-width:0"><h4>${esc(m.nom)}</h4>
       <div class="cmeta">${(m.niv||[]).map(n=>`<span class="tag">${esc(n)}</span>`).join('')}${fil?`<span class="tag">${esc(fil)}</span>`:''}<span class="tag">${fmt(m.q)} questions</span><span class="tag">${ns} sujet${ns>1?'s':''}</span></div></div></div>
     <div class="big3" role="radiogroup" aria-label="Accès : ${esc(m.nom)}">${['gratuit','premium','masque'].map(v=>`<button role="radio" aria-checked="${e.acces===v}" class="${v} ${e.acces===v?'on':''}" data-cset="${mk}" data-v="${v}">${COUR_ST[v][0]} ${COUR_ST[v][1]}</button>`).join('')}</div>
-    ${e.acces==='premium'?`<div class="trial">🎁 Sujets d’essai gratuits <span class="step"><button data-cq="${mk}" data-max="${ns}" data-d="-1" aria-label="Un sujet d’essai de moins" ${q<=0?'disabled':''}>−</button><b aria-live="polite">${q}</b><button data-cq="${mk}" data-max="${ns}" data-d="1" aria-label="Un sujet d’essai de plus" ${q>=ns?'disabled':''}>+</button></span><span class="cnote" style="font-weight:500">sur ${ns}</span></div>`:''}
+    ${e.acces==='premium'?`<div class="trial">🎁 Sujets d’essai gratuits <span class="step"><button data-cq="${mk}" data-max="${ns}" data-d="-1" aria-label="Un sujet d’essai de moins" ${q<=0?'disabled':''}>−</button><b aria-live="polite">${q}</b><button data-cq="${mk}" data-max="${ns}" data-d="1" aria-label="Un sujet d’essai de plus" ${q>=ns?'disabled':''}>+</button></span><span class="cnote" style="font-weight:500">sur ${ns}</span></div>${qgCard(mk, ns, m.q)}`:''}
     <div class="cfoot">${src?`<span class="cnote">${src}</span>`:''}${own?`<button class="lnk" data-creset="${mk}">↺ Revenir au réglage général</button>`:''}<span style="flex:1"></span><button class="lnk" data-cfine="${mk}" aria-expanded="${fine}">${fine?'Fermer':'Réglages fins'}</button></div>
     ${fine?`<div class="fine">${matBody(m)}</div>`:''}
   </article>`;
@@ -1527,6 +1604,9 @@ AFTER.acces = ()=>{
   q('[data-cq]').forEach(b=>b.onclick=()=>{ const k=b.dataset.cq, max=+b.dataset.max, v=Math.max(0, Math.min(max, Math.min(quotaOf(k),max) + (+b.dataset.d))); const R=DB.access.regles;
     if(R[k]) R[k].quotaGratuit=v; else R[k]={acces:effective(k).acces, quotaGratuit:v};
     DB.access.version++; DB.access.misAJour=new Date().toISOString(); audit(`Sujets d’essai gratuits : ${v}`, labelOf(k)); render(); });
+  q('[data-qgn]').forEach(b=>b.onclick=()=>{ const k=b.dataset.qgn; setQg(k,{n:qgOf(k).n+(+b.dataset.d)}); render(); });
+  q('[data-qgv]').forEach(b=>b.onchange=()=>{ const k=b.dataset.qgv; setQg(k,{n:b.value}); toast(`🎁 ${qgOf(k).n} question(s) gratuite(s) · ${labelOf(k)}`); render(); });
+  q('[data-qgm]').forEach(b=>b.onclick=()=>{ const k=b.dataset.qgm; setQg(k,{mode:b.dataset.v}); render(); });
   q('[data-csel]').forEach(b=>b.onchange=()=>{ const k=b.dataset.csel; b.checked?C.sel.add(k):C.sel.delete(k); render(); });
   q('[data-cfine]').forEach(b=>b.onclick=()=>{ const k=b.dataset.cfine; C.fine.has(k)?C.fine.delete(k):C.fine.add(k); render(); });
   q('[data-cst]').forEach(b=>b.onclick=()=>{ C.st = C.st===b.dataset.cst ? 'tous' : b.dataset.cst; render(); });
@@ -1541,7 +1621,7 @@ AFTER.acces = ()=>{
   if($('#creset')) $('#creset').onclick=()=>{ Object.assign(C,{q:'',an:'tous',fil:'tous',st:'tous'}); render(); };
   const adv=$('#advbox'); if(adv) adv.ontoggle=()=>{ C.adv=adv.open; };
   $('#expcfg').onclick=()=>{ download('access-config.json', exportConfig()); toast('access-config.json téléchargé.'); };
-  $('#impcfg').onclick=()=>pickFile(obj=>{ if(!obj || typeof obj.regles!=='object'){ toast('Ce fichier ne contient pas de règles d’accès.'); return; } DB.access.regles=obj.regles; DB.access.defaut=obj.defaut==='premium'?'premium':'gratuit'; DB.access.version=(obj.version||DB.access.version)+1; DB.access.misAJour=new Date().toISOString(); audit('Règles importées','access-config.json'); toast('Règles importées.'); render(); });
+  $('#impcfg').onclick=()=>pickFile(obj=>{ if(!obj || typeof obj.regles!=='object'){ toast('Ce fichier ne contient pas de règles d’accès.'); return; } DB.access.regles=obj.regles; DB.access.questions=(obj.questions&&typeof obj.questions==='object')?obj.questions:{}; DB.access.defaut=obj.defaut==='premium'?'premium':'gratuit'; DB.access.version=(obj.version||DB.access.version)+1; DB.access.misAJour=new Date().toISOString(); audit('Règles importées','access-config.json'); toast('Règles importées.'); render(); });
   $('#preview').onclick = previewModal;
   if($('#orph')) $('#orph').onclick = ()=>{ const L=orphans(); confirmModal('Nettoyer les règles sans cours ?', `${L.length} règle(s) visent des cours qui n’existent plus dans le portail (anciens identifiants de test). Elles seront supprimées.`, 'Supprimer ces règles', ()=>{ L.forEach(k=>delete DB.access.regles[k]); DB.access.version++; DB.access.misAJour=new Date().toISOString(); audit('Règles sans cours supprimées', L.length+' règles'); render(); }); };
 };
@@ -1698,6 +1778,7 @@ VIEWS.signalements = ()=>{
     ${MODE==='supabase'&&notif==='default'?`<button class="btn pri" id="notifon">Activer les notifications</button>`:''}
     ${MODE==='supabase'&&notif==='denied'?`<span class="cnote">Notifications bloquées par le navigateur (cadenas de la barre d’adresse).</span>`:''}
   </div>
+  ${waDestCard()}
   <div class="chips" style="margin-bottom:14px">${tabs.map(([v,l])=>`<button class="chip ${st===v?'on':''}" data-sig="${v}">${l} · ${cnt(v)}</button>`).join('')}</div>
   <div class="siglist">${L.map(r=>{ const p=api.get('profiles',r.user_id); const qui = p?esc(fullName(p)):r.eleve?esc(r.eleve):r.appareil?'Élève anonyme ('+esc(String(r.appareil).slice(4,10))+')':'Élève anonyme';
     return `<article class="sigcard st-${esc(r.statut)}">
@@ -1713,6 +1794,30 @@ VIEWS.signalements = ()=>{
     </div>
   </article>`; }).join('') || `<div class="cempty">${st==='corrige'?'Aucun signalement corrigé pour l’instant.':'Rien à traiter ici. Les nouveaux signalements des élèves apparaîtront dans cette liste.'}</div>`}</div>`;
 };
+/* numéro WhatsApp qui reçoit les signalements : gardé côté serveur (secrets_internes), lu et changé par l'admin seulement */
+const WADEST = {charge:false, v:'', etat:'', msg:''};
+function waDestFmt(n){ n=String(n||''); return n.startsWith('225')&&n.length===13 ? '+225 '+n.slice(3).replace(/(\d{2})(?=\d)/g,'$1 ') : (n?'+'+n:''); }
+function waDestCard(){
+  const off = MODE!=='supabase';
+  return `<div class="card wadest" id="wadest"><div class="row wrap" style="align-items:flex-end;gap:10px">
+    <div style="flex:1;min-width:220px"><label class="lbl" for="wadn">📲 Numéro WhatsApp qui reçoit les signalements</label>
+      <input class="field" id="wadn" inputmode="tel" autocomplete="off" placeholder="07 00 00 00 00" value="${esc(waDestFmt(WADEST.v))}" ${off?'disabled':''}></div>
+    <button class="btn pri" id="wadok" ${off?'disabled':''}>Enregistrer</button>${WADEST.v?`<button class="btn" id="wadx" ${off?'disabled':''}>Effacer</button>`:''}</div>
+    <p class="cnote" style="margin:8px 0 0">${off?'Connectez-vous avec le compte administrateur pour régler ce numéro.':WADEST.etat==='erreur'?'⚠️ '+esc(WADEST.msg):WADEST.v?`Les alertes partent vers ${esc(waDestFmt(WADEST.v))}. Ce numéro doit être ajouté dans « À / To » chez Meta (WhatsApp → Configuration de l’API).`:'Vide : la fonction utilise le secret WHATSAPP_DEST de Supabase. Saisissez un numéro (10 chiffres ivoiriens ou avec l’indicatif).'}</p></div>`;
+}
+async function waDestCharger(){
+  if(MODE!=='supabase' || !SB || WADEST.charge) return; WADEST.charge = true;
+  try{ const {data, error} = await SB.rpc('lire_whatsapp_signalements'); if(error) throw error; WADEST.v = data||''; WADEST.etat=''; }
+  catch(e){ WADEST.etat='erreur'; WADEST.msg = /function|schema cache|does not exist/i.test(String(e.message||e)) ? 'Réglage pas encore installé : exécutez signalements/1_signalements.sql dans Supabase (SQL Editor).' : frErr(e); }
+  if(page==='signalements') render();
+}
+async function waDestEnregistrer(v){
+  try{ const {data, error} = await SB.rpc('regler_whatsapp_signalements', {p_numero:v}); if(error) throw error;
+    if(!data || !data.ok){ toast(data&&data.raison==='format' ? 'Numéro invalide : 10 chiffres, ou l’indicatif + le numéro.' : 'Réservé à l’administrateur.'); return; }
+    WADEST.v = data.numero||''; WADEST.etat=''; audit(WADEST.v?'Numéro WhatsApp des signalements : '+waDestFmt(WADEST.v):'Numéro WhatsApp des signalements effacé','Signalements');
+    toast(WADEST.v ? '📲 Signalements envoyés vers '+waDestFmt(WADEST.v) : 'Numéro effacé : retour au secret WHATSAPP_DEST.'); render();
+  }catch(e){ WADEST.etat='erreur'; WADEST.msg = /function|schema cache|does not exist/i.test(String(e.message||e)) ? 'Réglage pas encore installé : exécutez signalements/1_signalements.sql dans Supabase (SQL Editor).' : frErr(e); render(); }
+}
 function editeurUrl(){ return String(getCfg().editeur || EDITEUR_DEFAUT).trim().replace(/\/?$/,'/'); }
 const EDITEUR_DEFAUT = 'https://qidevelloper-cpu.github.io/revision-infas-editeur/';
 const PHOTOS = {};   // chemin → lien signé (1 h), pour ne pas le redemander à chaque affichage
@@ -1724,6 +1829,10 @@ async function photoUrl(path){
   PHOTOS[path] = {u:data.signedUrl, t:Date.now()}; return data.signedUrl;
 }
 AFTER.signalements = ()=>{
+  waDestCharger();
+  if($('#wadok')) $('#wadok').onclick = ()=>waDestEnregistrer($('#wadn').value);
+  if($('#wadn')) $('#wadn').onkeydown = e=>{ if(e.key==='Enter') waDestEnregistrer($('#wadn').value); };
+  if($('#wadx')) $('#wadx').onclick = ()=>waDestEnregistrer('');
   document.querySelectorAll('[data-sig]').forEach(b=>b.onclick=()=>{ UI.sig=b.dataset.sig; render(); });
   document.querySelectorAll('[data-photo]').forEach(async el=>{ const u = await photoUrl(el.dataset.photo);
     el.innerHTML = u ? `<a href="${esc(u)}" target="_blank" rel="noopener" title="Agrandir"><img src="${esc(u)}" alt="Photo envoyée par l’élève" loading="lazy"></a>` : `<span class="cnote">📷 Photo jointe (visible une fois connecté à Supabase).</span>`; });
@@ -1861,6 +1970,7 @@ function payCard(){
       ${Object.keys(OPS).map(k=>`<div><label class="lbl" for="pn-${k}"><span class="dot" style="background:${OPS[k][1]}"></span> ${OPS[k][0]}</label><input class="field" id="pn-${k}" data-num="${k}" inputmode="tel" placeholder="Ex. 07 00 00 00 00" value="${esc(c.numeros[k]||'')}"></div>`).join('')}
       <div><label class="lbl" for="pnom">Nom affiché pour le bénéficiaire</label><input class="field" id="pnom" maxlength="60" placeholder="Ex. Daniel N." value="${esc(c.nom||'')}"></div>
       <div><label class="lbl" for="pcons">Consigne (facultatif)</label><input class="field" id="pcons" maxlength="160" placeholder="Ex. Validation dans la journée" value="${esc(c.consigne||'')}"></div>
+      <div><label class="lbl" for="pcontact">💬 WhatsApp de l’administrateur (les élèves vous écrivent pour recevoir leur code)</label><input class="field" id="pcontact" inputmode="tel" placeholder="Ex. 07 00 00 00 00" value="${esc(c.contact||'')}"></div>
     </div>
     <p class="sub" style="margin-top:10px">${c.actif?'✅ Les élèves connectés voient le bouton « Payer par Mobile Money ».':'Le paiement est fermé : les élèves voient « Le paiement arrive bientôt ».'} Les changements arrivent dans l’appli à sa prochaine ouverture.</p></div>`;
 }
@@ -1869,6 +1979,7 @@ function bindPayCard(){
   document.querySelectorAll('[data-num]').forEach(el=>el.onchange=()=>{ const v=el.value.trim(); if(v && v.replace(/[^0-9]/g,'').length<8){ toast('Numéro trop court.'); return; } DB.paiementCfg.numeros[el.dataset.num]=v; save(OPS[el.dataset.num][0]); render(); });
   $('#pnom').onchange=e=>{ DB.paiementCfg.nom=e.target.value.trim(); save('Bénéficiaire'); };
   $('#pcons').onchange=e=>{ DB.paiementCfg.consigne=e.target.value.trim(); save('Consigne'); };
+  $('#pcontact').onchange=e=>{ const v=e.target.value.trim(); if(v && v.replace(/[^0-9]/g,'').length<8){ toast('Numéro trop court.'); return; } DB.paiementCfg.contact=v; save('WhatsApp de l’administrateur'); };
   $('#payon').onchange=e=>{ const c=DB.paiementCfg; if(e.target.checked && !Object.values(c.numeros).some(Boolean)){ e.target.checked=false; toast('Renseigne au moins un numéro avant d’ouvrir le paiement.'); return; } c.actif=e.target.checked; save(c.actif?'Paiement ouvert':'Paiement fermé'); render(); };
 }
 function sbMsg(kind, text){ const el=$('#sbmsg'); if(el) el.innerHTML = `<div class="msg ${kind}">${esc(text)}</div>`; }
