@@ -366,6 +366,20 @@ details.adv>summary{cursor:pointer;font-weight:700;font-size:18px;padding:12px 0
 details.adv .accgrid .card{box-shadow:none;border:1px solid var(--line)}
 .cempty{padding:30px;text-align:center;color:var(--muted);font-size:16px;background:var(--card);border-radius:var(--r-lg)}
 @media (max-width:860px){.cstat{gap:8px}.cstat button{padding:12px}.cstat b{font-size:28px}.cstat span{font-size:14px}.cgrid{grid-template-columns:1fr}.big3 button{font-size:15px;padding:12px 2px}}
+
+/* ---------- signalements ---------- */
+.sigalert{display:flex;gap:14px;align-items:center;flex-wrap:wrap;border-radius:var(--r-lg);padding:14px 18px;margin-bottom:16px;border:2px solid color-mix(in srgb,var(--green) 45%,transparent);background:color-mix(in srgb,var(--green) 8%,var(--card))}
+.sigalert.off{border-color:color-mix(in srgb,var(--amber) 50%,transparent);background:color-mix(in srgb,var(--amber) 10%,var(--card))}
+.sigalert .si{font-size:26px}.sigalert b{font-size:16.5px;display:block}.sigalert p{margin:3px 0 0;font-size:15px}
+.siglist{display:grid;gap:12px}
+.sigcard{background:var(--card);border-radius:18px;box-shadow:var(--shadow);padding:16px 18px;border-left:7px solid var(--red)}
+.sigcard.st-en-cours{border-left-color:var(--amber)}.sigcard.st-corrige{border-left-color:var(--green)}
+.sighead{display:flex;gap:6px 12px;flex-wrap:wrap;align-items:baseline}.sighead b{font-size:18px;flex:1 1 220px}
+.sigq,.sigmsg{border-radius:12px;padding:10px 14px;margin-top:10px;font-size:15.5px;line-height:1.5}
+.sigq{background:var(--soft)}.sigmsg{background:color-mix(in srgb,var(--amber) 10%,transparent);font-weight:600}
+.sigq .lab,.sigmsg .lab{display:block;font-size:13px;font-weight:700;color:var(--muted);margin-bottom:3px;text-transform:uppercase;letter-spacing:.03em}
+.sigph{margin-top:10px}.sigph img{max-width:min(100%,420px);max-height:320px;border-radius:12px;display:block;border:1px solid var(--line)}
+a.btn{text-decoration:none}
 </style>
 </head>
 <body>
@@ -560,8 +574,8 @@ const MAP = [
     to:e=>({id:e.id, user_id:e.user_id, plan:e.plan, starts_at:e.start, ends_at:e.end, source:e.source, note:e.note||''}),
     from:r=>({id:r.id, user_id:r.user_id, plan:r.plan, start:r.starts_at, end:r.ends_at, source:r.source, note:r.note||''})},
   {k:'reports', t:'reports', id:'id',
-    to:r=>({id:r.id, user_id:r.user_id||null, mat:r.mat, question:r.question, message:r.message, statut:r.statut, note:r.note||'', created_at:r.date, appareil:r.appareil||null, qid:r.qid||null}),
-    from:r=>({id:r.id, user_id:r.user_id, mat:r.mat, question:r.question, message:r.message, statut:r.statut, note:r.note||'', date:r.created_at, appareil:r.appareil||null, qid:r.qid||null})},
+    to:r=>Object.assign({id:r.id, user_id:r.user_id||null, mat:r.mat, question:r.question, message:r.message, statut:r.statut, note:r.note||'', created_at:r.date, appareil:r.appareil||null, qid:r.qid||null}, r.photo!=null?{photo:r.photo}:{}, r.eleve!=null?{eleve:r.eleve}:{}),
+    from:r=>Object.assign({id:r.id, user_id:r.user_id, mat:r.mat, question:r.question, message:r.message, statut:r.statut, note:r.note||'', date:r.created_at, appareil:r.appareil||null, qid:r.qid||null}, r.photo!=null?{photo:r.photo}:{}, r.eleve!=null?{eleve:r.eleve}:{})},
   {k:'announcements', t:'announcements', id:'id',
     to:a=>({id:a.id, titre:a.titre, texte:a.texte, cible:a.cible, couleur:a.couleur, du:a.du, au:a.au, actif:!!a.actif}),
     from:r=>({id:r.id, titre:r.titre, texte:r.texte, cible:r.cible, couleur:r.couleur, du:r.du, au:r.au, actif:r.actif})},
@@ -1003,7 +1017,7 @@ function renderPhase(){
     <div class="steps" aria-label="Avancement : phase ${n} sur 5">${[1,2,3,4,5].map(i=>`<i class="${i<=n?'done':''}"></i>`).join('')}</div>`;
   $('#mename').textContent = ADMIN_NAME;
 }
-function go(p){ if(!DB) return; page=p; $('#crumb').textContent = PAGES.find(x=>x.id===p).nom; closeSide(); render(); window.scrollTo({top:0}); try{ history.replaceState(null,'','#'+p); }catch(e){} }
+function go(p){ if(!DB) return; page=p; if(p==='signalements'){ sigNonVus=0; document.title=SIG_TITRE; } $('#crumb').textContent = PAGES.find(x=>x.id===p).nom; closeSide(); render(); window.scrollTo({top:0}); try{ history.replaceState(null,'','#'+p); }catch(e){} }
 function render(){ if(!DB) return; renderNav(); const v=$('#view'); v.innerHTML = VIEWS[page](); if(AFTER[page]) AFTER[page](); }
 document.addEventListener('click', e=>{ const b=e.target.closest('[data-page]'); if(b) go(b.dataset.page); });
 function closeSide(){ $('#side').classList.remove('on'); if(!$('#drawer').classList.contains('on') && !$('#modal').classList.contains('on')) $('#scrim').classList.remove('on'); }
@@ -1672,19 +1686,47 @@ function annonceModal(a){
 VIEWS.signalements = ()=>{
   const st = UI.sig, cnt = s=>DB.reports.filter(r=>r.statut===s).length;
   const L = DB.reports.filter(r=>r.statut===st).sort((a,b)=>new Date(b.date)-new Date(a.date));
-  const tabs = [['nouveau','Nouveaux'],['en-cours','En cours'],['corrige','Corrigés']];
-  return headHTML('Signalements', 'Erreurs de questions remontées par les élèves.', demoTag()) + `
+  const tabs = [['nouveau','🚩 Nouveaux'],['en-cours','🛠️ En cours'],['corrige','✅ Corrigés']];
+  const notif = ('Notification' in window) ? Notification.permission : 'absent';
+  return headHTML('Signalements', 'Erreurs de questions envoyées par les élèves, avec leur photo. Touchez « Corriger dans l’éditeur » pour ouvrir directement la question.', demoTag()) + `
+  <div class="sigalert ${MODE==='supabase'?'':'off'}">
+    <span class="si" aria-hidden="true">🔔</span>
+    <div style="flex:1;min-width:200px"><b>${MODE==='supabase'?'Alertes en direct activées':'Alertes en direct indisponibles'}</b>
+      <p>${MODE==='supabase'?'Tant que ce tableau de bord est ouvert, chaque nouveau signalement s’affiche ici en moins d’une minute, avec un son'+(notif==='granted'?' et une notification de l’ordinateur.':'.')+' Vous le recevez aussi sur WhatsApp.':'Connectez-vous au compte administrateur pour recevoir les signalements des élèves.'}</p></div>
+    ${MODE==='supabase'&&notif==='default'?`<button class="btn pri" id="notifon">Activer les notifications</button>`:''}
+    ${MODE==='supabase'&&notif==='denied'?`<span class="cnote">Notifications bloquées par le navigateur (cadenas de la barre d’adresse).</span>`:''}
+  </div>
   <div class="chips" style="margin-bottom:14px">${tabs.map(([v,l])=>`<button class="chip ${st===v?'on':''}" data-sig="${v}">${l} · ${cnt(v)}</button>`).join('')}</div>
-  <div class="card">${L.map(r=>{ const p=api.get('profiles',r.user_id); return `<div class="report">
-    <div class="row wrap"><b style="flex:1">${esc(matName(r.mat))}</b><span class="muted" style="font-size:13px">${p?esc(fullName(p))+' · ':r.appareil?'Élève anonyme ('+esc(r.appareil.slice(4,10))+') · ':''}${dfr(r.date)} à ${hfr(r.date)}</span></div>
-    <q>${esc(r.question)}</q>${r.qid?`<div class="muted" style="font-size:12px">Question n° ${esc(r.qid)}</div>`:''}
-    <div style="font-size:14px">${esc(r.message)}</div>
-    ${r.note?`<div class="muted" style="font-size:13px;margin-top:4px">Note : ${esc(r.note)}</div>`:''}
-    <div class="row wrap" style="margin-top:10px">${r.statut!=='en-cours'&&r.statut!=='corrige'?`<button class="btn sm" data-rs="${r.id}" data-to="en-cours">Prendre en charge</button>`:''}${r.statut!=='corrige'?`<button class="btn sm pri" data-rs="${r.id}" data-to="corrige">Marquer corrigé</button>`:`<button class="btn sm" data-rs="${r.id}" data-to="nouveau">Rouvrir</button>`}</div>
-  </div>`; }).join('') || `<div class="empty">${st==='corrige'?'Aucun signalement corrigé pour l’instant.':'Rien à traiter ici. Les nouveaux signalements des élèves apparaîtront dans cette liste.'}</div>`}</div>`;
+  <div class="siglist">${L.map(r=>{ const p=api.get('profiles',r.user_id); const qui = p?esc(fullName(p)):r.eleve?esc(r.eleve):r.appareil?'Élève anonyme ('+esc(String(r.appareil).slice(4,10))+')':'Élève anonyme';
+    return `<article class="sigcard st-${esc(r.statut)}">
+    <div class="sighead"><b>${esc(matName(r.mat))}</b><span class="cnote">👤 ${qui} · ${dfr(r.date)} à ${hfr(r.date)}</span></div>
+    <div class="sigq"><span class="lab">Question${r.qid?' n° '+esc(r.qid):''}</span>${esc(r.question)}</div>
+    <div class="sigmsg"><span class="lab">💬 Message de l’élève</span>${esc(r.message).replace(/\n/g,'<br>')}</div>
+    ${r.photo?`<div class="sigph" data-photo="${esc(r.photo)}"><span class="cnote">📷 Chargement de la photo…</span></div>`:''}
+    ${r.note?`<div class="cnote" style="margin-top:6px">📝 Note : ${esc(r.note)}</div>`:''}
+    <div class="row wrap" style="margin-top:12px">
+      ${r.qid?`<a class="btn pri" href="${esc(editeurUrl()+'?q='+encodeURIComponent(r.qid))}" target="_blank" rel="noopener" data-edopen="${r.id}">✏️ Corriger dans l’éditeur</a>`:''}
+      ${r.statut!=='en-cours'&&r.statut!=='corrige'?`<button class="btn" data-rs="${r.id}" data-to="en-cours">Prendre en charge</button>`:''}
+      ${r.statut!=='corrige'?`<button class="btn" data-rs="${r.id}" data-to="corrige">✅ Marquer corrigé</button>`:`<button class="btn" data-rs="${r.id}" data-to="nouveau">Rouvrir</button>`}
+    </div>
+  </article>`; }).join('') || `<div class="cempty">${st==='corrige'?'Aucun signalement corrigé pour l’instant.':'Rien à traiter ici. Les nouveaux signalements des élèves apparaîtront dans cette liste.'}</div>`}</div>`;
 };
+function editeurUrl(){ return String(getCfg().editeur || EDITEUR_DEFAUT).trim().replace(/\/?$/,'/'); }
+const EDITEUR_DEFAUT = 'https://qidevelloper-cpu.github.io/revision-infas-editeur/';
+const PHOTOS = {};   // chemin → lien signé (1 h), pour ne pas le redemander à chaque affichage
+async function photoUrl(path){
+  if(PHOTOS[path] && PHOTOS[path].t > Date.now()-50*60e3) return PHOTOS[path].u;
+  if(MODE!=='supabase' || !SB) return null;
+  const {data, error} = await SB.storage.from('signalements').createSignedUrl(path, 3600);
+  if(error || !data) return null;
+  PHOTOS[path] = {u:data.signedUrl, t:Date.now()}; return data.signedUrl;
+}
 AFTER.signalements = ()=>{
   document.querySelectorAll('[data-sig]').forEach(b=>b.onclick=()=>{ UI.sig=b.dataset.sig; render(); });
+  document.querySelectorAll('[data-photo]').forEach(async el=>{ const u = await photoUrl(el.dataset.photo);
+    el.innerHTML = u ? `<a href="${esc(u)}" target="_blank" rel="noopener" title="Agrandir"><img src="${esc(u)}" alt="Photo envoyée par l’élève" loading="lazy"></a>` : `<span class="cnote">📷 Photo jointe (visible une fois connecté à Supabase).</span>`; });
+  if($('#notifon')) $('#notifon').onclick = async ()=>{ try{ await Notification.requestPermission(); }catch(e){} render(); };
+  document.querySelectorAll('[data-edopen]').forEach(a=>a.addEventListener('click',()=>{ const r=api.get('reports',a.dataset.edopen); if(r && r.statut==='nouveau'){ api.update('reports',r.id,{statut:'en-cours'}); audit('Signalement pris en charge (éditeur ouvert)', matName(r.mat)); setTimeout(render,300); } }));
   document.querySelectorAll('[data-rs]').forEach(b=>b.onclick=()=>{
     const r = api.get('reports',b.dataset.rs), to=b.dataset.to;
     if(to==='corrige'){
@@ -1693,6 +1735,28 @@ AFTER.signalements = ()=>{
     } else { api.update('reports',r.id,{statut:to}); audit(to==='en-cours'?'Signalement pris en charge':'Signalement rouvert', matName(r.mat)); render(); }
   });
 };
+
+/* ---------- alertes en direct : nouveaux signalements (toutes les 45 s, tableau de bord ouvert) ---------- */
+let SIG_TITRE = document.title, sigNonVus = 0;
+function bip(){ try{ const A=new (window.AudioContext||window.webkitAudioContext)(), o=A.createOscillator(), g=A.createGain(); o.connect(g); g.connect(A.destination); o.frequency.value=880; g.gain.setValueAtTime(.0001,A.currentTime); g.gain.exponentialRampToValueAtTime(.25,A.currentTime+.02); g.gain.exponentialRampToValueAtTime(.0001,A.currentTime+.5); o.start(); o.stop(A.currentTime+.55); }catch(e){} }
+async function veilleSignalements(){
+  if(MODE!=='supabase' || !SB || !DB) return;
+  try{
+    const depuis = DB.reports.reduce((m,r)=>r.date>m?r.date:m, '1970-01-01T00:00:00Z');
+    const {data, error} = await SB.from('reports').select('*').gt('created_at', depuis).order('created_at',{ascending:true}).limit(50);
+    if(error || !data || !data.length) return;
+    const m = MAP.find(x=>x.k==='reports'), neufs = data.filter(r=>!DB.reports.some(x=>x.id===r.id)).map(m.from);
+    if(!neufs.length) return;
+    neufs.forEach(o=>{ DB.reports.push(o); (SNAP.reports = SNAP.reports || new Map()).set(o.id, JSON.stringify(m.to(o))); });
+    sigNonVus += neufs.length; document.title = `(${sigNonVus}) 🚩 ${SIG_TITRE}`;
+    const r = neufs[neufs.length-1], t = `🚩 Nouveau signalement · ${matName(r.mat)}`;
+    toast(t + (neufs.length>1?` (+${neufs.length-1})`:'')); bip();
+    if('Notification' in window && Notification.permission==='granted'){ try{ const n = new Notification(t, {body:String(r.message||'').slice(0,140), tag:'ri-signalement'}); n.onclick=()=>{ window.focus(); go('signalements'); n.close(); }; }catch(e){} }
+    if(page==='signalements') render(); else renderNav();
+  }catch(e){}
+}
+setInterval(()=>{ veilleSignalements(); }, 45e3);
+document.addEventListener('visibilitychange', ()=>{ if(!document.hidden){ veilleSignalements(); if(page==='signalements'){ sigNonVus=0; document.title=SIG_TITRE; } } });
 
 /* =========================================================
    14. RÉGLAGES
@@ -1737,6 +1801,7 @@ function regle(cle, config) {
   <div class="card" style="margin-top:18px"><div class="cardhead"><div class="grow"><h3>Liste des cours</h3><p class="sub">Relue dans le portail publié à chaque ouverture du tableau de bord</p></div><button class="btn sm" id="catreload">Recharger</button></div>
     <div class="kv"><span>Source</span><b>${CAT_INFO.source==='portail'?'Portail publié':CAT_INFO.source==='cache'?'Dernière liste reçue (hors ligne)':'Liste intégrée au tableau de bord'}</b><span>Publiée le</span><b>${CAT_INFO.genere?dfr(CAT_INFO.genere)+' à '+hfr(CAT_INFO.genere):'—'}</b><span>Contenu</span><b>${CATALOGUE.length} rubriques · ${CATALOGUE.reduce((a,r)=>a+r.matieres.length,0)} cours</b>${CAT_INFO.erreur?`<span>Dernier essai</span><b style="color:var(--red)">${esc(CAT_INFO.erreur)}</b>`:''}</div>
     <label class="lbl" for="porturl">Adresse du portail publié</label><input class="field" id="porturl" value="${esc(portailUrl())}">
+    <label class="lbl" for="edurl">Adresse de l’éditeur en ligne (bouton « Corriger dans l’éditeur »)</label><input class="field" id="edurl" value="${esc(editeurUrl())}">
   </div>
   ${supabaseCard()}
   <div class="card" style="margin-top:18px"><div class="cardhead"><div class="grow"><h3>Journal des actions</h3><p class="sub">Chaque modification faite dans ce tableau de bord</p></div></div>
@@ -1755,6 +1820,7 @@ AFTER.reglages = ()=>{
   bindSupabaseCard();
   bindPayCard();
   $('#catreload').onclick = async ()=>{ toast('Lecture de la liste des cours…'); const ok = await loadCatalogue(); render(); toast(ok?'Liste des cours à jour.':'Liste non mise à jour : '+CAT_INFO.erreur); };
+  $('#edurl').onchange = e=>{ const v=e.target.value.trim(); setCfg(Object.assign(getCfg(),{editeur:v||EDITEUR_DEFAUT})); toast('Adresse de l’éditeur enregistrée.'); };
   $('#porturl').onchange = e=>{ const v=e.target.value.trim(); setCfg(Object.assign(getCfg(),{portail:v||PORTAIL_DEFAUT})); toast('Adresse enregistrée.'); };
   $('#copysn').onclick=()=>{ const t=AFTER.reglages.snippet; (navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(()=>toast('Code copié.')).catch(()=>toast('Copie impossible : sélectionnez le code à la main.')); };
 };
