@@ -292,6 +292,80 @@ pre.code{background:var(--ink);color:#E9E4FF;border-radius:var(--r-md);padding:1
 .live-list{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
 .live-who{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:99px;padding:4px 12px 4px 4px;font:inherit;font-size:14px;cursor:pointer}
 .live-who .av{width:26px;height:26px;font-size:11px}
+
+/* ---------- lisibilité : texte plus grand et plus contrasté ---------- */
+:root{--muted:#57516F}
+:root[data-theme="dark"]{--muted:#BDB7D6}
+html,body{font-size:16px}
+.card .sub,.feat .ft span,.mathead .mt small,.quota,.summary .s span,.brand small,.phasecard p,.kpi .lab{font-size:14px}
+.navlabel{font-size:13.5px;font-weight:600}
+.nav{font-size:15.5px}
+.pill{font-size:13.5px}.chip{font-size:15px;padding:7px 14px}.btn{font-size:15px}.btn.sm{font-size:14px}
+.seg button{font-size:14px;padding:6px 11px}
+.item .it{font-size:15px}.item .eff{font-size:13.5px}
+.head p{font-size:16px}
+body.bigtxt .app{zoom:1.15}
+.iconbtn.txt{font-weight:800;font-size:15px;width:auto;padding:0 10px}
+
+/* ---------- cours gratuits / Premium ---------- */
+.syncbox{display:flex;gap:14px;align-items:flex-start;border-radius:var(--r-lg);padding:16px 18px;margin:0 0 16px;border:2px solid var(--line);background:var(--card)}
+.syncbox.ok{background:color-mix(in srgb,var(--green) 9%,var(--card));border-color:color-mix(in srgb,var(--green) 45%,transparent)}
+.syncbox.warn{background:color-mix(in srgb,var(--amber) 11%,var(--card));border-color:color-mix(in srgb,var(--amber) 50%,transparent)}
+.syncbox.bad{background:color-mix(in srgb,var(--red) 9%,var(--card));border-color:color-mix(in srgb,var(--red) 45%,transparent)}
+.syncbox .si{font-size:28px;line-height:1.1}
+.syncbox b{font-size:17px;display:block}
+.syncbox p{margin:4px 0 0;font-size:15px;line-height:1.45}
+.cstat{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
+.cstat button{border:2px solid transparent;background:var(--card);box-shadow:var(--shadow);border-radius:var(--r-md);padding:14px 16px;text-align:left}
+.cstat button.on{border-color:var(--ink)}
+.cstat b{font-family:var(--display);font-size:34px;line-height:1;display:block}
+.cstat span{font-size:15px;font-weight:600}
+.cstat .gratuit b{color:var(--free)}.cstat .premium b{color:var(--prem)}.cstat .masque b{color:var(--hidden)}
+.ctool{display:flex;gap:12px 18px;flex-wrap:wrap;align-items:center;background:var(--card);border-radius:var(--r-lg);padding:14px 16px;box-shadow:var(--shadow);margin-bottom:12px}
+.ctool .srch{flex:1 1 260px;display:flex;align-items:center;gap:8px;border:2px solid var(--line);border-radius:12px;padding:8px 12px;background:var(--paper)}
+.ctool .srch:focus-within{border-color:var(--violet)}
+.ctool .srch svg{width:19px;height:19px;flex:none;color:var(--muted)}
+.ctool .srch input{border:0;background:transparent;outline:none;width:100%;font-size:16px}
+.ctool .grp{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.ctool .grp>span{font-size:14px;font-weight:700;color:var(--muted);margin-right:2px}
+.bulk{position:sticky;top:8px;z-index:20;display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:var(--ink);color:var(--paper);border-radius:16px;padding:10px 14px;margin-bottom:12px;box-shadow:0 10px 30px -12px rgba(0,0,0,.45)}
+.bulk b{font-size:16px;flex:1 1 160px}
+.bulk .btn{border:0;background:var(--card);color:var(--ink)}
+.bulk .btn.g{background:var(--free);color:#fff}.bulk .btn.p{background:var(--prem);color:#fff}.bulk .btn.h{background:var(--hidden);color:#fff}
+.crub{margin-top:22px}
+.crubhead{display:flex;align-items:center;gap:8px 12px;flex-wrap:wrap;margin:0 2px 10px}
+.crubhead h2{font-family:var(--display);font-size:23px;margin:0;flex:1 1 200px}
+.crubhead .lab{font-size:14px;color:var(--muted);font-weight:700}
+.cgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px}
+.course{background:var(--card);border-radius:18px;box-shadow:var(--shadow);padding:16px;border:2px solid var(--line);border-top:7px solid var(--free);display:flex;flex-direction:column;gap:12px;min-width:0}
+.course.st-premium{border-top-color:var(--prem)}
+.course.st-masque{border-top-color:var(--hidden)}
+.course.st-masque h4{color:var(--muted)}
+.course.sel{border-color:var(--violet);box-shadow:0 0 0 3px color-mix(in srgb,var(--violet) 25%,transparent)}
+.ctop{display:flex;gap:12px;align-items:flex-start}
+.ctop input[type=checkbox]{width:22px;height:22px;margin:3px 0 0;accent-color:var(--violet);flex:none;cursor:pointer}
+.ctop h4{margin:0;font-size:18px;line-height:1.3;font-weight:700}
+.cmeta{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px}
+.tag{font-size:13.5px;font-weight:600;background:var(--soft);color:var(--ink);border-radius:8px;padding:2px 8px}
+.big3{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.big3 button{border:2px solid var(--line);background:var(--paper);border-radius:12px;padding:11px 4px;font-weight:700;font-size:15.5px;color:var(--muted)}
+.big3 button:hover{border-color:var(--muted);color:var(--ink)}
+.big3 button.on.gratuit{background:var(--free);border-color:var(--free);color:#fff}
+.big3 button.on.premium{background:var(--prem);border-color:var(--prem);color:#fff}
+.big3 button.on.masque{background:var(--hidden);border-color:var(--hidden);color:#fff}
+.trial{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:color-mix(in srgb,var(--prem) 9%,transparent);border-radius:12px;padding:8px 12px;font-size:15px;font-weight:600}
+.step{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:10px;background:var(--card)}
+.step button{border:0;background:transparent;width:36px;height:36px;font-size:20px;font-weight:700;color:var(--ink)}
+.step b{min-width:30px;text-align:center;font-size:17px}
+.cfoot{display:flex;gap:6px 12px;align-items:center;flex-wrap:wrap}
+.cnote{font-size:14px;color:var(--muted)}
+.lnk{border:0;background:transparent;color:var(--violet-ink);font-weight:700;font-size:14.5px;padding:2px 0;text-decoration:underline;text-underline-offset:3px}
+.fine{border-top:1px dashed var(--line);padding-top:4px}
+details.adv{margin-top:28px;background:var(--card);border-radius:var(--r-lg);box-shadow:var(--shadow);padding:4px 18px 14px}
+details.adv>summary{cursor:pointer;font-weight:700;font-size:18px;padding:12px 0}
+details.adv .accgrid .card{box-shadow:none;border:1px solid var(--line)}
+.cempty{padding:30px;text-align:center;color:var(--muted);font-size:16px;background:var(--card);border-radius:var(--r-lg)}
+@media (max-width:860px){.cstat{gap:8px}.cstat button{padding:12px}.cstat b{font-size:28px}.cstat span{font-size:14px}.cgrid{grid-template-columns:1fr}.big3 button{font-size:15px;padding:12px 2px}}
 </style>
 </head>
 <body>
@@ -318,6 +392,7 @@ pre.code{background:var(--ink);color:#E9E4FF;border-radius:var(--r-md);padding:1
       <div class="grow"></div>
       <button class="pill hid syncpill" id="sync" title="Enregistré dans ce navigateur">Données locales</button>
       <div class="signature">Créé par Daniel Noufe · INFAS</div>
+      <button class="iconbtn txt" id="bigtxt" aria-label="Agrandir le texte" title="Agrandir le texte">A+</button>
       <button class="iconbtn" id="theme" aria-label="Changer de thème"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg></button>
       <button class="me" id="me" aria-label="Mon compte"><div class="av">DN</div><span class="nm" style="font-size:14px;font-weight:600" id="mename">Daniel</span></button>
     </div>
@@ -351,6 +426,7 @@ const I = {
   dl:'<path d="M12 4v11m0 0-4-4m4 4 4-4M5 20h14"/>',
   ul:'<path d="M12 20V9m0 0-4 4m4-4 4 4M5 4h14"/>',
   chev:'<path d="m9 6 6 6-6 6"/>',
+  search:'<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
   eye:'<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
   x:'<path d="M6 6l12 12M18 6 6 18"/>',
   phone:'<rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18h2"/>',
@@ -609,6 +685,7 @@ function paintSync(){
   if(MODE!=='supabase'){ el.className='pill hid syncpill'; el.textContent='Données locales'; el.title='Enregistré dans ce navigateur'; return; }
   const m = {ok:['ok','Enregistré dans Supabase'], pending:['warn','Enregistrement…'], error:['bad','Erreur · réessayer']}[syncState];
   el.className = 'pill syncpill '+m[0]; el.textContent = m[1]; el.title = syncMsg || m[1];
+  const sb = document.getElementById('syncbox'); if(sb && page==='acces') sb.outerHTML = syncBox();
 }
 window.addEventListener('beforeunload', e=>{ if(MODE==='supabase' && (syncState==='pending' || syncing)){ e.preventDefault(); e.returnValue=''; } });
 
@@ -903,7 +980,7 @@ const PAGES = [
   {id:'overview', nom:'Vue d’ensemble', icon:'home', grp:1},
   {id:'eleves', nom:'Élèves', icon:'users', grp:1, count:()=>DB.profiles.length},
   {id:'paiements', nom:'Paiements', icon:'card', grp:1, count:()=>(DB.payments||[]).filter(x=>x.statut==='a_verifier').length},
-  {id:'acces', nom:'Contenu et accès', icon:'lock', grp:1},
+  {id:'acces', nom:'Cours gratuits / Premium', icon:'lock', grp:1},
   {id:'engagement', nom:'Engagement', icon:'chart', grp:2},
   {id:'annonces', nom:'Annonces', icon:'bell', grp:2, count:()=>DB.announcements.filter(a=>annonceLive(a)).length},
   {id:'signalements', nom:'Signalements', icon:'flag', grp:2, count:()=>DB.reports.filter(r=>r.statut!=='corrige').length},
@@ -911,7 +988,7 @@ const PAGES = [
 ];
 const VIEWS = {}, AFTER = {};
 let page = 'overview';
-const UI = { period:30, eleves:{q:'',fil:'tous',an:'tous',acc:'tous',type:'tous',page:1,sel:new Set()}, acces:{open:new Set(['matiere:vih']), fil:'tous'}, sig:'nouveau' };
+const UI = { period:30, eleves:{q:'',fil:'tous',an:'tous',acc:'tous',type:'tous',page:1,sel:new Set()}, acces:{open:new Set(['matiere:vih']), fil:'tous'}, cours:{q:'',an:'tous',fil:'tous',st:'tous',sel:new Set(),fine:new Set()}, sig:'nouveau' };
 
 function renderNav(){
   [1,2,3].forEach(g=>{
@@ -933,6 +1010,9 @@ function closeSide(){ $('#side').classList.remove('on'); if(!$('#drawer').classL
 $('#burger').onclick = ()=>{ $('#side').classList.add('on'); $('#scrim').classList.add('on'); };
 $('#scrim').onclick = ()=>{ closeSide(); closeDrawer(); closeModal(); };
 document.addEventListener('keydown', e=>{ if(e.key==='Escape'){ closeSide(); closeDrawer(); closeModal(); } });
+(()=>{ const set=v=>{ document.body.classList.toggle('bigtxt',v); const b=$('#bigtxt'); if(b){ b.textContent=v?'A−':'A+'; b.setAttribute('aria-label',v?'Texte normal':'Agrandir le texte'); b.title=b.getAttribute('aria-label'); } };
+  let v=false; try{ v=localStorage.getItem('rinfas_bigtxt')==='1'; }catch(e){} set(v);
+  $('#bigtxt').onclick=()=>{ v=!document.body.classList.contains('bigtxt'); set(v); try{ localStorage.setItem('rinfas_bigtxt',v?'1':'0'); }catch(e){} }; })();
 $('#theme').onclick = ()=>{ const r=document.documentElement; const d = r.dataset.theme==='dark'?'light':'dark'; r.dataset.theme=d; try{localStorage.setItem('rinfas_theme',d);}catch(e){} render(); };
 $('#gsearch').addEventListener('keydown', e=>{ if(e.key==='Enter'){ UI.eleves.q = e.target.value; UI.eleves.page=1; go('eleves'); } });
 
@@ -1322,48 +1402,94 @@ function accessSummary(){
   return c;
 }
 VIEWS.acces = ()=>{
-  const S = accessSummary(), A = UI.acces;
-  const visibleMat = m => A.fil==='tous' || m.niv.includes(A.fil);
-  return headHTML('Contenu et accès', 'Choisissez ce qui est gratuit, Premium ou masqué. La règle la plus précise l’emporte.',
-    `${orphans().length?`<button class="btn danger" id="orph">Nettoyer ${orphans().length} règle${orphans().length>1?'s':''} sans cours</button>`:''}<button class="btn" id="preview">${ic('eye')}Voir comme élève gratuit</button><button class="btn" id="impcfg">${ic('ul')}Importer</button><button class="btn pri" id="expcfg">${ic('dl')}Exporter access-config.json</button>`) + `
-  <div class="summary">
-    <div class="s"><b style="color:var(--free)">${S.gratuit}</b><span>éléments gratuits</span></div>
-    <div class="s"><b style="color:var(--prem)">${S.premium}</b><span>éléments Premium</span></div>
-    <div class="s"><b style="color:var(--hidden)">${S.masque}</b><span>éléments masqués</span></div>
-    <div class="s"><b>v${DB.access.version}</b><span>version des règles · ${relTime(DB.access.misAJour)}</span></div>
+  const C = UI.cours, all = matAll(), cnt = {gratuit:0, premium:0, masque:0};
+  all.forEach(m=>cnt[effective('matiere:'+m.id).acces]++);
+  const vis = CATALOGUE.map(r=>({r, ms:r.matieres.filter(courseOk)})).filter(x=>x.ms.length);
+  const visKeys = vis.flatMap(x=>x.ms.map(m=>'matiere:'+m.id));
+  const allSel = visKeys.length && visKeys.every(k=>C.sel.has(k));
+  const fils = [...new Set(all.flatMap(m=>[].concat(m.fil||[])))].filter(f=>FIL_NOM[f]);
+  const chip = (attr,v,l,cur)=>`<button class="chip ${cur===v?'on':''}" data-${attr}="${v}" aria-pressed="${cur===v}">${l}</button>`;
+  return headHTML('Cours gratuits et Premium', 'Sur chaque cours, touchez <b>🆓 Gratuit</b>, <b>⭐ Premium</b> ou <b>🙈 Masqué</b>. C’est enregistré tout de suite.',
+      `<button class="btn" id="preview">${ic('eye')}Voir comme un élève gratuit</button>`) + `
+  ${syncBox()}
+  <div class="cstat" role="group" aria-label="Filtrer par accès">${['gratuit','premium','masque'].map(v=>`<button class="${v} ${C.st===v?'on':''}" data-cst="${v}" aria-pressed="${C.st===v}"><b>${cnt[v]}</b><span>${COUR_ST[v][0]} cours ${{gratuit:'gratuits',premium:'Premium',masque:'masqués'}[v]}</span></button>`).join('')}</div>
+  <div class="ctool">
+    <label class="srch">${ic('search')}<input id="cq" placeholder="Chercher un cours…" value="${esc(C.q)}" aria-label="Chercher un cours"></label>
+    <div class="grp"><span>Année</span>${[['tous','Toutes'],['L1','L1'],['L2','L2'],['L3','L3']].map(([v,l])=>chip('can',v,l,C.an)).join('')}</div>
+    ${fils.length>1?`<div class="grp"><span>Filière</span>${[['tous','Toutes']].concat(fils.map(f=>[f,FIL_NOM[f]])).map(([v,l])=>chip('cfil',v,l,C.fil)).join('')}</div>`:''}
+    <button class="btn sm" id="csall" ${visKeys.length?'':'disabled'}>${allSel?'☐ Tout désélectionner':'☑ Tout sélectionner'} (${visKeys.length})</button>
+    ${C.q||C.an!=='tous'||C.fil!=='tous'||C.st!=='tous'?`<button class="lnk" id="creset">Effacer les filtres</button>`:''}
   </div>
-
-  <div class="grid accgrid" style="margin-top:18px">
-    <div class="card">
-      <div class="cardhead"><div class="grow"><h3>Règle par défaut et niveaux</h3><p class="sub">S’applique à tout ce qui n’a pas de règle propre</p></div></div>
-      <div class="row wrap" style="margin-bottom:16px"><span style="flex:1;font-weight:600">Par défaut</span>${segDefault()}</div>
-      ${FILIERES.flatMap(f=>ANNEES.map(a=>{ const n=DB.profiles.filter(p=>p.filiere===f&&p.annee===a).length; return `<div class="feat"><div class="ft"><b>${FIL_NOM[f]} · ${a}</b><span>${n} élève${n>1?'s':''}</span></div>${seg3(`niveau:${f}-${a}`)}</div>`; })).join('')}
-      <p class="sub" style="margin-top:12px">Un niveau Premium rend tout le contenu Premium pour les élèves de ce niveau ; Masqué le retire de leur accueil.</p>
+  ${C.sel.size?`<div class="bulk" role="region" aria-label="Action groupée"><b>${C.sel.size} cours sélectionné${C.sel.size>1?'s':''}</b>
+    <button class="btn sm g" data-cbulk="gratuit">🆓 Gratuit</button><button class="btn sm p" data-cbulk="premium">⭐ Premium</button><button class="btn sm h" data-cbulk="masque">🙈 Masquer</button>
+    <button class="btn sm" data-cbulk="inh">↺ Réglage général</button><button class="btn sm" id="cselnone">Annuler</button></div>`:''}
+  ${vis.length? vis.map(({r,ms})=>`<section class="crub">
+    <div class="crubhead"><h2>${esc(r.nom)}</h2><span class="lab">Tout ce groupe :</span><button class="btn sm" data-crub="${esc(r.id)}" data-v="gratuit">🆓 Gratuit</button><button class="btn sm" data-crub="${esc(r.id)}" data-v="premium">⭐ Premium</button></div>
+    <div class="cgrid">${ms.map(courseCard).join('')}</div></section>`).join('')
+    : `<div class="cempty">Aucun cours ne correspond à ces filtres.</div>`}
+  <details class="adv" ${UI.cours.adv?'open':''} id="advbox"><summary>⚙️ Réglages avancés (règle par défaut, années, fonctions, sauvegarde)</summary>
+    <div class="grid accgrid">
+      <div class="card">
+        <div class="cardhead"><div class="grow"><h3>Règle par défaut et années</h3><p class="sub">Pour les cours qui n’ont pas de réglage propre</p></div></div>
+        <div class="row wrap" style="margin-bottom:16px"><span style="flex:1;font-weight:600">Par défaut</span>${segDefault()}</div>
+        ${FILIERES.flatMap(f=>ANNEES.map(a=>{ const n=DB.profiles.filter(p=>p.filiere===f&&p.annee===a).length; return `<div class="feat"><div class="ft"><b>${FIL_NOM[f]} · ${a}</b><span>${n} élève${n>1?'s':''}</span></div>${seg3(`niveau:${f}-${a}`)}</div>`; })).join('')}
+        <p class="sub" style="margin-top:12px">Pour une année, ce choix remplace la règle par défaut. Un cours réglé lui-même (Gratuit, Premium ou Masqué) garde toujours son réglage.</p>
+      </div>
+      <div class="card">
+        <div class="cardhead"><div class="grow"><h3>Fonctions de l’appli</h3><p class="sub">Outils activés selon l’accès de l’élève</p></div></div>
+        ${FONCTIONS.map(f=>`<div class="feat"><div class="ft"><b>${esc(f.nom)}</b><span>${esc(f.d)}</span></div>${seg3('fonction:'+f.id)}</div>`).join('')}
+        <div class="sect">Sauvegarde des réglages</div>
+        <div class="row wrap"><button class="btn sm" id="impcfg">${ic('ul')}Importer</button><button class="btn sm" id="expcfg">${ic('dl')}Exporter</button>${orphans().length?`<button class="btn sm danger" id="orph">Nettoyer ${orphans().length} règle${orphans().length>1?'s':''} sans cours</button>`:''}</div>
+        <p class="sub" style="margin-top:8px">Version des règles : v${DB.access.version} · ${relTime(DB.access.misAJour)}</p>
+      </div>
     </div>
-    <div class="card">
-      <div class="cardhead"><div class="grow"><h3>Fonctions de l’appli</h3><p class="sub">Outils activés selon l’accès de l’élève</p></div></div>
-      ${FONCTIONS.map(f=>`<div class="feat"><div class="ft"><b>${esc(f.nom)}</b><span>${esc(f.d)}</span></div>${seg3('fonction:'+f.id)}</div>`).join('')}
-    </div>
-  </div>
-
-  <div class="row wrap" style="margin-top:24px"><h2 style="margin:0;font-family:var(--display);font-size:22px;flex:1">Matières</h2>
-    <div class="chips" role="group" aria-label="Filtrer par année">${[['tous','Toutes années'],['L1','L1'],['L2','L2'],['L3','L3']].map(([v,l])=>`<button class="chip ${A.fil===v?'on':''}" data-afil="${v}">${l}</button>`).join('')}</div>
-    <button class="btn sm" id="openall">Tout déplier</button><button class="btn sm" id="closeall">Tout replier</button></div>
-
-  ${CATALOGUE.map(r=>{ const ms=r.matieres.filter(visibleMat); if(!ms.length) return ''; return `
-    <div class="rub">
-      <div class="rubhead"><h3>${esc(r.nom)}</h3><span class="muted" style="font-size:13px;flex:1">${ms.length} matière${ms.length>1?'s':''}</span>${seg('rubrique:'+r.id)}</div>
-      ${ms.map(m=>{ const mk='matiere:'+m.id, e=effective(mk), open=A.open.has(mk), ns=sujetsOf(m), q=quotaOf(mk);
-        return `<div class="mat st-${e.acces} ${open?'open':''}">
-          <div class="mathead">
-            <button class="mt" data-toggle="${mk}" aria-expanded="${open}">${ic('chev','chev')}<span><b>${esc(m.nom)}</b><small>${m.niv.join(' · ')} · ${fmt(m.q)} questions · ${ns} sujet${ns>1?'s':''}</small></span></button>
-            ${e.acces==='premium'?`<label class="quota">Sujets offerts<input type="number" min="0" max="${ns}" value="${q}" data-quota="${mk}" aria-label="Sujets offerts pour ${esc(m.nom)}"></label>`:''}
-            ${seg(mk)}
-          </div>
-          <div class="matbody">${open? matBody(m):''}</div>
-        </div>`; }).join('')}
-    </div>`; }).join('')}`;
+  </details>`;
 };
+const COUR_ST = {gratuit:['🆓','Gratuit'], premium:['⭐','Premium'], masque:['🙈','Masqué']};
+const nrmTxt = t=>String(t||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+function matAll(){ return CATALOGUE.flatMap(r=>r.matieres); }
+function courseOk(m){
+  const C = UI.cours;
+  if(C.an!=='tous' && !(m.niv||[]).includes(C.an)) return false;
+  if(C.fil!=='tous' && ![].concat(m.fil||[]).includes(C.fil)) return false;
+  if(C.st!=='tous' && effective('matiere:'+m.id).acces!==C.st) return false;
+  if(C.q && !nrmTxt(m.nom+' '+(m.court||'')).includes(nrmTxt(C.q.trim()))) return false;
+  return true;
+}
+function syncBox(){
+  const n = matAll().length, d = CAT_INFO.genere ? new Date(CAT_INFO.genere).toLocaleDateString('fr-FR') : '';
+  const cat = CAT_INFO.source==='portail' ? `Liste des ${n} cours lue dans l’appli des élèves${d?' (publication du '+d+')':''}.`
+    : `Liste de ${n} cours ${CAT_INFO.source==='cache'?'gardée de la dernière visite':'intégrée au tableau de bord'} : l’appli des élèves n’a pas pu être lue${CAT_INFO.erreur?' ('+esc(CAT_INFO.erreur)+')':''}.`;
+  const box = (k,i,t,p)=>`<div class="syncbox ${k}" id="syncbox" role="status"><span class="si" aria-hidden="true">${i}</span><div><b>${t}</b><p>${p}</p></div></div>`;
+  if(MODE!=='supabase') return box('warn','⚠️','Pas encore relié aux élèves', `Vous êtes en données locales : vos choix restent dans ce navigateur. Connectez-vous avec le compte administrateur pour qu’ils arrivent dans l’appli des élèves. ${cat}`);
+  if(syncState==='error') return box('bad','❌','Dernier changement non enregistré', `${esc(syncMsg||'Erreur inconnue')}. Vérifiez la connexion internet, puis touchez « Erreur · réessayer » en haut de la page.`);
+  if(syncState==='pending') return box('warn','⏳','Enregistrement…', cat);
+  const ok = CAT_INFO.source==='portail';
+  return box(ok?'ok':'warn', ok?'✅':'⚠️', ok?'Synchronisé avec l’appli des élèves':'Choix enregistrés · liste des cours à vérifier',
+    `${cat} Vos choix sont enregistrés : les élèves les voient dès qu’ils ouvrent ou rouvrent l’appli.`);
+}
+function courseCard(m){
+  const mk='matiere:'+m.id, e=effective(mk), own=DB.access.regles[mk], ns=sujetsOf(m), q=Math.min(quotaOf(mk),ns), C=UI.cours, sel=C.sel.has(mk), fine=C.fine.has(mk);
+  const fil = [].concat(m.fil||[]).map(f=>FIL_NOM[f]||f).join(' & ');
+  const src = own ? '' : e.source==='herite' ? 'Suit le réglage de son groupe' : `Suit la règle par défaut (${ACC_LABEL[DB.access.defaut]})`;
+  return `<article class="course st-${e.acces} ${sel?'sel':''}">
+    <div class="ctop"><input type="checkbox" data-csel="${mk}" ${sel?'checked':''} aria-label="Sélectionner ${esc(m.nom)}"><div style="flex:1;min-width:0"><h4>${esc(m.nom)}</h4>
+      <div class="cmeta">${(m.niv||[]).map(n=>`<span class="tag">${esc(n)}</span>`).join('')}${fil?`<span class="tag">${esc(fil)}</span>`:''}<span class="tag">${fmt(m.q)} questions</span><span class="tag">${ns} sujet${ns>1?'s':''}</span></div></div></div>
+    <div class="big3" role="radiogroup" aria-label="Accès : ${esc(m.nom)}">${['gratuit','premium','masque'].map(v=>`<button role="radio" aria-checked="${e.acces===v}" class="${v} ${e.acces===v?'on':''}" data-cset="${mk}" data-v="${v}">${COUR_ST[v][0]} ${COUR_ST[v][1]}</button>`).join('')}</div>
+    ${e.acces==='premium'?`<div class="trial">🎁 Sujets d’essai gratuits <span class="step"><button data-cq="${mk}" data-max="${ns}" data-d="-1" aria-label="Un sujet d’essai de moins" ${q<=0?'disabled':''}>−</button><b aria-live="polite">${q}</b><button data-cq="${mk}" data-max="${ns}" data-d="1" aria-label="Un sujet d’essai de plus" ${q>=ns?'disabled':''}>+</button></span><span class="cnote" style="font-weight:500">sur ${ns}</span></div>`:''}
+    <div class="cfoot">${src?`<span class="cnote">${src}</span>`:''}${own?`<button class="lnk" data-creset="${mk}">↺ Revenir au réglage général</button>`:''}<span style="flex:1"></span><button class="lnk" data-cfine="${mk}" aria-expanded="${fine}">${fine?'Fermer':'Réglages fins'}</button></div>
+    ${fine?`<div class="fine">${matBody(m)}</div>`:''}
+  </article>`;
+}
+function setCourses(keys, v){
+  const R = DB.access.regles; let n = 0;
+  keys.forEach(k=>{ if(v==='inh'){ if(R[k]){ if(R[k].quotaGratuit!=null) R[k] = {acces:effectiveParent(k), quotaGratuit:R[k].quotaGratuit}; else delete R[k]; n++; } } else { if(!R[k] || R[k].acces!==v){ R[k] = Object.assign({}, R[k]||{}, {acces:v}); n++; } } });
+  if(!n) return 0;
+  DB.access.version++; DB.access.misAJour = new Date().toISOString();
+  audit(`Accès ${v==='inh'?'réglage général':ACC_LABEL[v]} : ${keys.length===1?labelOf(keys[0]):keys.length+' cours'}`, keys.length===1?labelOf(keys[0]):keys.map(labelOf).slice(0,6).join(', ')+(keys.length>6?'…':''));
+  return n;
+}
+function effectiveParent(k){ const n=NODES[k]; return n&&n.parent ? effective(n.parent).acces : DB.access.defaut; }
 function segDefault(){ const v=DB.access.defaut; return `<div class="seg" role="radiogroup" aria-label="Règle par défaut">${[['gratuit','Gratuit'],['premium','Premium']].map(([k,l])=>`<button role="radio" aria-checked="${v===k}" class="${k} ${v===k?'on':''}" data-def="${k}">${l}</button>`).join('')}</div>`; }
 function seg3(key){ // pour niveaux et fonctions : pas d'héritage visible, valeur = règle ou défaut
   const r = DB.access.regles[key]?.acces || DB.access.defaut;
@@ -1377,13 +1503,27 @@ function matBody(m){
   return h;
 }
 AFTER.acces = ()=>{
-  document.querySelectorAll('[data-rule]').forEach(b=>b.onclick=()=>{ setRule(b.dataset.rule, b.dataset.v); render(); });
-  document.querySelectorAll('[data-def]').forEach(b=>b.onclick=()=>{ DB.access.defaut=b.dataset.def; DB.access.version++; DB.access.misAJour=new Date().toISOString(); audit('Règle par défaut : '+ACC_LABEL[b.dataset.def],'Tout le contenu'); render(); });
-  document.querySelectorAll('[data-toggle]').forEach(b=>b.onclick=()=>{ const k=b.dataset.toggle; UI.acces.open.has(k)?UI.acces.open.delete(k):UI.acces.open.add(k); render(); });
-  document.querySelectorAll('[data-quota]').forEach(inp=>inp.onchange=()=>{ const k=inp.dataset.quota; const v=Math.max(0,Math.min(+inp.max, Math.round(+inp.value||0))); const r=DB.access.regles[k]; if(r) r.quotaGratuit=v; else DB.access.regles[k]={acces:effective(k).acces, quotaGratuit:v}; DB.access.version++; DB.access.misAJour=new Date().toISOString(); audit(`Sujets offerts : ${v}`, labelOf(k)); render(); });
-  document.querySelectorAll('[data-afil]').forEach(b=>b.onclick=()=>{ UI.acces.fil=b.dataset.afil; render(); });
-  $('#openall').onclick=()=>{ CATALOGUE.forEach(r=>r.matieres.forEach(m=>UI.acces.open.add('matiere:'+m.id))); render(); };
-  $('#closeall').onclick=()=>{ UI.acces.open.clear(); render(); };
+  const C = UI.cours, q = sel=>document.querySelectorAll(sel);
+  q('[data-rule]').forEach(b=>b.onclick=()=>{ setRule(b.dataset.rule, b.dataset.v); render(); });
+  q('[data-def]').forEach(b=>b.onclick=()=>{ DB.access.defaut=b.dataset.def; DB.access.version++; DB.access.misAJour=new Date().toISOString(); audit('Règle par défaut : '+ACC_LABEL[b.dataset.def],'Tout le contenu'); render(); });
+  q('[data-cset]').forEach(b=>b.onclick=()=>{ const k=b.dataset.cset, v=b.dataset.v; if(setCourses([k], v)) toast(`${COUR_ST[v][0]} « ${labelOf(k)} » : ${ACC_LABEL[v]}`); render(); });
+  q('[data-creset]').forEach(b=>b.onclick=()=>{ const k=b.dataset.creset; const R=DB.access.regles; if(R[k]){ delete R[k]; DB.access.version++; DB.access.misAJour=new Date().toISOString(); audit('Accès : réglage général', labelOf(k)); } render(); });
+  q('[data-cq]').forEach(b=>b.onclick=()=>{ const k=b.dataset.cq, max=+b.dataset.max, v=Math.max(0, Math.min(max, Math.min(quotaOf(k),max) + (+b.dataset.d))); const R=DB.access.regles;
+    if(R[k]) R[k].quotaGratuit=v; else R[k]={acces:effective(k).acces, quotaGratuit:v};
+    DB.access.version++; DB.access.misAJour=new Date().toISOString(); audit(`Sujets d’essai gratuits : ${v}`, labelOf(k)); render(); });
+  q('[data-csel]').forEach(b=>b.onchange=()=>{ const k=b.dataset.csel; b.checked?C.sel.add(k):C.sel.delete(k); render(); });
+  q('[data-cfine]').forEach(b=>b.onclick=()=>{ const k=b.dataset.cfine; C.fine.has(k)?C.fine.delete(k):C.fine.add(k); render(); });
+  q('[data-cst]').forEach(b=>b.onclick=()=>{ C.st = C.st===b.dataset.cst ? 'tous' : b.dataset.cst; render(); });
+  q('[data-can]').forEach(b=>b.onclick=()=>{ C.an=b.dataset.can; render(); });
+  q('[data-cfil]').forEach(b=>b.onclick=()=>{ C.fil=b.dataset.cfil; render(); });
+  q('[data-cbulk]').forEach(b=>b.onclick=()=>{ const v=b.dataset.cbulk, keys=[...C.sel]; const n=setCourses(keys, v); toast(n?`${n} cours : ${v==='inh'?'réglage général':ACC_LABEL[v]}`:'Rien à changer.'); C.sel.clear(); render(); });
+  q('[data-crub]').forEach(b=>b.onclick=()=>{ const r=CATALOGUE.find(x=>x.id===b.dataset.crub), v=b.dataset.v; if(!r) return; const keys=r.matieres.map(m=>'matiere:'+m.id);
+    confirmModal(`${COUR_ST[v][0]} Tout « ${r.nom} » en ${ACC_LABEL[v]} ?`, `Les ${keys.length} cours de ce groupe passeront en ${ACC_LABEL[v]}. Vous pourrez ensuite changer un cours à part.`, `Oui, tout en ${ACC_LABEL[v]}`, ()=>{ const n=setCourses(keys, v); closeModal(); toast(n?`${n} cours : ${ACC_LABEL[v]}`:'Rien à changer.'); render(); }); });
+  const cq=$('#cq'); if(cq){ cq.oninput=()=>{ const pos=cq.selectionStart; C.q=cq.value; render(); const n=$('#cq'); if(n){ n.focus(); try{ n.setSelectionRange(pos,pos); }catch(e){} } }; }
+  if($('#csall')) $('#csall').onclick=()=>{ const keys=CATALOGUE.flatMap(r=>r.matieres.filter(courseOk).map(m=>'matiere:'+m.id)); const all=keys.every(k=>C.sel.has(k)); keys.forEach(k=>all?C.sel.delete(k):C.sel.add(k)); render(); };
+  if($('#cselnone')) $('#cselnone').onclick=()=>{ C.sel.clear(); render(); };
+  if($('#creset')) $('#creset').onclick=()=>{ Object.assign(C,{q:'',an:'tous',fil:'tous',st:'tous'}); render(); };
+  const adv=$('#advbox'); if(adv) adv.ontoggle=()=>{ C.adv=adv.open; };
   $('#expcfg').onclick=()=>{ download('access-config.json', exportConfig()); toast('access-config.json téléchargé.'); };
   $('#impcfg').onclick=()=>pickFile(obj=>{ if(!obj || typeof obj.regles!=='object'){ toast('Ce fichier ne contient pas de règles d’accès.'); return; } DB.access.regles=obj.regles; DB.access.defaut=obj.defaut==='premium'?'premium':'gratuit'; DB.access.version=(obj.version||DB.access.version)+1; DB.access.misAJour=new Date().toISOString(); audit('Règles importées','access-config.json'); toast('Règles importées.'); render(); });
   $('#preview').onclick = previewModal;
