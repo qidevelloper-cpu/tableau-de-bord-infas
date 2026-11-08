@@ -363,6 +363,12 @@ body.bigtxt .app{zoom:1.15}
 .qgseg button{font-size:14px;padding:7px 10px}
 .qgseg{flex-wrap:wrap;flex:0 1 auto}
 .qgseg button.on{background:var(--prem);color:#fff}
+.plusbox{margin-top:12px;border-top:1px dashed var(--line,#ddd);padding-top:10px}
+.plush{font-weight:700;margin-bottom:6px}
+.plusrow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;padding:6px 0}
+.plust{display:flex;flex-direction:column;min-width:0;flex:1 1 200px}
+.plusseg{flex-wrap:wrap}.plusseg button{font-size:13.5px;padding:6px 9px}
+.plusseg button.on{background:var(--prem);color:#fff}
 .cfoot{display:flex;gap:6px 12px;align-items:center;flex-wrap:wrap}
 .cnote{font-size:14px;color:var(--muted)}
 .lnk{border:0;background:transparent;color:var(--violet-ink);font-weight:700;font-size:14.5px;padding:2px 0;text-decoration:underline;text-underline-offset:3px}
@@ -510,7 +516,7 @@ let CAT_INFO = {source:'interne', genere:null, erreur:''};
 function prettyRub(n){ n = String(n||''); if(n.length>4 && n===n.toUpperCase()) n = n[0]+n.slice(1).toLowerCase(); return n.replace(/\bd\.e\b/i,'D.E'); }
 function applyCatalogue(c, src){
   if(!c || !Array.isArray(c.rubriques) || !c.rubriques.length) return false;
-  CATALOGUE = c.rubriques.map(r=>({id:r.id, nom:prettyRub(r.nom), matieres:(r.matieres||[]).map(m=>Object.assign({id:m.id, nom:m.nom, court:m.court, niv:m.niv||[], fil:m.fil, q:m.q||0, nsuj:m.nsuj||1}, m.suit?{suit:m.suit}:{}))})).filter(r=>r.matieres.length);
+  CATALOGUE = c.rubriques.map(r=>({id:r.id, nom:prettyRub(r.nom), matieres:(r.matieres||[]).map(m=>Object.assign({id:m.id, nom:m.nom, court:m.court, niv:m.niv||[], fil:m.fil, q:m.q||0, nsuj:m.nsuj||1}, m.suit?{suit:m.suit}:{}, Array.isArray(m.plus)&&m.plus.length?{plus:m.plus}:{}))})).filter(r=>r.matieres.length);
   buildNodes(); CAT_INFO = {source:src, genere:c.genere||null, erreur:''}; return true;
 }
 function portailUrl(){ return String((typeof getCfg==='function' && getCfg().portail) || PORTAIL_DEFAUT).trim().replace(/\/?$/,'/'); }
@@ -606,7 +612,7 @@ const MAP = [
 const VIRTUAL = [
   {t:'access_rules', id:'cle', rows:db=>Object.entries(db.access.regles).map(([cle,v])=>({cle, acces:v.acces, quota_gratuit:v.quotaGratuit==null?null:v.quotaGratuit}))},
   {t:'app_settings', id:'cle', noDelete:true, rows:db=>[
-    {cle:'public.access', valeur:{defaut:db.access.defaut, version:db.access.version, misAJour:db.access.misAJour, questions:db.access.questions||{}}},
+    {cle:'public.access', valeur:{defaut:db.access.defaut, version:db.access.version, misAJour:db.access.misAJour, questions:db.access.questions||{}, plusapp:db.access.plusapp||{}}},
     {cle:'goals', valeur:db.goals},
     {cle:'demo_stats', valeur:db.stats},
     {cle:'meta', valeur:{demo:!!db.meta.demo}},
@@ -650,7 +656,7 @@ const SupabaseSource = {
     const rawRules = await fetchAll('access_rules'), rawSettings = await fetchAll('app_settings');
     rawRules.forEach(r=>{ db.access.regles[r.cle] = r.quota_gratuit==null ? {acces:r.acces} : {acces:r.acces, quotaGratuit:r.quota_gratuit}; });
     rawSettings.forEach(r=>{
-      if(r.cle==='public.access'){ db.access.defaut = r.valeur.defaut||'gratuit'; db.access.version = r.valeur.version||1; db.access.misAJour = r.valeur.misAJour||db.access.misAJour; db.access.questions = (r.valeur.questions&&typeof r.valeur.questions==='object')?r.valeur.questions:{}; }
+      if(r.cle==='public.access'){ db.access.defaut = r.valeur.defaut||'gratuit'; db.access.version = r.valeur.version||1; db.access.misAJour = r.valeur.misAJour||db.access.misAJour; db.access.questions = (r.valeur.questions&&typeof r.valeur.questions==='object')?r.valeur.questions:{}; db.access.plusapp = (r.valeur.plusapp&&typeof r.valeur.plusapp==='object')?r.valeur.plusapp:{}; }
       if(r.cle==='goals' && Array.isArray(r.valeur)) db.goals = r.valeur;
       if(r.cle==='demo_stats' && r.valeur && r.valeur.daily) db.stats = r.valeur;
       if(r.cle==='meta' && r.valeur) db.meta.demo = !!r.valeur.demo;
@@ -937,6 +943,20 @@ function qgCard(mk, ns, nq){
     <div class="seg qgseg" role="radiogroup" aria-label="Comment compter les questions gratuites">${[['sujet','N premières de chaque sujet'],['cours','N au total pour le cours']].map(([v,l])=>`<button role="radio" aria-checked="${g.mode===v}" class="${g.mode===v?'on':''}" data-qgm="${mk}" data-v="${v}">${l}</button>`).join('')}</div>
     <span class="cnote" style="font-weight:500;flex-basis:100%">${hint}${!own&&g.de&&g.de!==mk?` (réglage de « ${esc(labelOf(g.de))} »)`:''}</span></div>`;
 }
+/* sujets ajoutés à une appli complète (paquets S2 : 2025, S3 : 2026…) : '' = comme le cours, 'premium', 'masque' */
+const PLUS_ST = {'':['📘','Comme le cours'], premium:['💎','Premium'], masque:['🙈','Masqué']};
+function plusCard(m){
+  if(!m.plus || !m.plus.length) return '';
+  const R = (DB.access.plusapp||{})[m.id]||{};
+  return `<div class="plusbox"><div class="plush">🗂️ Sujets ajoutés à l’appli</div>${m.plus.map(p=>{const v=R[p.id]||'';return `<div class="plusrow"><div class="plust"><b>${esc(p.titre)}</b><span class="cnote">${p.nsuj} sujets · ${fmt(p.nq)} questions</span></div>
+    <div class="seg plusseg" role="radiogroup" aria-label="Accès : ${esc(p.titre)}">${Object.keys(PLUS_ST).map(k=>`<button role="radio" aria-checked="${v===k}" class="${v===k?'on':''}" data-plus="${esc(m.id)}" data-p="${esc(p.id)}" data-v="${k}">${PLUS_ST[k][0]} ${PLUS_ST[k][1]}</button>`).join('')}</div></div>`}).join('')}</div>`;
+}
+function setPlus(mid, pid, v){
+  const A = DB.access.plusapp = DB.access.plusapp||{}; const R = A[mid] = A[mid]||{};
+  if(v) R[pid] = v; else delete R[pid]; if(!Object.keys(R).length) delete A[mid];
+  DB.access.version++; DB.access.misAJour = new Date().toISOString();
+  audit(`Sujets ajoutés « ${pid} » : ${PLUS_ST[v][1]}`, labelOf('matiere:'+mid));
+}
 function setRule(key, acces){
   const rules = DB.access.regles;
   if(acces==='inh'){ delete rules[key]; }
@@ -947,7 +967,7 @@ function setRule(key, acces){
 }
 function labelOf(key){ const n=NODES[key]; if(!n) return key; if(n.type==='sujet'||n.type==='resumes'||n.type==='appli') return n.label+' · '+NODES[n.parent].label; return n.label; }
 function exportConfig(){
-  return {version:DB.access.version, defaut:DB.access.defaut, misAJour:DB.access.misAJour, regles:DB.access.regles, questions:DB.access.questions||{}};
+  return {version:DB.access.version, defaut:DB.access.defaut, misAJour:DB.access.misAJour, regles:DB.access.regles, questions:DB.access.questions||{}, plusapp:DB.access.plusapp||{}};
 }
 
 /* =========================================================
@@ -1569,7 +1589,7 @@ function courseCard(m){
     <div class="ctop"><input type="checkbox" data-csel="${mk}" ${sel?'checked':''} aria-label="Sélectionner ${esc(m.nom)}"><div style="flex:1;min-width:0"><h4>${esc(m.nom)}</h4>
       <div class="cmeta">${(m.niv||[]).map(n=>`<span class="tag">${esc(n)}</span>`).join('')}${fil?`<span class="tag">${esc(fil)}</span>`:''}<span class="tag">${fmt(m.q)} questions</span><span class="tag">${ns} sujet${ns>1?'s':''}</span></div></div></div>
     <div class="big3" role="radiogroup" aria-label="Accès : ${esc(m.nom)}">${['gratuit','premium','masque'].map(v=>`<button role="radio" aria-checked="${e.acces===v}" class="${v} ${e.acces===v?'on':''}" data-cset="${mk}" data-v="${v}">${COUR_ST[v][0]} ${COUR_ST[v][1]}</button>`).join('')}</div>
-    ${e.acces==='premium'?`<div class="trial">🎁 Sujets d’essai gratuits <span class="step"><button data-cq="${mk}" data-max="${ns}" data-d="-1" aria-label="Un sujet d’essai de moins" ${q<=0?'disabled':''}>−</button><b aria-live="polite">${q}</b><button data-cq="${mk}" data-max="${ns}" data-d="1" aria-label="Un sujet d’essai de plus" ${q>=ns?'disabled':''}>+</button></span><span class="cnote" style="font-weight:500">sur ${ns}</span></div>${qgCard(mk, ns, m.q)}`:''}
+    ${e.acces==='premium'?`<div class="trial">🎁 Sujets d’essai gratuits <span class="step"><button data-cq="${mk}" data-max="${ns}" data-d="-1" aria-label="Un sujet d’essai de moins" ${q<=0?'disabled':''}>−</button><b aria-live="polite">${q}</b><button data-cq="${mk}" data-max="${ns}" data-d="1" aria-label="Un sujet d’essai de plus" ${q>=ns?'disabled':''}>+</button></span><span class="cnote" style="font-weight:500">sur ${ns}</span></div>${qgCard(mk, ns, m.q)}`:''}${e.acces!=='masque'?plusCard(m):''}
     <div class="cfoot">${src?`<span class="cnote">${src}</span>`:''}${own?`<button class="lnk" data-creset="${mk}">↺ Revenir au réglage général</button>`:''}<span style="flex:1"></span><button class="lnk" data-cfine="${mk}" aria-expanded="${fine}">${fine?'Fermer':'Réglages fins'}</button></div>
     ${fine?`<div class="fine">${matBody(m)}</div>`:''}
   </article>`;
@@ -1606,6 +1626,7 @@ AFTER.acces = ()=>{
     DB.access.version++; DB.access.misAJour=new Date().toISOString(); audit(`Sujets d’essai gratuits : ${v}`, labelOf(k)); render(); });
   q('[data-qgn]').forEach(b=>b.onclick=()=>{ const k=b.dataset.qgn; setQg(k,{n:qgOf(k).n+(+b.dataset.d)}); render(); });
   q('[data-qgv]').forEach(b=>b.onchange=()=>{ const k=b.dataset.qgv; setQg(k,{n:b.value}); toast(`🎁 ${qgOf(k).n} question(s) gratuite(s) · ${labelOf(k)}`); render(); });
+  q('[data-plus]').forEach(b=>b.onclick=()=>{ setPlus(b.dataset.plus, b.dataset.p, b.dataset.v); toast(`🗂️ ${PLUS_ST[b.dataset.v][1]} · ${b.dataset.p}`); render(); });
   q('[data-qgm]').forEach(b=>b.onclick=()=>{ const k=b.dataset.qgm; setQg(k,{mode:b.dataset.v}); render(); });
   q('[data-csel]').forEach(b=>b.onchange=()=>{ const k=b.dataset.csel; b.checked?C.sel.add(k):C.sel.delete(k); render(); });
   q('[data-cfine]').forEach(b=>b.onclick=()=>{ const k=b.dataset.cfine; C.fine.has(k)?C.fine.delete(k):C.fine.add(k); render(); });
@@ -1621,7 +1642,7 @@ AFTER.acces = ()=>{
   if($('#creset')) $('#creset').onclick=()=>{ Object.assign(C,{q:'',an:'tous',fil:'tous',st:'tous'}); render(); };
   const adv=$('#advbox'); if(adv) adv.ontoggle=()=>{ C.adv=adv.open; };
   $('#expcfg').onclick=()=>{ download('access-config.json', exportConfig()); toast('access-config.json téléchargé.'); };
-  $('#impcfg').onclick=()=>pickFile(obj=>{ if(!obj || typeof obj.regles!=='object'){ toast('Ce fichier ne contient pas de règles d’accès.'); return; } DB.access.regles=obj.regles; DB.access.questions=(obj.questions&&typeof obj.questions==='object')?obj.questions:{}; DB.access.defaut=obj.defaut==='premium'?'premium':'gratuit'; DB.access.version=(obj.version||DB.access.version)+1; DB.access.misAJour=new Date().toISOString(); audit('Règles importées','access-config.json'); toast('Règles importées.'); render(); });
+  $('#impcfg').onclick=()=>pickFile(obj=>{ if(!obj || typeof obj.regles!=='object'){ toast('Ce fichier ne contient pas de règles d’accès.'); return; } DB.access.regles=obj.regles; DB.access.questions=(obj.questions&&typeof obj.questions==='object')?obj.questions:{}; DB.access.plusapp=(obj.plusapp&&typeof obj.plusapp==='object')?obj.plusapp:{}; DB.access.defaut=obj.defaut==='premium'?'premium':'gratuit'; DB.access.version=(obj.version||DB.access.version)+1; DB.access.misAJour=new Date().toISOString(); audit('Règles importées','access-config.json'); toast('Règles importées.'); render(); });
   $('#preview').onclick = previewModal;
   if($('#orph')) $('#orph').onclick = ()=>{ const L=orphans(); confirmModal('Nettoyer les règles sans cours ?', `${L.length} règle(s) visent des cours qui n’existent plus dans le portail (anciens identifiants de test). Elles seront supprimées.`, 'Supprimer ces règles', ()=>{ L.forEach(k=>delete DB.access.regles[k]); DB.access.version++; DB.access.misAJour=new Date().toISOString(); audit('Règles sans cours supprimées', L.length+' règles'); render(); }); };
 };
