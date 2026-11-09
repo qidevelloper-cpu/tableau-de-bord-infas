@@ -284,6 +284,21 @@ pre.code{background:var(--ink);color:#E9E4FF;border-radius:var(--r-md);padding:1
   .paycards td.pc-act .row{width:100%}.paycards td.pc-act .btn{flex:1;justify-content:center;padding:12px}
   .paycards td[colspan]{display:block}
 }
+/* téléphone : rien ne dépasse de l'écran */
+.main{min-width:0}
+.codelist{grid-template-columns:minmax(0,1fr)}.coderow>*{min-width:0;max-width:100%}
+.codeform>*{min-width:0}.codeform .field,.codeform select{max-width:100%;width:100%}
+@media (max-width:860px){html,body{overflow-x:clip}}
+@media (max-width:520px){
+  .top{gap:6px}
+  .signature{min-width:0;flex:0 1 auto;overflow:hidden;text-overflow:ellipsis;font-size:12px;padding:4px 9px}
+  .iconbtn{width:34px;height:34px;flex:none}.me{flex:none;padding:3px}
+  .coderow{padding:10px}.coderow .row .btn{flex:1 1 auto;justify-content:center}
+  .codesneufs .row .btn{flex:1 1 auto;justify-content:center}
+  .seg{flex:0 1 auto;flex-wrap:wrap;max-width:100%}.seg button{padding:4px 7px}
+  .cardhead{flex-wrap:wrap}.cardhead>.grow{min-width:0;flex-basis:100%}
+  .btn{max-width:100%;white-space:normal;text-align:center}
+}
 .live{margin-bottom:18px}
 .live-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.live-top .muted{font-size:13px;flex:1}
 .live-dot{width:10px;height:10px;border-radius:50%;background:var(--green);box-shadow:0 0 0 0 color-mix(in srgb,var(--green) 60%,transparent);animation:livepulse 2s infinite}
@@ -1135,6 +1150,7 @@ VIEWS.overview = ()=>{
 
   return headHTML('Vue d’ensemble', 'L’activité de Révision INFAS en un coup d’œil.', `${realTag()}${demoTag()}<div class="chips" role="group" aria-label="Période">${periods.map(([v,l])=>`<button class="chip ${UI.period===v?'on':''}" data-period="${v}">${l}</button>`).join('')}</div>`) + `
   <div id="live">${liveHTML()}</div>
+  <div id="instcard">${instHTML()}</div>
   <div class="grid kpis">
     <div class="hero">
       <div class="lab">Élèves inscrits</div>
@@ -1182,9 +1198,31 @@ VIEWS.overview = ()=>{
 };
 AFTER.overview = ()=>{
   if(!PRES || Date.now()-PRES_T>25e3) loadPresence();
+  if(MODE==='supabase' && (!INST || Date.now()-INST_T>5*60e3)) loadInst();
   document.querySelectorAll('[data-period]').forEach(b=>b.onclick=()=>{ UI.period=+b.dataset.period; render(); });
   bindUserRows(); bindLive();
 };
+/* ---------- Appli installée sur les téléphones (supabase/installations/1_installations.sql) ---------- */
+let INST = null, INST_T = 0;
+async function loadInst(){
+  if(MODE!=='supabase'||!SB){ INST = null; return; }
+  try{ const {data,error} = await SB.rpc('installations_stats', {p_jours:30}); INST = error ? {err: /installations_stats|function|PGRST/i.test(error.message||'') ? 'sql' : 'reseau'} : (data||{}); }
+  catch(e){ INST = {err:'reseau'}; }
+  INST_T = Date.now(); const el = document.getElementById('instcard'); if(el) el.innerHTML = instHTML();
+}
+function instParEleve(uid){ const L = INST && INST.eleves; if(!L||!uid) return null; return L.find(x=>x.user_id===uid) || null; }
+function instHTML(){
+  if(MODE!=='supabase') return '';
+  const X = INST;
+  if(!X) return `<div class="card live"><div class="live-top"><b>📲 Appli installée</b><span class="muted">Chargement…</span></div></div>`;
+  if(X.err) return `<div class="card live"><div class="live-top"><b>📲 Appli installée</b><span class="muted">${X.err==='sql'?'Lance supabase/installations/1_installations.sql dans Supabase (SQL Editor → Run) pour savoir qui a installé l’appli.':'Impossible de joindre Supabase.'}</span></div></div>`;
+  const n = X.appareils||0, i = X.installes||0, pc = n ? Math.round(i*100/n) : 0;
+  const ok = (X.eleves||[]).filter(e=>e.installe===true).length, non = (X.eleves||[]).filter(e=>e.installe===false).length;
+  return `<div class="card live"><div class="live-top"><b>📲 Appli installée</b><span class="muted">téléphones vus ces 30 jours</span></div>
+    <div class="live-main"><div class="big num">${fmt(i)}</div><div><b>${i>1?'téléphones ont':'téléphone a'} l’appli installée</b> <span class="muted">sur ${fmt(n)} (${pc} %)</span>
+    <div class="muted">${fmt(X.icone||0)} l’ont ouverte depuis l’icône · ${fmt(X.navigateur||0)} seulement dans le navigateur · ${fmt(X.inconnus||0)} sans réponse (iPhone dans Safari)</div>
+    <div class="muted">Élèves avec compte : ${fmt(ok)} installée · ${fmt(non)} dans le navigateur</div></div></div></div>`;
+}
 /* ---------- « En ce moment » : élèves présents dans l'appli (3 dernières minutes) ---------- */
 let PRES = null, PRES_T = 0, PRES_BUSY = false;
 async function loadPresence(){
@@ -1296,10 +1334,12 @@ AFTER.eleves = ()=>{
 /* fiche élève */
 function openUser(id){
   const p = api.get('profiles',id); if(!p) return;
+  if(MODE==='supabase' && !INST) loadInst().then(()=>{ const d=$('#drawer'); if(d && d.classList.contains('on') && d.dataset.uid===String(id)) openUser(id); });
   const pass = activePass(id);
   const hist = DB.entitlements.filter(e=>e.user_id===id).sort((a,b)=>new Date(b.start)-new Date(a.start));
   const plan = pid => DB.plans.find(x=>x.id===pid)?.nom || pid;
   const reps = DB.reports.filter(r=>r.user_id===id);
+  $('#drawer').dataset.uid = String(id);
   $('#drawer').innerHTML = `
     <button class="iconbtn x" id="dclose" aria-label="Fermer">${ic('x')}</button>
     <div class="row" style="gap:14px;margin-top:4px"><div class="av" style="width:52px;height:52px;font-size:17px;background:${avColor(id)}">${initials(p)}</div><div><h2 style="margin:0;font-family:var(--display);font-size:22px">${esc(fullName(p))}</h2><div class="muted" style="font-size:13.5px">${FIL_NOM[p.filiere]||'—'} · ${p.annee||'—'} · n° ${esc(p.id.slice(0,8))}</div></div></div>
@@ -1307,6 +1347,7 @@ function openUser(id){
     <div class="kv">
       <span>Compte</span><b>${p.auth_id?'✅ '+esc(p.email||'connecté'):'Élève de test (sans compte)'}</b>
       <span>Téléphone</span><b>${esc(p.telephone)}</b>
+      ${MODE==='supabase'?(()=>{ const x=instParEleve(p.auth_id||p.id); return `<span>Application</span><b>${!INST?'—':!x||x.installe==null?'Inconnu':x.installe?'📲 Installée'+(x.icone_at?' · ouverte depuis l’icône le '+dfr(x.icone_at,{day:'numeric',month:'short'}):''):'🌐 Dans le navigateur (pas installée)'}</b>`; })():''}
       <span>Programme</span><b>${esc(p.programme)}</b>
       <span>Inscrit le</span><b>${dfr(p.created_at)}</b>
       <span>Dernière visite</span><b>${relTime(p.last_seen)} (${dfr(p.last_seen)})</b>
@@ -1949,7 +1990,7 @@ VIEWS.compos = ()=>{
         <button class="btn sm" data-cpcsv="${esc(c.code)}" style="margin-top:8px">${ic('dl')}Exporter (CSV)</button>`}</div>`:''}</div>`; };
   return headHTML('Compositions', 'Liens de composition à envoyer aux élèves : le sujet s’ouvre directement dans l’appli, l’élève tape son nom et sa note revient ici.', `<div class="chips">${CP_SITES.map(([k,l])=>`<button class="chip ${site===k?'on':''}" data-cpsite="${k}">Lien vers : ${l}</button>`).join('')}</div>`) +
     (MODE!=='supabase' ? `<div class="card"><div class="msg warn">Connectez le tableau de bord à Supabase (compte administrateur) pour créer des compositions.</div></div>` : CP_ERR ? `<div class="card"><div class="msg bad">${esc(CP_ERR)}</div></div>` : `
-    <div class="card"><div class="cardhead"><div class="grow"><h3>📝 Nouvelle composition</h3><p class="sub">Choisissez un sujet, l’accès, et si besoin un chronomètre (copie remise automatiquement à la fin du temps) ou une date limite (après, le lien affiche « Composition terminée »).</p></div></div>${form}</div>
+    <div class="card"><div class="cardhead"><div class="grow"><h3>📝 Nouvelle composition</h3><p class="sub">Choisissez un sujet, l’accès, et si besoin un chronomètre (la compo se termine automatiquement à la fin du temps) ou une date limite (après, le lien affiche « Composition terminée »).</p></div></div>${form}</div>
     <div class="card" style="margin-top:18px"><div class="cardhead"><div class="grow"><h3>Compositions créées</h3><p class="sub">Un envoi par appareil et par compo. Sans compte, le nom tapé par l’élève n’est pas vérifié.</p></div><button class="btn sm" id="cpreload">Actualiser</button></div>
       <div class="codelist">${CPS===null?'<p class="sub">Chargement…</p>':CPS.map(ligne).join('')||'<p class="sub">Aucune composition pour l’instant.</p>'}</div></div>`);
 };
