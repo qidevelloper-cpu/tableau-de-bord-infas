@@ -1087,9 +1087,8 @@ function renderNav(){
 }
 function renderPhase(){
   const sb = MODE==='supabase', n = sb ? 2 : 1;
-  $('#phasecard').innerHTML = `<b>${sb?'Phase 2 · Supabase':'Phase 1 · données locales'}</b>
-    <p>${sb?'Connecté en administrateur'+(SB_EMAIL?' ('+esc(SB_EMAIL)+')':'')+'. Les modifications partent dans la base.':'Tout est enregistré dans ce navigateur. Branchez Supabase dans Réglages.'}</p>
-    <div class="steps" aria-label="Avancement : phase ${n} sur 5">${[1,2,3,4,5].map(i=>`<i class="${i<=n?'done':''}"></i>`).join('')}</div>`;
+  $('#phasecard').innerHTML = `<b>${sb?'✅ Connecté à Supabase':'💾 Données locales'}</b>
+    <p>${sb?'Administrateur'+(SB_EMAIL?' ('+esc(SB_EMAIL)+')':'')+'. Les modifications partent dans la base.':'Tout est enregistré dans ce navigateur. Branchez Supabase dans Réglages.'}</p>`;
   $('#mename').textContent = ADMIN_NAME;
 }
 function go(p){ if(!DB) return; page=p; if(p==='signalements'){ sigNonVus=0; document.title=SIG_TITRE; } $('#crumb').textContent = PAGES.find(x=>x.id===p).nom; closeSide(); render(); window.scrollTo({top:0}); try{ history.replaceState(null,'','#'+p); }catch(e){} }
@@ -1766,8 +1765,11 @@ function engagementReal(){
       ${barChart(days.map(d=>d.quiz), days.map(d=>dfr(d.date,{day:'numeric',month:'short'})), 'var(--violet)', {unit:'sujets', full:days.map(d=>dfr(d.date,{weekday:'long',day:'numeric',month:'long'})), label:'Sujets terminés par jour'})}</div>
     <div class="card"><div class="cardhead"><div class="grow"><h3>Parcours vers Premium</h3><p class="sub">Appareils à chaque étape</p></div></div>
       ${funnel.map(([l,v],i)=>`<div style="margin:10px 0"><div class="row" style="font-size:14px"><span style="flex:1">${l}</span><b class="num">${fmt(v)}</b>${i?`<span class="muted" style="width:52px;text-align:right">${pct(v,funnel[i-1][1])} %</span>`:'<span style="width:52px"></span>'}</div><div class="bar" style="height:12px"><span style="width:${pct(v,T0.appareils)}%;background:${['var(--teal)','var(--violet)','var(--rose)'][i]}"></span></div></div>`).join('')}
-      <p class="sub" style="margin-top:12px">Le passage Premium sera mesuré quand les comptes élèves existeront (phase 3).</p></div>
+    </div>
   </div>
+  ${premiumHTML()}
+  ${semainesHTML()}
+  ${notionsHTML()}
   <div class="grid row3">
     <div class="card"><div class="cardhead"><div class="grow"><h3>Matières les plus travaillées</h3><p class="sub">Questions répondues dans les sujets terminés</p></div></div>
       ${um.map(([id,v])=>`<div style="margin:9px 0"><div class="row" style="font-size:14px"><span style="flex:1">${esc(matName(id))}</span><b class="num">${fmt(v)}</b></div><div class="bar" style="height:9px"><span style="width:${v/umMax*100}%"></span></div></div>`).join('') || '<div class="empty">Aucun sujet terminé pour l’instant.</div>'}</div>
@@ -1776,8 +1778,56 @@ function engagementReal(){
   </div>
   <div class="card" style="margin-top:18px"><div class="cardhead"><div class="grow"><h3>Appareils par filière et année</h3><p class="sub">D’après le profil choisi dans l’appli</p></div></div>
     ${niv.length?`<div class="levels">${niv.map(x=>`<div class="lvl"><div class="t">${esc(x.fil)} · ${esc(x.niv||'—')}</div><div class="n num">${fmt(x.appareils)}</div><div class="s">appareils</div></div>`).join('')}</div>`:'<div class="empty">Pas encore de données.</div>'}
-    <p class="sub" style="margin-top:12px">Les notions difficiles et le retour des élèves semaine par semaine arriveront avec les comptes élèves (phase 3).</p></div>`;
+  </div>`;
 }
+
+/* ---------- Engagement : élèves passés Premium, activité semaine par semaine, notions difficiles ---------- */
+let SEM=null, NOT=null, ENG_T=0;
+async function loadEngagement(){
+  if(MODE!=='supabase'||!SB) return;
+  const sqlManque = e=>/stats_semaines|notions_difficiles|function|PGRST/i.test(String(e&&e.message||e));
+  try{ const {data,error}=await SB.rpc('stats_semaines',{p_semaines:12}); SEM = error ? {err: sqlManque(error)?'sql':'reseau'} : (data||[]); }catch(e){ SEM={err:'reseau'}; }
+  try{ const {data,error}=await SB.rpc('notions_difficiles',{p_jours:90,p_min:5}); NOT = error ? {err: sqlManque(error)?'sql':'reseau'} : (data||[]); }catch(e){ NOT={err:'reseau'}; }
+  ENG_T=Date.now(); if(page==='engagement') render();
+}
+const engSql = `<div class="msg warn">Lance <b>supabase/engagement/1_engagement.sql</b> dans Supabase (SQL Editor → Run) pour afficher cette partie.</div>`;
+const lundi = t=>{ const d=new Date(t); const j=(d.getDay()+6)%7; d.setHours(0,0,0,0); d.setDate(d.getDate()-j); return d.toISOString().slice(0,10); };
+function premiumHTML(){
+  const E = (DB.entitlements||[]).filter(e=>e.user_id), now=Date.now();
+  const ever = new Set(E.map(e=>e.user_id)), actifs = new Set(E.filter(e=>new Date(e.start)<=now && new Date(e.end)>now).map(e=>e.user_id));
+  const premier = {}; E.forEach(e=>{ const t=new Date(e.start).getTime(); if(!(e.user_id in premier) || t<premier[e.user_id]) premier[e.user_id]=t; });
+  const n30 = Object.values(premier).filter(t=>now-t<=30*DAY).length, eleves = (DB.profiles||[]).length;
+  const src = {}; E.forEach(e=>{ src[e.source||'—']=(src[e.source||'—']||0)+1; });
+  return `<div class="grid kpis" style="margin-top:18px">
+    <div class="card kpi"><div class="lab"><span class="ic">${ic('star')}</span>Élèves passés Premium</div><div class="big">${fmt(ever.size)}</div><div class="foot">${pct(ever.size,eleves)} % des ${fmt(eleves)} comptes élèves</div></div>
+    <div class="card kpi"><div class="lab"><span class="ic">${ic('star')}</span>Premium en ce moment</div><div class="big">${fmt(actifs.size)}</div><div class="foot">pass en cours de validité</div></div>
+    <div class="card kpi"><div class="lab"><span class="ic">${ic('star')}</span>Nouveaux Premium (30 j)</div><div class="big">${fmt(n30)}</div><div class="foot">premier pass ces 30 derniers jours</div></div>
+    <div class="card kpi"><div class="lab"><span class="ic">${ic('star')}</span>Origine des pass</div><div class="foot" style="margin-top:8px;line-height:1.6">${Object.entries(src).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`${esc(k)} : <b>${fmt(v)}</b>`).join('<br>')||'—'}</div></div>
+  </div>`;
+}
+function semainesHTML(){
+  const head = `<div class="card" style="margin-top:18px"><div class="cardhead"><div class="grow"><h3>Activité semaine par semaine</h3><p class="sub">12 dernières semaines · appareils (sans nom) et comptes Premium</p></div></div>`;
+  if(SEM===null) return head+'<p class="sub">Chargement…</p></div>';
+  if(SEM.err) return head+(SEM.err==='sql'?engSql:'<div class="msg bad">Impossible de joindre Supabase.</div>')+'</div>';
+  const E=(DB.entitlements||[]).filter(e=>e.user_id), premier={}; E.forEach(e=>{ const t=new Date(e.start).getTime(); if(!(e.user_id in premier)||t<premier[e.user_id]) premier[e.user_id]=t; });
+  const prem={}; Object.values(premier).forEach(t=>{ const k=lundi(t); prem[k]=(prem[k]||0)+1; });
+  const heat = v => v==null ? '' : `background:color-mix(in srgb,var(--violet) ${Math.round(v*0.9)}%,var(--soft));color:${v>45?'#fff':'var(--ink)'}`;
+  const L = SEM.slice().reverse();
+  return head+`<div class="tablewrap"><table class="t"><thead><tr><th>Semaine du</th><th>Appareils actifs</th><th>Nouveaux appareils</th><th>Sujets terminés</th><th>Nouveaux Premium</th></tr></thead><tbody>
+    ${L.map(w=>`<tr><td>${dfr(w.semaine,{day:'numeric',month:'short'})}</td><td class="num"><b>${fmt(w.actifs)}</b></td><td class="num">${fmt(w.nouveaux)}</td><td class="num">${fmt(w.sujets)}</td><td class="num">${fmt(prem[String(w.semaine).slice(0,10)]||0)}</td></tr>`).join('')}</tbody></table></div>
+    <h4 style="margin:16px 0 4px">Retour des nouveaux appareils</h4><p class="sub">Part des appareils arrivés cette semaine-là qui reviennent 1 à 4 semaines plus tard</p>
+    <table class="hm"><thead><tr><th></th><th>Nouveaux</th><th>S+1</th><th>S+2</th><th>S+3</th><th>S+4</th></tr></thead><tbody>
+    ${L.filter(w=>w.nouveaux>0).slice(0,8).map(w=>`<tr><td class="l">${dfr(w.semaine,{day:'numeric',month:'short'})}</td><td>${fmt(w.nouveaux)}</td>${(w.retour||[null,null,null,null]).map(v=>{const p=v==null?null:Math.round(v*100/w.nouveaux);return `<td style="${heat(p)}">${p==null?'<span class="muted">·</span>':p+' %'}</td>`}).join('')}</tr>`).join('')||'<tr><td colspan="6" class="muted">Pas encore de nouveaux appareils sur la période.</td></tr>'}</tbody></table></div>`;
+}
+function notionsHTML(){
+  const head = `<div class="card" style="margin-top:18px"><div class="cardhead"><div class="grow"><h3>Notions difficiles</h3><p class="sub">Questions les plus ratées dans les sujets terminés (90 derniers jours, au moins 5 réponses) — à enrichir en explications</p></div></div>`;
+  if(NOT===null) return head+'<p class="sub">Chargement…</p></div>';
+  if(NOT.err) return head+(NOT.err==='sql'?engSql:'<div class="msg bad">Impossible de joindre Supabase.</div>')+'</div>';
+  if(!NOT.length) return head+'<div class="empty">Pas encore assez de réponses. Cette liste se remplit à chaque sujet terminé avec la nouvelle version de l’appli.</div></div>';
+  return head+`<div class="tablewrap"><table class="t"><thead><tr><th>Question</th><th>Matière</th><th>Taux d’erreur</th><th>Réponses</th></tr></thead><tbody>
+    ${NOT.slice(0,30).map(n=>`<tr><td><b style="font-weight:600">${esc(n.texte||n.id)}</b><br><small class="muted">${esc(n.id)}</small></td><td>${esc(matName(n.mat))}</td><td><div class="row"><div class="bar" style="width:90px;margin:0"><span style="width:${Math.round(n.taux*100)}%;background:var(--red)"></span></div><span>${Math.round(n.taux*100)} %</span></div></td><td class="num">${fmt(n.tentatives)}</td></tr>`).join('')}</tbody></table></div></div>`;
+}
+AFTER.engagement = (function(prev){ return ()=>{ if(typeof prev==='function') prev(); if(MODE==='supabase' && REAL && (SEM===null || Date.now()-ENG_T>5*60e3)) { ENG_T=Date.now(); loadEngagement(); } }; })(AFTER.engagement);
 
 /* =========================================================
    12. ANNONCES
@@ -2060,7 +2110,7 @@ function regle(cle, config) {
   ${payCard()}
   <div class="grid accgrid" style="margin-top:18px">
     <div class="card"><div class="cardhead"><div class="grow"><h3>Données</h3><p class="sub">${MODE==='supabase'?'Source actuelle : votre projet Supabase':'Source actuelle : ce navigateur (localStorage)'}</p></div></div>
-      <div class="kv"><span>Source</span><b>${MODE==='supabase'?'Supabase · phase 2':'Locale · phase 1'}</b><span>Dernier enregistrement</span><b>${DB.meta.savedAt?dfr(DB.meta.savedAt)+' à '+hfr(DB.meta.savedAt):'—'}</b><span>Contenu</span><b>${fmt(DB.profiles.length)} élèves · ${DB.entitlements.length} pass · ${Object.keys(DB.access.regles).length} règles</b></div>
+      <div class="kv"><span>Source</span><b>${MODE==='supabase'?'Supabase':'Locale (ce navigateur)'}</b><span>Dernier enregistrement</span><b>${DB.meta.savedAt?dfr(DB.meta.savedAt)+' à '+hfr(DB.meta.savedAt):'—'}</b><span>Contenu</span><b>${fmt(DB.profiles.length)} élèves · ${DB.entitlements.length} pass · ${Object.keys(DB.access.regles).length} règles</b></div>
       <div class="row wrap"><button class="btn" id="expall">${ic('dl')}Sauvegarder toutes les données</button><button class="btn" id="impall">${ic('ul')}Restaurer une sauvegarde</button></div>
       <div class="row wrap" style="margin-top:10px"><button class="btn" id="reseed">Régénérer les données fictives</button><button class="btn danger" id="wipe">Vider les élèves de test</button></div></div>
     <div class="card"><div class="cardhead"><div class="grow"><h3>Brancher le portail élève</h3><p class="sub">Fonction à ajouter au portail pour lire les règles exportées</p></div><button class="btn sm" id="copysn">Copier</button></div>
