@@ -72,6 +72,7 @@ body.locked .side nav,body.locked .side .navlabel,body.locked .sidesearch{displa
 .msg{border-radius:12px;padding:10px 12px;font-size:14px;margin-top:12px}
 .msg.bad{background:color-mix(in srgb,var(--red) 12%,transparent);color:var(--red)}
 .msg.ok{background:color-mix(in srgb,var(--green) 12%,transparent);color:var(--green)}
+.msg.warn{background:color-mix(in srgb,var(--amber) 14%,transparent);color:#b06d00}
 .av{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:700;color:#fff;background:var(--violet);flex:none}
 .signature{font-family:var(--display);font-weight:700;font-size:15px;letter-spacing:.01em;color:var(--violet-ink);background:var(--soft);border-radius:99px;padding:6px 14px;white-space:nowrap}
 
@@ -1056,6 +1057,7 @@ const PAGES = [
   {id:'engagement', nom:'Engagement', icon:'chart', grp:2},
   {id:'annonces', nom:'Annonces', icon:'bell', grp:2, count:()=>DB.announcements.filter(a=>annonceLive(a)).length},
   {id:'signalements', nom:'Signalements', icon:'flag', grp:2, count:()=>DB.reports.filter(r=>r.statut!=='corrige').length},
+  {id:'compos', nom:'Compositions', icon:'quiz', grp:2},
   {id:'reglages', nom:'Réglages', icon:'gear', grp:3},
 ];
 const VIEWS = {}, AFTER = {};
@@ -1894,6 +1896,98 @@ document.addEventListener('visibilitychange', ()=>{ if(!document.hidden){ veille
 /* =========================================================
    14. RÉGLAGES
    ========================================================= */
+/* =========================================================
+   COMPOSITIONS PAR LIEN (supabase/compos/1_compos.sql)
+   Un lien …/?compo=CODE ouvre directement un sujet dans l'appli ; l'élève tape son nom, compose,
+   sa note revient ici. Un envoi par appareil et par compo.
+   ========================================================= */
+const CP_SITES = [['eleves','Site des élèves'],['test','Site test']];
+const CP_TEST = 'https://qidevelloper-cpu.github.io/revision-infas-test/';
+const CP_MODES = {gratuit:['🎁 Gratuit complet','Questions, réponses et explications ouvertes à tous'], reponses:['🎁 Réponses gratuites','Bonnes réponses ouvertes ; explications réservées aux élèves Premium'], normal:['🔒 Comme dans l’appli','Règles Gratuit / Premium habituelles du sujet']};
+let CPS = null, CP_ERR = '', CP_NEUF = null, CP_COPIES = {}, CP_CAT = {};
+function cpBase(){ return (UI.cpSite||'eleves')==='test' ? CP_TEST : portailUrl(); }
+function cpLien(code){ return cpBase()+'?compo='+encodeURIComponent(code); }
+async function cpCatalogue(){ const b=cpBase(); if(CP_CAT[b]) return CP_CAT[b];
+  try{ const r=await fetch(b+'catalogue.json?t='+Date.now(),{cache:'no-store'}); if(!r.ok) throw new Error(r.status); const c=await r.json();
+    const L=[]; (c.rubriques||[]).forEach(rb=>(rb.matieres||[]).forEach(m=>{ const S=Array.isArray(m.sujets)?m.sujets.map((x,k)=>({k,t:x[0],n:x[1]})):Array.from({length:m.nsuj||0},(x,k)=>({k,t:'',n:0})); if(S.some(s=>s.n>0||!s.t)) L.push({rub:prettyRub(rb.nom), id:m.id, nom:m.court||m.nom, titres:Array.isArray(m.sujets), sujets:S}); }));
+    CP_CAT[b]={ok:true, L}; }catch(e){ CP_CAT[b]={ok:false, L:[], err:'catalogue.json illisible sur '+b}; }
+  return CP_CAT[b]; }
+async function chargerCompos(){ if(MODE!=='supabase'||!SB){ CPS=null; return; } try{ const {data,error}=await SB.rpc('compo_lister'); if(error) throw error; CPS=data||[]; CP_ERR=''; }catch(e){ CPS=[]; CP_ERR=/function|PGRST|404/.test(String(e&&e.message||e))?'Lancez d’abord supabase/compos/1_compos.sql dans Supabase (SQL Editor → Run).':frErr(e); } }
+function cpNomCours(mid){ const c=CP_CAT[cpBase()]; const m=c&&c.L.find(x=>x.id===mid); return m?m.nom:mid; }
+function cpTexte(c){ const dl=c.date_limite?`\n📅 DATE LIMITE de la composition : ${dfr(c.date_limite,{weekday:'long',day:'numeric',month:'long'})} à ${hfr(c.date_limite)}`:'';
+  return `📝 Composition Révision INFAS${c.titre?' : '+c.titre:''}\n${cpNomCours(c.mid)} · ${c.sujet_titre||'Sujet '+(c.k+1)}${c.chrono_min?'\n⏱ '+c.chrono_min+' minutes':''}${dl}\nTouche ce lien pour composer : ${cpLien(c.code)}`; }
+function cpEtat(c){ if(!c.actif) return ['Close','bad']; if(c.date_limite&&new Date(c.date_limite)<new Date()) return ['Terminée','bad']; return ['Ouverte','ok']; }
+const cpDuree = s=>s==null?'—':(s>=60?Math.floor(s/60)+' min '+String(s%60).padStart(2,'0')+' s':s+' s');
+
+VIEWS.compos = ()=>{
+  const cat = CP_CAT[cpBase()], site = UI.cpSite||'eleves', f = UI.cpF||{};
+  const m = cat&&cat.L.find(x=>x.id===f.mid) || (cat&&cat.L[0]);
+  const form = !cat ? '<p class="sub">Chargement de la liste des sujets…</p>' : !cat.ok ? `<div class="msg bad">${esc(cat.err)}</div>` : `
+    <div class="codeform">
+      <div style="flex:1 1 230px"><label class="lbl" for="cpmid">Cours</label><select class="field" id="cpmid">${[...new Set(cat.L.map(x=>x.rub))].map(r=>`<optgroup label="${esc(r)}">${cat.L.filter(x=>x.rub===r).map(x=>`<option value="${esc(x.id)}" ${m&&m.id===x.id?'selected':''}>${esc(x.nom)}</option>`).join('')}</optgroup>`).join('')}</select></div>
+      <div style="flex:2 1 320px"><label class="lbl" for="cpk">Sujet</label><select class="field" id="cpk">${m?m.sujets.filter(s=>s.n>0||!s.t).map(s=>`<option value="${s.k}" ${+f.k===s.k?'selected':''}>${esc(s.t||'Sujet '+(s.k+1))}${s.n?' · '+s.n+' questions':''}</option>`).join(''):''}</select></div>
+    </div>
+    ${m&&!m.titres?`<div class="msg warn">Les titres des sujets de ce site arriveront avec la prochaine publication de l’appli ; en attendant, le sujet est repéré par son numéro.</div>`:''}
+    <div class="codeform" style="margin-top:12px">
+      <div style="flex:1 1 230px"><label class="lbl" for="cptitre">Titre de la compo (facultatif)</label><input class="field" id="cptitre" maxlength="120" value="${esc(f.titre||'')}" placeholder="Ex. Compo de lundi · L3 IDE"></div>
+      <div><label class="lbl" for="cpchrono">Chronomètre (minutes)</label><input class="field" id="cpchrono" type="number" min="1" max="600" value="${esc(f.chrono||'')}" placeholder="Sans" style="max-width:130px"></div>
+      <div><label class="lbl" for="cpdl">Date limite (facultatif)</label><input class="field" id="cpdl" type="datetime-local" value="${esc(f.dl||'')}"></div>
+    </div>
+    <div style="margin-top:12px"><span class="lbl">Accès</span><div class="chips" style="margin-top:6px">${Object.entries(CP_MODES).map(([k,v])=>`<button class="chip ${(f.mode||'gratuit')===k?'on':''}" data-cpmode="${k}" title="${esc(v[1])}">${v[0]}</button>`).join('')}</div>
+      <p class="sub" style="margin-top:6px">${esc(CP_MODES[f.mode||'gratuit'][1])}. La gratuité ne vaut que pour ce sujet.</p></div>
+    <div style="margin-top:12px"><button class="btn pri" id="cpgo">${ic('plus')}Créer le lien</button></div>
+    ${CP_NEUF?`<div class="codesneufs" style="margin-top:14px"><b>Lien créé :</b> <span class="code big">${esc(CP_NEUF.code)}</span>
+      <div class="field" style="margin-top:8px;word-break:break-all;user-select:all">${esc(cpLien(CP_NEUF.code))}</div>
+      <div class="row" style="gap:6px;flex-wrap:wrap;margin-top:8px"><button class="btn sm" data-cpcopy="${esc(CP_NEUF.code)}">Copier le lien</button><button class="btn sm wa" data-cpwa="${esc(CP_NEUF.code)}">💬 WhatsApp</button><a class="btn sm" href="${esc(cpLien(CP_NEUF.code))}" target="_blank" rel="noopener">Ouvrir</a></div></div>`:''}`;
+  const ligne = c=>{ const [et,cl]=cpEtat(c), cop=CP_COPIES[c.code];
+    return `<div class="coderow" style="${c.actif?'':'opacity:.75'}"><div class="cc" style="flex:1 1 260px;min-width:0"><div><b>${esc(c.titre||c.sujet_titre||'Sujet '+(c.k+1))}</b> <span class="pill ${cl==='ok'?'':'warn'}">${et}</span></div>
+      <small>${esc(cpNomCours(c.mid))} · ${esc(c.sujet_titre||'Sujet '+(c.k+1))}</small>
+      <small><b class="code">${esc(c.code)}</b> · ${esc(CP_MODES[c.mode]?CP_MODES[c.mode][0]:c.mode)}${c.chrono_min?' · ⏱ '+c.chrono_min+' min':''}${c.date_limite?' · 📅 '+dfr(c.date_limite,{day:'numeric',month:'short'})+' '+hfr(c.date_limite):''} · créée le ${dfr(c.cree_at,{day:'numeric',month:'short'})}</small>
+      <small>📋 ${c.copies||0} copie${(c.copies||0)>1?'s':''}${c.moyenne!=null?' · moyenne '+String(c.moyenne).replace('.',',')+'/20':''}</small></div>
+      <div class="row" style="flex-wrap:wrap;gap:6px"><button class="btn sm" data-cpres="${esc(c.code)}">${cop?'Masquer':'Résultats'}</button><button class="btn sm" data-cpcopy="${esc(c.code)}">Copier le lien</button><button class="btn sm wa" data-cpwa="${esc(c.code)}">💬 WhatsApp</button><button class="btn sm" data-cpact="${esc(c.code)}" data-on="${c.actif?0:1}">${c.actif?'Clore':'Rouvrir'}</button></div>
+      ${cop?`<div style="flex-basis:100%">${cop==='…'?'<p class="sub">Chargement…</p>':!cop.length?'<p class="sub">Aucune copie pour l’instant.</p>':`<div class="tablewrap"><table class="t"><thead><tr><th>#</th><th>Élève</th><th>Note</th><th>Bonnes réponses</th><th>Durée</th><th>Envoyée le</th></tr></thead><tbody>${cop.map((r,i)=>`<tr><td>${i+1}</td><td>${esc(r.nom)}</td><td><b>${String(r.note).replace('.',',')}/20</b></td><td>${r.bonnes}/${r.total}</td><td>${cpDuree(r.duree_s)}</td><td>${dfr(r.envoye_at,{day:'numeric',month:'short'})} ${hfr(r.envoye_at)}</td></tr>`).join('')}</tbody></table></div>
+        <button class="btn sm" data-cpcsv="${esc(c.code)}" style="margin-top:8px">${ic('dl')}Exporter (CSV)</button>`}</div>`:''}</div>`; };
+  return headHTML('Compositions', 'Liens de composition à envoyer aux élèves : le sujet s’ouvre directement dans l’appli, l’élève tape son nom et sa note revient ici.', `<div class="chips">${CP_SITES.map(([k,l])=>`<button class="chip ${site===k?'on':''}" data-cpsite="${k}">Lien vers : ${l}</button>`).join('')}</div>`) +
+    (MODE!=='supabase' ? `<div class="card"><div class="msg warn">Connectez le tableau de bord à Supabase (compte administrateur) pour créer des compositions.</div></div>` : CP_ERR ? `<div class="card"><div class="msg bad">${esc(CP_ERR)}</div></div>` : `
+    <div class="card"><div class="cardhead"><div class="grow"><h3>📝 Nouvelle composition</h3><p class="sub">Choisissez un sujet, l’accès, et si besoin un chronomètre (copie remise automatiquement à la fin du temps) ou une date limite (après, le lien affiche « Composition terminée »).</p></div></div>${form}</div>
+    <div class="card" style="margin-top:18px"><div class="cardhead"><div class="grow"><h3>Compositions créées</h3><p class="sub">Un envoi par appareil et par compo. Sans compte, le nom tapé par l’élève n’est pas vérifié.</p></div><button class="btn sm" id="cpreload">Actualiser</button></div>
+      <div class="codelist">${CPS===null?'<p class="sub">Chargement…</p>':CPS.map(ligne).join('')||'<p class="sub">Aucune composition pour l’instant.</p>'}</div></div>`);
+};
+AFTER.compos = ()=>{
+  if(MODE!=='supabase') return;
+  if(CPS===null){ chargerCompos().then(()=>{ if(page==='compos') render(); }); }
+  if(!CP_CAT[cpBase()]){ cpCatalogue().then(()=>{ if(page==='compos') render(); }); }
+  const f = UI.cpF = UI.cpF||{};
+  const lire = ()=>{ if($('#cpmid')) f.mid=$('#cpmid').value; if($('#cpk')) f.k=$('#cpk').value; if($('#cptitre')) f.titre=$('#cptitre').value; if($('#cpchrono')) f.chrono=$('#cpchrono').value; if($('#cpdl')) f.dl=$('#cpdl').value; };
+  const cp = t=>{ try{ navigator.clipboard.writeText(t); toast('Lien copié.'); }catch(e){ toast(t); } };
+  const parCode = code=>(CPS||[]).find(c=>c.code===code) || (CP_NEUF&&CP_NEUF.code===code?CP_NEUF:null);
+  document.querySelectorAll('[data-cpsite]').forEach(b=>b.onclick=()=>{ lire(); UI.cpSite=b.dataset.cpsite; render(); });
+  document.querySelectorAll('[data-cpmode]').forEach(b=>b.onclick=()=>{ lire(); f.mode=b.dataset.cpmode; render(); });
+  if($('#cpmid')) $('#cpmid').onchange=()=>{ lire(); f.k=0; render(); };
+  if($('#cpreload')) $('#cpreload').onclick=async()=>{ CP_COPIES={}; await chargerCompos(); render(); toast('Compositions à jour.'); };
+  if($('#cpgo')) $('#cpgo').onclick=async()=>{ lire(); const cat=CP_CAT[cpBase()], m=cat&&cat.L.find(x=>x.id===f.mid)||(cat&&cat.L[0]); if(!m){ toast('Choisissez un cours.'); return; }
+    const k=+f.k||0, s=m.sujets.find(x=>x.k===k)||{}, chrono=f.chrono?Math.round(+f.chrono):null;
+    if(chrono!=null&&!(chrono>=1&&chrono<=600)){ toast('Chronomètre : entre 1 et 600 minutes.'); return; }
+    const dl=f.dl?new Date(f.dl):null; if(dl&&!(dl>new Date())){ toast('La date limite doit être dans le futur.'); return; }
+    $('#cpgo').disabled=true;
+    try{ const args={p_titre:(f.titre||'').trim(), p_mid:m.id, p_k:k, p_sujet_titre:s.t||'', p_mode:f.mode||'gratuit', p_chrono_min:chrono, p_date_limite:dl?dl.toISOString():null};
+      const {data,error}=await SB.rpc('compo_creer',args); if(error) throw error; if(!data||!data.ok) throw new Error('Création refusée ('+(data&&data.raison||'?')+').');
+      CP_NEUF={code:data.code, titre:args.p_titre, mid:m.id, k, sujet_titre:args.p_sujet_titre, mode:args.p_mode, chrono_min:chrono, date_limite:args.p_date_limite};
+      audit('Composition créée', data.code+' · '+(args.p_titre||s.t||m.nom)); await chargerCompos(); render(); toast('Lien de composition créé.');
+    }catch(e){ toast(/function|PGRST|404/.test(String(e&&e.message||e))?'Lancez d’abord supabase/compos/1_compos.sql dans Supabase.':frErr(e)); if($('#cpgo')) $('#cpgo').disabled=false; } };
+  document.querySelectorAll('[data-cpcopy]').forEach(b=>b.onclick=()=>cp(cpLien(b.dataset.cpcopy)));
+  document.querySelectorAll('[data-cpwa]').forEach(b=>b.onclick=()=>{ const c=parCode(b.dataset.cpwa); if(c) window.open('https://wa.me/?text='+encodeURIComponent(cpTexte(c)),'_blank','noopener'); });
+  document.querySelectorAll('[data-cpres]').forEach(b=>b.onclick=async()=>{ const code=b.dataset.cpres; if(CP_COPIES[code]){ delete CP_COPIES[code]; render(); return; }
+    CP_COPIES[code]='…'; render(); try{ const {data,error}=await SB.rpc('compo_copies',{p_code:code}); if(error) throw error; CP_COPIES[code]=data||[]; }catch(e){ delete CP_COPIES[code]; toast(frErr(e)); } render(); });
+  document.querySelectorAll('[data-cpcsv]').forEach(b=>b.onclick=()=>{ const code=b.dataset.cpcsv, L=CP_COPIES[code]||[], c=parCode(code)||{};
+    const q=v=>'"'+String(v??'').replace(/"/g,'""')+'"';
+    const csv='﻿'+['Rang;Élève;Note /20;Bonnes réponses;Total;Durée (s);Envoyée le'].concat(L.map((r,i)=>[i+1,q(r.nom),String(r.note).replace('.',','),r.bonnes,r.total,r.duree_s??'',q(new Date(r.envoye_at).toLocaleString('fr-FR'))].join(';'))).join('\n');
+    const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'})); a.download='compo-'+code+(c.titre?'-'+c.titre.replace(/[^\p{L}\p{N}]+/gu,'-'):'')+'.csv'; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),2000); });
+  document.querySelectorAll('[data-cpact]').forEach(b=>b.onclick=()=>{ const on=b.dataset.on==='1', code=b.dataset.cpact;
+    const go=async()=>{ closeModal(); try{ const {data,error}=await SB.rpc('compo_activer',{p_code:code,p_actif:on}); if(error) throw error; if(!data||!data.ok) throw new Error('Composition introuvable.'); audit(on?'Composition rouverte':'Composition close', code); await chargerCompos(); render(); toast(on?'Composition rouverte.':'Composition close : le lien affiche « Composition terminée ».'); }catch(e){ toast(frErr(e)); } };
+    if(on) go(); else confirmModal('Clore cette composition ?', `Le lien ${code} affichera « Composition terminée ». Les copies déjà reçues sont gardées ; vous pourrez la rouvrir.`, 'Clore', go); });
+};
+
 VIEWS.reglages = ()=>{
   const snippet = `// Dans le portail élève — à brancher en phase 1
 // access-config.json est exporté depuis « Contenu et accès »
