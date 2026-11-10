@@ -1271,6 +1271,8 @@ async function loadCnx(){
 function cnxPrep(rows){ // une connexion par appareil et par tranche de 10 minutes ; rattachée à l'élève par son compte ou son appareil
   const L = rows.filter(x=>x && x.t).sort((a,b)=>new Date(b.t)-new Date(a.t)), last = {}, out = [];
   for(const x of L){ const t = new Date(x.t).getTime(), k = x.a||'?'; if(last[k]!=null && last[k]-t < 10*60e3) continue; last[k] = t; out.push(x); }
+  const nomA = {}, filA = {}; L.forEach(x=>{ if(x.a && x.m && !nomA[x.a]) nomA[x.a] = x.m; if(x.a && x.f && !filA[x.a]) filA[x.a] = [x.f, x.n]; }); // le nom le plus récent tapé sur chaque appareil
+  out.forEach(x=>{ if(!x.m && nomA[x.a]) x.m = nomA[x.a]; if(!x.f && filA[x.a]){ x.f = filA[x.a][0]; x.n = filA[x.a][1]; } });
   out.forEach(x=>{ const p = (x.c && DB.profiles.find(p=>p.auth_id===x.c)) || (x.a && DB.profiles.find(p=>(p.appareils||[]).some(a=>String(a).includes(x.a)))); x.pid = p ? p.id : null; });
   return out;
 }
@@ -1286,7 +1288,7 @@ function cnxCard(){
   if(X.err) return `<div class="card" id="cnxcard"><h3 style="margin:0 0 6px">🕒 Heures de connexion</h3><p class="muted" style="margin:0">${X.err==='sql'?'Colle le fichier <b>supabase/connexions/1_connexions.sql</b> dans Supabase (SQL Editor → Run) pour voir les heures de connexion.':'Impossible de joindre Supabase pour l’instant. Touchez « Actualiser ».'}</p></div>`;
   const L = X.L, H = Array(24).fill(0); L.forEach(x=>H[new Date(x.t).getHours()]++);
   const mx = Math.max(1,...H), pic = H.indexOf(Math.max(...H)), aff = UI.cnxAll ? 80 : 12;
-  const who = x=>{ const p = x.pid && DB.profiles.find(q=>q.id===x.pid); return p ? `<button class="lnk" data-user="${esc(p.id)}" style="font-weight:700">${esc(fullName(p))}</button>` : `<span class="muted">Sans compte${x.f?' · '+esc(x.f)+(x.n?' '+esc(x.n):''):''}</span>`; };
+  const who = x=>{ const p = x.pid && DB.profiles.find(q=>q.id===x.pid); return p ? `<button class="lnk" data-user="${esc(p.id)}" style="font-weight:700">${esc(fullName(p))}</button>` : `${x.m?`<b>${esc(x.m)}</b> `:''}<span class="muted">${x.m?'· ':''}Sans compte${x.f?' · '+esc(x.f)+(x.n?' '+esc(x.n):''):''}</span>`; };
   return `<div class="card" id="cnxcard" style="margin-bottom:16px">
     <div class="row wrap" style="align-items:baseline"><h3 style="margin:0;flex:1">🕒 Heures de connexion <span class="muted" style="font-weight:500;font-size:13px">· 30 derniers jours${X.demo?' · exemple (données locales)':''}</span></h3>${L.length?`<span class="muted" style="font-size:13px">${fmt(L.length)} connexion${L.length>1?'s':''} · le plus de monde vers <b>${pic} h</b></span>`:''}</div>
     ${L.length?`<div style="display:grid;grid-template-columns:repeat(24,1fr);gap:3px;align-items:end;height:90px;margin:14px 0 4px" aria-label="Connexions selon l’heure">${H.map((n,h)=>`<div title="${h} h : ${n} connexion${n>1?'s':''}" style="height:${Math.max(3,Math.round(n/mx*86))}px;border-radius:4px 4px 0 0;background:${h===pic?'var(--brand,#6C3BF5)':'color-mix(in srgb,var(--brand,#6C3BF5) 45%,transparent)'}"></div>`).join('')}</div>
@@ -1297,7 +1299,23 @@ function cnxCard(){
     :`<p class="muted" style="margin:8px 0 0">Aucune connexion reçue sur 30 jours. Les heures s’affichent dès que les élèves ouvrent l’appli mise à jour.</p>`}
   </div>`;
 }
-function bindCnx(){ const b = $('#cnxall'); if(b) b.onclick = ()=>{ UI.cnxAll = !UI.cnxAll; render(); }; document.querySelectorAll('#cnxcard [data-user]').forEach(x=>x.onclick=()=>openUser(x.dataset.user)); }
+function sansCompteCard(){
+  const X = cnxData(); if(X.err || X.demo || !X.L) return '';
+  const G = {}; X.L.filter(x=>!x.pid && x.a).forEach(x=>{ const g = G[x.a] = G[x.a] || {a:x.a, m:'', f:'', n:'', t:x.t, nb:0}; g.nb++; if(!g.m && x.m) g.m = x.m; if(!g.f && x.f){ g.f = x.f; g.n = x.n||''; } });
+  const q = nrmTxt((UI.scq||'').trim()), L0 = Object.values(G), L = L0.filter(g=>!q || nrmTxt(`${g.m} ${g.f} ${g.n}`).includes(q)).sort((a,b)=>(!!b.m - !!a.m) || new Date(b.t)-new Date(a.t)), nm = L0.filter(g=>g.m).length;
+  if(!L0.length) return '';
+  const aff = UI.scAll ? L.length : 15;
+  return `<div class="card" id="sccard" style="margin-bottom:16px">
+    <div class="row wrap" style="align-items:baseline;gap:10px"><h3 style="margin:0;flex:1">👤 Élèves sans compte <span class="muted" style="font-weight:500;font-size:13px">· nom tapé à l’accueil · 30 derniers jours</span></h3><span class="muted" style="font-size:13px">${fmt(L0.length)} appareil${L0.length>1?'s':''} · ${fmt(nm)} avec un nom</span></div>
+    <input class="field" id="scq" placeholder="Chercher un nom, une filière, une licence…" value="${esc(UI.scq||'')}" style="max-width:360px;margin:10px 0" aria-label="Chercher un élève sans compte">
+    <div class="tablewrap"><table class="t"><thead><tr><th>Nom</th><th>Filière</th><th>Licence</th><th>Dernière connexion</th><th>Connexions</th></tr></thead><tbody>
+    ${L.slice(0,aff).map(g=>`<tr><td>${g.m?`<b>${esc(g.m)}</b>`:'<span class="muted">Nom pas encore tapé</span>'}</td><td>${esc(g.f||'—')}</td><td>${esc(g.n||'—')}</td><td style="white-space:nowrap">${dhfr(g.t)}</td><td>${fmt(g.nb)}</td></tr>`).join('') || `<tr><td colspan="5" class="muted">Aucun résultat.</td></tr>`}</tbody></table></div>
+    ${L.length>15?`<button class="btn sm" id="scall" style="margin-top:8px">${UI.scAll?'Voir moins':`Voir les ${fmt(L.length)}`}</button>`:''}
+    <p class="muted" style="font-size:12.5px;margin:8px 0 0">Les noms arrivent dès qu’un élève ouvre l’appli mise à jour ou change son nom à l’accueil.</p>
+  </div>`;
+}
+function bindCnx(){ const sa = $('#scall'); if(sa) sa.onclick = ()=>{ UI.scAll = !UI.scAll; render(); };
+  const sq = $('#scq'); if(sq) sq.oninput = ()=>{ const pos = sq.selectionStart; UI.scq = sq.value; clearTimeout(sq.t); sq.t = setTimeout(()=>{ render(); const n = $('#scq'); if(n){ n.focus(); try{ n.setSelectionRange(pos,pos); }catch(e){} } }, 250); }; const b = $('#cnxall'); if(b) b.onclick = ()=>{ UI.cnxAll = !UI.cnxAll; render(); }; document.querySelectorAll('#cnxcard [data-user]').forEach(x=>x.onclick=()=>openUser(x.dataset.user)); }
 function derniereCnx(p){ const c = cnxDe(p.id)[0]; return c ? dhfr(c.t) : relTime(p.last_seen); }
 function bindUserRows(){ document.querySelectorAll('[data-user]').forEach(tr=>tr.onclick=e=>{ if(e.target.closest('input,button')) return; openUser(tr.dataset.user); }); }
 
@@ -1333,7 +1351,7 @@ VIEWS.eleves = ()=>{
   const rows = L.slice((s.page-1)*per, s.page*per);
   const sel = (name,val,opts)=>`<select class="field" style="width:auto" data-f="${name}" aria-label="${name}">${opts.map(([v,l])=>`<option value="${v}" ${val===v?'selected':''}>${l}</option>`).join('')}</select>`;
   const nReal = DB.profiles.filter(p=>p.auth_id).length;
-  return headHTML('Élèves', `${fmt(DB.profiles.length)} élèves dont ${fmt(nReal)} vrai${nReal>1?'s':''} compte${nReal>1?'s':''} · cliquez sur un élève pour ouvrir sa fiche.`, `${demoTag()}${MODE==='supabase'?`<button class="btn" id="ureload">Actualiser</button>`:''}<button class="btn" id="csv">${ic('dl')}Exporter en CSV</button><button class="btn pri" id="adduser">${ic('plus')}Ajouter un élève</button>`) + cnxCard() + `
+  return headHTML('Élèves', `${fmt(DB.profiles.length)} élèves dont ${fmt(nReal)} vrai${nReal>1?'s':''} compte${nReal>1?'s':''} · cliquez sur un élève pour ouvrir sa fiche.`, `${demoTag()}${MODE==='supabase'?`<button class="btn" id="ureload">Actualiser</button>`:''}<button class="btn" id="csv">${ic('dl')}Exporter en CSV</button><button class="btn pri" id="adduser">${ic('plus')}Ajouter un élève</button>`) + cnxCard() + sansCompteCard() + `
   <div class="card">
     <div class="row wrap" style="margin-bottom:12px">
       <input class="field" id="uq" placeholder="Nom, téléphone ou identifiant" value="${esc(s.q)}" style="flex:1;min-width:200px" aria-label="Rechercher">
