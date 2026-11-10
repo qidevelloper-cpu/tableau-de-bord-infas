@@ -514,7 +514,8 @@ function buildNodes(){
       const mk='matiere:'+m.id;
       /* un contenu ajouté qui « suit » un cours (ex. Exercices corrigés → Pédiatrie) hérite de ce cours, comme dans l'appli des élèves */
       NODES[mk] = {key:mk, parent:m.suit?'matiere:'+m.suit:'rubrique:'+r.id, label:m.nom, type:'matiere', m};
-      for(let i=1;i<=sujetsOf(m);i++) NODES[`${mk}/sujet:${i}`] = {key:`${mk}/sujet:${i}`, parent:mk, label:`Sujet ${i}`, type:'sujet', n:i};
+      /* même titre que dans l'appli et l'éditeur (catalogue.json : « Médecine · Daloa · 2026 », « Révision de gynécologie sujet 1 »…) */
+      for(let i=1;i<=sujetsOf(m);i++){ const t=(Array.isArray(m.sujets)&&m.sujets[i-1]&&m.sujets[i-1][0])||`Sujet ${i}`; NODES[`${mk}/sujet:${i}`] = {key:`${mk}/sujet:${i}`, parent:mk, label:t, type:'sujet', n:i}; }
       NODES[mk+'/resumes'] = {key:mk+'/resumes', parent:mk, label:'Résumés de cours', type:'resumes'};
       NODES[mk+'/appli'] = {key:mk+'/appli', parent:mk, label:'Application complète', type:'appli'};
     }
@@ -532,7 +533,7 @@ let CAT_INFO = {source:'interne', genere:null, erreur:''};
 function prettyRub(n){ n = String(n||''); if(n.length>4 && n===n.toUpperCase()) n = n[0]+n.slice(1).toLowerCase(); return n.replace(/\bd\.e\b/i,'D.E'); }
 function applyCatalogue(c, src){
   if(!c || !Array.isArray(c.rubriques) || !c.rubriques.length) return false;
-  CATALOGUE = c.rubriques.map(r=>({id:r.id, nom:prettyRub(r.nom), matieres:(r.matieres||[]).map(m=>Object.assign({id:m.id, nom:m.nom, court:m.court, niv:m.niv||[], fil:m.fil, q:m.q||0, nsuj:m.nsuj||1}, m.suit?{suit:m.suit}:{}, Array.isArray(m.plus)&&m.plus.length?{plus:m.plus}:{}))})).filter(r=>r.matieres.length);
+  CATALOGUE = c.rubriques.map(r=>({id:r.id, nom:prettyRub(r.nom), matieres:(r.matieres||[]).map(m=>Object.assign({id:m.id, nom:m.nom, court:m.court, niv:m.niv||[], fil:m.fil, q:m.q||0, nsuj:m.nsuj||1}, m.suit?{suit:m.suit}:{}, Array.isArray(m.sujets)?{sujets:m.sujets}:{}, Array.isArray(m.plus)&&m.plus.length?{plus:m.plus}:{}))})).filter(r=>r.matieres.length);
   buildNodes(); CAT_INFO = {source:src, genere:c.genere||null, erreur:''}; return true;
 }
 function portailUrl(){ return String((typeof getCfg==='function' && getCfg().portail) || PORTAIL_DEFAUT).trim().replace(/\/?$/,'/'); }
@@ -628,7 +629,7 @@ const MAP = [
 const VIRTUAL = [
   {t:'access_rules', id:'cle', rows:db=>Object.entries(db.access.regles).map(([cle,v])=>({cle, acces:v.acces, quota_gratuit:v.quotaGratuit==null?null:v.quotaGratuit}))},
   {t:'app_settings', id:'cle', noDelete:true, rows:db=>[
-    {cle:'public.access', valeur:{defaut:db.access.defaut, version:db.access.version, misAJour:db.access.misAJour, questions:db.access.questions||{}, plusapp:db.access.plusapp||{}}},
+    {cle:'public.access', valeur:Object.assign({defaut:db.access.defaut, version:db.access.version, misAJour:db.access.misAJour, questions:db.access.questions||{}, plusapp:db.access.plusapp||{}}, db.access.promo?{promo:db.access.promo}:{}, db.access.fincorr&&Object.keys(db.access.fincorr).length?{fincorr:db.access.fincorr}:{})},
     {cle:'goals', valeur:db.goals},
     {cle:'demo_stats', valeur:db.stats},
     {cle:'meta', valeur:{demo:!!db.meta.demo}},
@@ -642,6 +643,7 @@ let REAL = null;   // statistiques réelles envoyées par le portail élève (ap
 async function loadReal(){
   REAL = null; if(MODE!=='supabase' || !SB) return;
   try{ const {data,error} = await SB.rpc('stats_usage', {p_jours:120}); if(!error && data && data.totaux && data.totaux.evenements>0) REAL = data; }catch(e){}
+  await loadCnx();
 }   // dernier état connu de Supabase : table -> Map(id -> json)
 function snapshotFrom(db){
   const s = {};
@@ -672,7 +674,7 @@ const SupabaseSource = {
     const rawRules = await fetchAll('access_rules'), rawSettings = await fetchAll('app_settings');
     rawRules.forEach(r=>{ db.access.regles[r.cle] = r.quota_gratuit==null ? {acces:r.acces} : {acces:r.acces, quotaGratuit:r.quota_gratuit}; });
     rawSettings.forEach(r=>{
-      if(r.cle==='public.access'){ db.access.defaut = r.valeur.defaut||'gratuit'; db.access.version = r.valeur.version||1; db.access.misAJour = r.valeur.misAJour||db.access.misAJour; db.access.questions = (r.valeur.questions&&typeof r.valeur.questions==='object')?r.valeur.questions:{}; db.access.plusapp = (r.valeur.plusapp&&typeof r.valeur.plusapp==='object')?r.valeur.plusapp:{}; }
+      if(r.cle==='public.access'){ if(r.valeur.promo && typeof r.valeur.promo==='object') db.access.promo = r.valeur.promo; db.access.fincorr = (r.valeur.fincorr && typeof r.valeur.fincorr==='object') ? r.valeur.fincorr : {}; db.access.defaut = r.valeur.defaut||'gratuit'; db.access.version = r.valeur.version||1; db.access.misAJour = r.valeur.misAJour||db.access.misAJour; db.access.questions = (r.valeur.questions&&typeof r.valeur.questions==='object')?r.valeur.questions:{}; db.access.plusapp = (r.valeur.plusapp&&typeof r.valeur.plusapp==='object')?r.valeur.plusapp:{}; }
       if(r.cle==='goals' && Array.isArray(r.valeur)) db.goals = r.valeur;
       if(r.cle==='demo_stats' && r.valeur && r.valeur.daily) db.stats = r.valeur;
       if(r.cle==='meta' && r.valeur) db.meta.demo = !!r.valeur.demo;
@@ -1258,6 +1260,45 @@ function bindLive(){
 }
 setInterval(()=>{ if(DB && page==='overview' && !document.hidden) loadPresence(); }, 30e3);
 document.addEventListener('visibilitychange', ()=>{ if(!document.hidden && DB && page==='overview' && Date.now()-PRES_T>20e3) loadPresence(); });
+/* ---------- Heures de connexion : traces « connexion » / « ouverture » envoyées par l'appli (fonction SQL connexions) ---------- */
+let CNX = null;
+async function loadCnx(){
+  if(MODE!=='supabase' || !SB){ CNX = null; return; }
+  try{ const {data,error} = await SB.rpc('connexions', {p_jours:30});
+    CNX = error ? {err: /connexions|function|PGRST/i.test(String(error.message||'')) ? 'sql' : 'reseau'} : {L: cnxPrep(data||[])}; }
+  catch(e){ CNX = {err:'reseau'}; }
+}
+function cnxPrep(rows){ // une connexion par appareil et par tranche de 10 minutes ; rattachée à l'élève par son compte ou son appareil
+  const L = rows.filter(x=>x && x.t).sort((a,b)=>new Date(b.t)-new Date(a.t)), last = {}, out = [];
+  for(const x of L){ const t = new Date(x.t).getTime(), k = x.a||'?'; if(last[k]!=null && last[k]-t < 10*60e3) continue; last[k] = t; out.push(x); }
+  out.forEach(x=>{ const p = (x.c && DB.profiles.find(p=>p.auth_id===x.c)) || (x.a && DB.profiles.find(p=>(p.appareils||[]).some(a=>String(a).includes(x.a)))); x.pid = p ? p.id : null; });
+  return out;
+}
+function cnxData(){ // en données locales : exemple tiré des dernières visites
+  if(CNX) return CNX;
+  return {demo:true, L: DB.profiles.flatMap((p,i)=>[0,1,2].map(j=>({t:new Date(new Date(p.last_seen).getTime() - j*(26+i%5)*36e5 - (i*7%50)*6e4).toISOString(), pid:p.id, a:'demo'})))
+    .filter(x=>Date.now()-new Date(x.t).getTime() < 30*DAY).sort((a,b)=>new Date(b.t)-new Date(a.t))};
+}
+const cnxDe = pid => { const X = cnxData(); return X.L ? X.L.filter(x=>x.pid===pid) : []; };
+const dhfr = iso => `${dfr(iso,{weekday:'short',day:'numeric',month:'short'})} à ${hfr(iso)}`;
+function cnxCard(){
+  const X = cnxData();
+  if(X.err) return `<div class="card" id="cnxcard"><h3 style="margin:0 0 6px">🕒 Heures de connexion</h3><p class="muted" style="margin:0">${X.err==='sql'?'Colle le fichier <b>supabase/connexions/1_connexions.sql</b> dans Supabase (SQL Editor → Run) pour voir les heures de connexion.':'Impossible de joindre Supabase pour l’instant. Touchez « Actualiser ».'}</p></div>`;
+  const L = X.L, H = Array(24).fill(0); L.forEach(x=>H[new Date(x.t).getHours()]++);
+  const mx = Math.max(1,...H), pic = H.indexOf(Math.max(...H)), aff = UI.cnxAll ? 80 : 12;
+  const who = x=>{ const p = x.pid && DB.profiles.find(q=>q.id===x.pid); return p ? `<button class="lnk" data-user="${esc(p.id)}" style="font-weight:700">${esc(fullName(p))}</button>` : `<span class="muted">Sans compte${x.f?' · '+esc(x.f)+(x.n?' '+esc(x.n):''):''}</span>`; };
+  return `<div class="card" id="cnxcard" style="margin-bottom:16px">
+    <div class="row wrap" style="align-items:baseline"><h3 style="margin:0;flex:1">🕒 Heures de connexion <span class="muted" style="font-weight:500;font-size:13px">· 30 derniers jours${X.demo?' · exemple (données locales)':''}</span></h3>${L.length?`<span class="muted" style="font-size:13px">${fmt(L.length)} connexion${L.length>1?'s':''} · le plus de monde vers <b>${pic} h</b></span>`:''}</div>
+    ${L.length?`<div style="display:grid;grid-template-columns:repeat(24,1fr);gap:3px;align-items:end;height:90px;margin:14px 0 4px" aria-label="Connexions selon l’heure">${H.map((n,h)=>`<div title="${h} h : ${n} connexion${n>1?'s':''}" style="height:${Math.max(3,Math.round(n/mx*86))}px;border-radius:4px 4px 0 0;background:${h===pic?'var(--brand,#6C3BF5)':'color-mix(in srgb,var(--brand,#6C3BF5) 45%,transparent)'}"></div>`).join('')}</div>
+    <div style="display:grid;grid-template-columns:repeat(24,1fr);gap:3px;font-size:10.5px;color:var(--muted,#888);text-align:center">${H.map((n,h)=>`<span>${h%3===0?h+'h':''}</span>`).join('')}</div>
+    <div class="sect" style="margin-top:14px">Dernières connexions</div>
+    <div class="tablewrap"><table class="t"><thead><tr><th>Jour et heure</th><th>Élève</th></tr></thead><tbody>${L.slice(0,aff).map(x=>`<tr><td style="white-space:nowrap">${dhfr(x.t)}</td><td>${who(x)}</td></tr>`).join('')}</tbody></table></div>
+    ${L.length>12?`<button class="btn sm" id="cnxall" style="margin-top:8px">${UI.cnxAll?'Voir moins':'Voir plus de connexions'}</button>`:''}`
+    :`<p class="muted" style="margin:8px 0 0">Aucune connexion reçue sur 30 jours. Les heures s’affichent dès que les élèves ouvrent l’appli mise à jour.</p>`}
+  </div>`;
+}
+function bindCnx(){ const b = $('#cnxall'); if(b) b.onclick = ()=>{ UI.cnxAll = !UI.cnxAll; render(); }; document.querySelectorAll('#cnxcard [data-user]').forEach(x=>x.onclick=()=>openUser(x.dataset.user)); }
+function derniereCnx(p){ const c = cnxDe(p.id)[0]; return c ? dhfr(c.t) : relTime(p.last_seen); }
 function bindUserRows(){ document.querySelectorAll('[data-user]').forEach(tr=>tr.onclick=e=>{ if(e.target.closest('input,button')) return; openUser(tr.dataset.user); }); }
 
 /* =========================================================
@@ -1292,7 +1333,7 @@ VIEWS.eleves = ()=>{
   const rows = L.slice((s.page-1)*per, s.page*per);
   const sel = (name,val,opts)=>`<select class="field" style="width:auto" data-f="${name}" aria-label="${name}">${opts.map(([v,l])=>`<option value="${v}" ${val===v?'selected':''}>${l}</option>`).join('')}</select>`;
   const nReal = DB.profiles.filter(p=>p.auth_id).length;
-  return headHTML('Élèves', `${fmt(DB.profiles.length)} élèves dont ${fmt(nReal)} vrai${nReal>1?'s':''} compte${nReal>1?'s':''} · cliquez sur un élève pour ouvrir sa fiche.`, `${demoTag()}${MODE==='supabase'?`<button class="btn" id="ureload">Actualiser</button>`:''}<button class="btn" id="csv">${ic('dl')}Exporter en CSV</button><button class="btn pri" id="adduser">${ic('plus')}Ajouter un élève</button>`) + `
+  return headHTML('Élèves', `${fmt(DB.profiles.length)} élèves dont ${fmt(nReal)} vrai${nReal>1?'s':''} compte${nReal>1?'s':''} · cliquez sur un élève pour ouvrir sa fiche.`, `${demoTag()}${MODE==='supabase'?`<button class="btn" id="ureload">Actualiser</button>`:''}<button class="btn" id="csv">${ic('dl')}Exporter en CSV</button><button class="btn pri" id="adduser">${ic('plus')}Ajouter un élève</button>`) + cnxCard() + `
   <div class="card">
     <div class="row wrap" style="margin-bottom:12px">
       <input class="field" id="uq" placeholder="Nom, téléphone ou identifiant" value="${esc(s.q)}" style="flex:1;min-width:200px" aria-label="Rechercher">
@@ -1302,10 +1343,10 @@ VIEWS.eleves = ()=>{
       ${sel('type',s.type,[['tous','Comptes et tests'],['compte','Vrais comptes'],['test','Élèves de test']])}
     </div>
     ${s.sel.size?`<div class="row wrap" style="background:var(--soft);border-radius:12px;padding:8px 12px;margin-bottom:10px"><b>${s.sel.size} sélectionné${s.sel.size>1?'s':''}</b><div class="grow" style="flex:1"></div><button class="btn sm pri" id="bulkgift">${ic('gift')}Offrir un pass</button><button class="btn sm" id="bulkclear">Désélectionner</button></div>`:''}
-    <div class="tablewrap"><table class="t"><thead><tr><th style="width:30px"><input type="checkbox" id="selall" aria-label="Tout sélectionner" ${rows.length && rows.every(p=>s.sel.has(p.id))?'checked':''}></th><th>Élève</th><th>Niveau</th><th>Accès</th><th>Dernière visite</th><th>Quiz</th><th>Appareils</th></tr></thead><tbody>
+    <div class="tablewrap"><table class="t"><thead><tr><th style="width:30px"><input type="checkbox" id="selall" aria-label="Tout sélectionner" ${rows.length && rows.every(p=>s.sel.has(p.id))?'checked':''}></th><th>Élève</th><th>Niveau</th><th>Accès</th><th>Dernière connexion</th><th>Quiz</th><th>Appareils</th></tr></thead><tbody>
     ${rows.map(p=>`<tr class="click" data-user="${p.id}"><td><input type="checkbox" data-sel="${p.id}" ${s.sel.has(p.id)?'checked':''} aria-label="Sélectionner ${esc(fullName(p))}"></td>
       <td><div class="who"><div class="av" style="background:${avColor(p.id)}">${initials(p)}</div><div><b>${esc(fullName(p))}${p.auth_id?' <span class="pill ok" style="font-size:11px">Compte</span>':''}</b><small>${esc(p.email||p.telephone)}</small></div></div></td>
-      <td style="white-space:nowrap">${p.filiere} · ${p.annee}</td><td>${accessPill(p)}</td><td>${relTime(p.last_seen)}</td><td class="num">${fmt(p.quiz)}</td><td>${p.appareils.length}${p.appareils.length>1?' <span class="pill warn">2</span>':''}</td></tr>`).join('') || `<tr><td colspan="7"><div class="empty">Aucun élève ne correspond à ces filtres. Modifiez la recherche ou réinitialisez les filtres.</div></td></tr>`}
+      <td style="white-space:nowrap">${p.filiere} · ${p.annee}</td><td>${accessPill(p)}</td><td style="white-space:nowrap">${derniereCnx(p)}</td><td class="num">${fmt(p.quiz)}</td><td>${p.appareils.length}${p.appareils.length>1?' <span class="pill warn">2</span>':''}</td></tr>`).join('') || `<tr><td colspan="7"><div class="empty">Aucun élève ne correspond à ces filtres. Modifiez la recherche ou réinitialisez les filtres.</div></td></tr>`}
     </tbody></table></div>
     <div class="pager"><span>${L.length?`${(s.page-1)*per+1}–${Math.min(s.page*per,L.length)} sur ${fmt(L.length)}`:'0 résultat'}</span><div class="row"><button class="btn sm" id="pprev" ${s.page<=1?'disabled':''}>Précédent</button><span>Page ${s.page} / ${pages}</span><button class="btn sm" id="pnext" ${s.page>=pages?'disabled':''}>Suivant</button></div></div>
   </div>`;
@@ -1317,7 +1358,7 @@ AFTER.eleves = ()=>{
   document.querySelectorAll('[data-sel]').forEach(cb=>cb.onchange=()=>{ cb.checked?s.sel.add(cb.dataset.sel):s.sel.delete(cb.dataset.sel); render(); });
   $('#selall').onchange = e=>{ const L=filteredUsers().slice((s.page-1)*20, s.page*20); L.forEach(p=> e.target.checked?s.sel.add(p.id):s.sel.delete(p.id)); render(); };
   $('#pprev').onclick=()=>{ s.page--; render(); }; $('#pnext').onclick=()=>{ s.page++; render(); };
-  $('#adduser').onclick = addUserModal;
+  $('#adduser').onclick = addUserModal; bindCnx();
   if($('#ureload')) $('#ureload').onclick = async ()=>{ try{ toast('Actualisation…'); DB = await SupabaseSource.load(); await loadReal(); render(); toast('Liste à jour.'); }catch(e){ toast(frErr(e)); } };
   $('#csv').onclick = ()=>{
     const L = filteredUsers();
@@ -1349,7 +1390,7 @@ function openUser(id){
       ${MODE==='supabase'?(()=>{ const x=instParEleve(p.auth_id||p.id); return `<span>Application</span><b>${!INST?'—':!x||x.installe==null?'Inconnu':x.installe?'📲 Installée'+(x.icone_at?' · ouverte depuis l’icône le '+dfr(x.icone_at,{day:'numeric',month:'short'}):''):'🌐 Dans le navigateur (pas installée)'}</b>`; })():''}
       <span>Programme</span><b>${esc(p.programme)}</b>
       <span>Inscrit le</span><b>${dfr(p.created_at)}</b>
-      <span>Dernière visite</span><b>${relTime(p.last_seen)} (${dfr(p.last_seen)})</b>
+      <span>Dernière connexion</span><b>${(()=>{ const c=cnxDe(p.id)[0]; return c?dhfr(c.t):relTime(p.last_seen)+' ('+dfr(p.last_seen)+')'; })()}</b>
       <span>Quiz terminés</span><b>${fmt(p.quiz)}</b>
       ${pass?`<span>Pass en cours</span><b>${plan(pass.plan)} jusqu’au ${dfr(pass.end)}</b>`:''}
     </div>
@@ -1360,6 +1401,7 @@ function openUser(id){
     </div>
     <div class="sect">Appareils connectés · ${p.appareils.length} sur 2</div>
     ${p.appareils.map((a,i)=>`<div class="row" style="padding:8px 0;border-top:1px solid var(--line)"><span class="ic" style="width:30px;height:30px;border-radius:9px;background:var(--soft);display:grid;place-items:center">${ic('phone')}</span><span style="flex:1">${esc(String(a).split(' · dev-')[0])}</span><button class="btn sm" data-rmdev="${i}">Retirer</button></div>`).join('') || '<div class="muted">Aucun appareil.</div>'}
+    ${(()=>{ const C=cnxDe(p.id); return C.length?`<div class="sect">Heures de connexion · 30 derniers jours (${C.length})</div><div style="display:flex;flex-wrap:wrap;gap:6px">${C.slice(0,24).map(x=>`<span class="pill" style="font-weight:600">${dhfr(x.t)}</span>`).join('')}</div>`:''; })()}
     <div class="sect">Historique des accès</div>
     ${hist.length? `<table class="t"><thead><tr><th>Pass</th><th>Du</th><th>Au</th><th>Origine</th></tr></thead><tbody>${hist.map(e=>`<tr><td>${plan(e.plan)}</td><td>${dfr(e.start,{day:'numeric',month:'short'})}</td><td>${dfr(e.end,{day:'numeric',month:'short',year:'2-digit'})}</td><td>${{cadeau:'Offert',manuel:'Manuel',promo:'Code promo'}[e.source]||e.source}</td></tr>`).join('')}</tbody></table>` : '<div class="muted">Jamais Premium.</div>'}
     ${reps.length?`<div class="sect">Signalements envoyés · ${reps.length}</div>${reps.map(r=>`<div style="padding:6px 0;font-size:14px">${esc(matName(r.mat))} — <span class="muted">${esc(r.message)}</span></div>`).join('')}`:''}
@@ -1426,6 +1468,58 @@ function addUserModal(){
 const fcfa = n => fmt(n||0)+' FCFA';
 const opPill = k => `<span class="pill" style="background:color-mix(in srgb,${(OPS[k]||['',''])[1]} 16%,transparent);color:${(OPS[k]||['','var(--muted)'])[1]}">${esc((OPS[k]||[k])[0])}</span>`;
 const planNom = id => (DB.plans.find(p=>p.id===id)||{}).nom || id;
+
+/* ---------- 🔑 Codes à partager : un code choisi par l'administrateur, pour plusieurs personnes (supabase/codes/3_codes_partages.sql) ---------- */
+let CPART=null, CPART_ERR='', CPART_OUV={};
+async function chargerCpart(){ if(MODE!=='supabase'||!SB){ CPART=null; return; } try{ const {data,error}=await SB.rpc('lister_codes_partages'); if(error) throw error; CPART=data||[]; CPART_ERR=''; }catch(e){ CPART=[]; CPART_ERR=/function|PGRST|404/.test(String(e&&e.message||e))?'Lance d’abord supabase/codes/3_codes_partages.sql dans Supabase (SQL Editor → Run).':frErr(e); } }
+function cpartEtat(c){ if(c.annule) return ['Arrêté','warn']; if(new Date(c.active_jusqu)<new Date()) return ['Expiré','warn']; if(c.activations>=c.max_personnes) return ['Complet','warn']; return ['Actif','ok']; }
+function cpartTexte(c){ return `🎁 Révision INFAS : code Premium « ${c.code} » (${c.jours} jour${c.jours>1?'s':''} gratuits).\nDans l’appli : touche « Passer Premium » puis « J’ai un code », et tape ${c.code}.\nÀ activer avant le ${dfr(c.active_jusqu,{day:'numeric',month:'long'})} à ${hfr(c.active_jusqu)} · ${c.max_personnes} personne${c.max_personnes>1?'s':''} maximum.`; }
+function cpartCard(){
+  if(MODE!=='supabase') return '';
+  const f = UI.cpartF || {}, plans = (DB.plans||[]).filter(p=>p.actif);
+  const liste = CPART===null ? '<p class="sub">Chargement…</p>' : CPART_ERR ? `<div class="msg bad">${esc(CPART_ERR)}</div>` : !CPART.length ? '<p class="sub">Aucun code à partager pour l’instant.</p>' : CPART.map(c=>{ const [et,cl]=cpartEtat(c), ouv=CPART_OUV[c.code];
+    return `<div class="coderow"><div class="cc" style="flex:1 1 240px;min-width:0"><div><b class="code big">${esc(c.code)}</b> <span class="pill ${cl==='ok'?'':'warn'}">${et}</span></div>
+      <small>${esc(c.plan_nom||c.plan)} · <b>${c.jours} jour${c.jours>1?'s':''}</b> de Premium · activable jusqu’au ${dfr(c.active_jusqu,{day:'numeric',month:'short'})} ${hfr(c.active_jusqu)}</small>
+      <small>👥 <b>${c.activations}</b> / ${c.max_personnes} personne${c.max_personnes>1?'s':''}${c.note?' · '+esc(c.note):''}</small></div>
+      <div class="row" style="flex-wrap:wrap;gap:6px"><button class="btn sm" data-cpv="${esc(c.code)}">${ouv?'Masquer':'Qui l’a activé'}</button><button class="btn sm" data-cpc="${esc(c.code)}">Copier le message</button><button class="btn sm wa" data-cpw="${esc(c.code)}">💬 WhatsApp</button>${c.annule?'':`<button class="btn sm" data-cpx="${esc(c.code)}">Arrêter</button>`}</div>
+      ${ouv?`<div style="flex-basis:100%">${(c.personnes||[]).length?`<div class="tablewrap"><table class="t"><thead><tr><th>Élève</th><th>Activé le</th></tr></thead><tbody>${c.personnes.map(x=>`<tr><td>${esc(x.nom||'—')}</td><td>${dfr(x.at,{day:'numeric',month:'short'})} ${hfr(x.at)}</td></tr>`).join('')}</tbody></table></div>`:'<p class="sub">Personne ne l’a encore activé.</p>'}</div>`:''}</div>`; }).join('');
+  return `<div class="card" style="margin-top:18px"><div class="cardhead"><div class="grow"><h3>🔑 Codes à partager</h3><p class="sub">Tu choisis le code (ex. <b>SEMAINEDE</b>), la durée du Premium, la date limite pour l’activer et le nombre de personnes. Chaque élève le tape dans « J’ai un code » : une fois par téléphone.</p></div><button class="btn sm" id="cpartReload">Actualiser</button></div>
+    <div class="codeform">
+      <div><label class="lbl" for="cpCode">Code</label><input class="field" id="cpCode" maxlength="20" value="${esc(f.code||'')}" placeholder="Ex. SEMAINEDE" style="text-transform:uppercase;font-weight:700;letter-spacing:1px"></div>
+      <div><label class="lbl" for="cpPlan">Pass</label><select class="field" id="cpPlan">${plans.map(p=>`<option value="${esc(p.id)}" ${f.plan===p.id?'selected':''}>${esc(p.nom)}</option>`).join('')}</select></div>
+      <div><label class="lbl" for="cpJours">Durée du Premium (jours)</label><input class="field" id="cpJours" type="number" min="1" max="730" value="${esc(f.jours||7)}" style="max-width:120px"></div>
+      <div><label class="lbl" for="cpJusqu">Activable jusqu’au</label><input class="field" id="cpJusqu" type="datetime-local" value="${esc(f.jusqu||dtLocal(new Date(Date.now()+7*DAY)))}"></div>
+      <div><label class="lbl" for="cpMax">Nombre de personnes max</label><input class="field" id="cpMax" type="number" min="1" max="100000" value="${esc(f.max||100)}" style="max-width:130px"></div>
+      <div style="flex:1 1 200px"><label class="lbl" for="cpNote">Note (facultatif)</label><input class="field" id="cpNote" maxlength="120" value="${esc(f.note||'')}" placeholder="Ex. promo rentrée L3"></div>
+    </div>
+    <div style="margin:12px 0 14px"><button class="btn pri" id="cpGo">${ic('plus')}Créer le code</button> <span class="muted small">Lettres et chiffres, 4 à 20 caractères. Si le code existe déjà, ses réglages sont mis à jour.</span></div>
+    <div class="codelist">${liste}</div></div>`;
+}
+function bindCpart(){
+  if(MODE!=='supabase') return;
+  if(CPART===null){ chargerCpart().then(()=>{ if(page==='paiements') render(); }); }
+  const f = UI.cpartF = UI.cpartF||{};
+  const lire = ()=>{ ['code','plan','jours','jusqu','max','note'].forEach(k=>{ const e=$('#cp'+k[0].toUpperCase()+k.slice(1)); if(e) f[k]=e.value; }); };
+  ['#cpCode','#cpPlan','#cpJours','#cpJusqu','#cpMax','#cpNote'].forEach(id=>{ const e=$(id); if(e) e.oninput=lire; });
+  const parCode = c=>(CPART||[]).find(x=>x.code===c);
+  if($('#cpartReload')) $('#cpartReload').onclick=async()=>{ await chargerCpart(); render(); toast('Codes à jour.'); };
+  if($('#cpGo')) $('#cpGo').onclick=async()=>{ lire(); const code=String(f.code||'').toUpperCase().replace(/[^A-Z0-9]/g,''), jours=parseInt(f.jours,10), max=parseInt(f.max,10), jusqu=new Date(f.jusqu);
+    if(code.length<4||code.length>20){ toast('Le code doit avoir 4 à 20 lettres ou chiffres.'); return; }
+    if(!(jours>=1&&jours<=730)){ toast('Durée : entre 1 et 730 jours.'); return; }
+    if(!(jusqu>new Date())){ toast('La date limite doit être dans le futur.'); return; }
+    if(!(max>=1)){ toast('Nombre de personnes : au moins 1.'); return; }
+    $('#cpGo').disabled=true;
+    try{ const {data,error}=await SB.rpc('creer_code_partage',{p_code:code,p_plan:f.plan||((DB.plans||[]).find(p=>p.actif)||{}).id,p_jours:jours,p_jusqu:jusqu.toISOString(),p_max:max,p_note:(f.note||'').trim()}); if(error) throw error;
+      if(!data||!data.ok){ toast({format:'Code refusé : 4 à 20 lettres ou chiffres.',existe:'Ce code ressemble à un code RI déjà créé : choisis-en un autre.',pass:'Choisis un pass.',jours:'Durée invalide.',date:'Date limite invalide.',max:'Nombre de personnes invalide.'}[data&&data.raison]||'Code refusé.'); $('#cpGo').disabled=false; return; }
+      audit('Code à partager créé', `${data.code} · ${jours} j · ${max} pers.`); UI.cpartF={}; await chargerCpart(); render(); toast(`Code ${data.code} prêt à partager.`);
+    }catch(e){ toast(/function|PGRST|404/.test(String(e&&e.message||e))?'Lance d’abord supabase/codes/3_codes_partages.sql dans Supabase.':frErr(e)); if($('#cpGo')) $('#cpGo').disabled=false; } };
+  document.querySelectorAll('[data-cpv]').forEach(b=>b.onclick=()=>{ const c=b.dataset.cpv; CPART_OUV[c]=!CPART_OUV[c]; render(); });
+  document.querySelectorAll('[data-cpc]').forEach(b=>b.onclick=()=>{ const c=parCode(b.dataset.cpc); if(!c) return; try{ navigator.clipboard.writeText(cpartTexte(c)); toast('Message copié.'); }catch(e){ toast(c.code); } });
+  document.querySelectorAll('[data-cpw]').forEach(b=>b.onclick=()=>{ const c=parCode(b.dataset.cpw); if(c) window.open('https://wa.me/?text='+encodeURIComponent(cpartTexte(c)),'_blank','noopener'); });
+  document.querySelectorAll('[data-cpx]').forEach(b=>b.onclick=()=>{ const code=b.dataset.cpx;
+    confirmModal('Arrêter ce code ?', `Le code ${code} ne pourra plus être activé. Les élèves qui l’ont déjà activé gardent leur Premium jusqu’à la fin.`, 'Arrêter', async()=>{ closeModal();
+      try{ const {data,error}=await SB.rpc('annuler_code_partage',{p_code:code}); if(error) throw error; audit('Code à partager arrêté', code); await chargerCpart(); render(); toast('Code arrêté.'); }catch(e){ toast(frErr(e)); } }); });
+}
 VIEWS.paiements = ()=>{
   const L = DB.payments||[], st = UI.pay||'a_verifier';
   const mois = new Date(); mois.setDate(1); mois.setHours(0,0,0,0);
@@ -1458,7 +1552,8 @@ VIEWS.paiements = ()=>{
       <td class="pc-act">${x.statut==='a_verifier'?`<div class="row" style="flex-wrap:nowrap"><button class="btn sm pri" data-ok="${x.id}">Valider</button><button class="btn sm" data-ko="${x.id}">Refuser</button></div>`:x.statut==='valide'?`<span class="pill ok">Validé</span>`:`<span class="pill bad" title="${esc(x.motif||'')}">Refusé</span>${x.motif?`<div class="muted" style="font-size:12px">${esc(x.motif)}</div>`:''}`}</td></tr>`; }).join('') || `<tr><td colspan="8"><div class="empty">${st==='a_verifier'?'Aucun paiement à vérifier. Les nouveaux paiements déclarés par les élèves apparaîtront ici.':'Aucun paiement dans cette liste.'}</div></td></tr>`}
     </tbody></table></div>
   </div>
-  ${codesCard()}`;
+  ${codesCard()}
+  ${cpartCard()}`;
 };
 /* ---------- codes d'activation à usage unique (supabase/codes/1_codes.sql) ---------- */
 let CODES = null, CODES_ERR = '', CODES_NEUFS = [];
@@ -1500,7 +1595,7 @@ function bindCodes(){
   document.querySelectorAll('[data-cann]').forEach(b=>b.onclick=()=>confirmModal('Annuler ce code ?',`Le code ${b.dataset.cann} ne pourra plus être utilisé.`,'Annuler le code',async()=>{ closeModal(); try{ const {error}=await SB.rpc('annuler_code',{p_code:b.dataset.cann}); if(error) throw error; audit('Code d’activation annulé', b.dataset.cann); await chargerCodes(); render(); toast('Code annulé.'); }catch(e){ toast(frErr(e)); } }));
 }
 AFTER.paiements = ()=>{
-  bindCodes();
+  bindCodes(); bindCpart();
   document.querySelectorAll('[data-pay]').forEach(b=>b.onclick=()=>{ UI.pay=b.dataset.pay; render(); });
   if($('#payreload')) $('#payreload').onclick = async ()=>{ try{ toast('Actualisation…'); await refreshTables(); render(); toast('Paiements à jour.'); }catch(e){ toast(frErr(e)); } };
   $('#paycsv').onclick = ()=>{ const L=DB.payments||[]; const rows=[['date','eleve','email','pass','montant_fcfa','moyen','numero_payeur','reference','statut','motif']].concat(L.map(x=>{const p=api.get('profiles',x.user_id);return [x.created_at.slice(0,16).replace('T',' '),p?fullName(p):'',p&&p.email||'',planNom(x.plan),x.montant_xof,(OPS[x.operateur]||[x.operateur])[0],x.telephone,x.reference,x.statut,x.motif||'']}));
@@ -1556,6 +1651,30 @@ function accessSummary(){
   for(const k in NODES){ const t=NODES[k].type; if(t==='sujet'||t==='resumes'||t==='appli') c[effective(k).acces]++; }
   return c;
 }
+
+/* ---------- 🎁 Semaine gratuite : tout est ouvert à tous pendant la période choisie ---------- */
+const dtLocal = d=>{ if(!d) return ''; const x=new Date(d); x.setMinutes(x.getMinutes()-x.getTimezoneOffset()); return x.toISOString().slice(0,16); };
+function promoEtat(p){ if(!p||!p.actif) return ['Désactivée','']; const t=Date.now(); if(p.du&&t<new Date(p.du)) return ['Programmée','warn']; if(!p.au||t>new Date(p.au)) return ['Terminée','warn']; return ['En cours','ok']; }
+function promoCard(){
+  const p = DB.access.promo || {}, [et,cl] = promoEtat(p);
+  return `<div class="card" style="margin:14px 0;border:2px solid ${p.actif?'#16a34a':'var(--line)'}"><div class="cardhead"><div class="grow"><h3>🎁 Semaine gratuite <span class="pill ${cl}">${et}</span></h3>
+    <p class="sub">Pendant la période choisie, <b>tout est gratuit pour tous les élèves</b> : sujets, questions, réponses et corrections. Les cours masqués restent masqués. Un bandeau l’annonce sur l’accueil de l’appli.</p></div></div>
+    <div class="codeform">
+      <label class="row" style="gap:8px;align-items:center;flex:0 0 auto"><input type="checkbox" id="prOn" ${p.actif?'checked':''} style="width:22px;height:22px"> <b>Activer</b></label>
+      <div><label class="lbl" for="prDu">Du</label><input class="field" id="prDu" type="datetime-local" value="${esc(dtLocal(p.du||new Date()))}"></div>
+      <div><label class="lbl" for="prAu">Au</label><input class="field" id="prAu" type="datetime-local" value="${esc(dtLocal(p.au||new Date(Date.now()+7*DAY)))}"></div>
+      <div style="flex:1 1 220px"><label class="lbl" for="prT">Titre du bandeau</label><input class="field" id="prT" maxlength="80" value="${esc(p.titre||'🎁 Semaine gratuite')}"></div>
+    </div>
+    <div style="margin-top:12px"><button class="btn pri" id="prGo">Enregistrer</button> <span class="muted small">Les élèves le voient à la prochaine ouverture de l’appli (au plus 5 minutes).</span></div></div>`;
+}
+function bindPromo(){
+  if(!$('#prGo')) return;
+  $('#prGo').onclick=()=>{ const du=new Date($('#prDu').value), au=new Date($('#prAu').value), on=$('#prOn').checked;
+    if(on && !(au>du)){ toast('La date de fin doit être après la date de début.'); return; }
+    DB.access.promo = {actif:on, du:isNaN(du)?null:du.toISOString(), au:isNaN(au)?null:au.toISOString(), titre:($('#prT').value||'').trim().slice(0,80)};
+    DB.access.version++; DB.access.misAJour=new Date().toISOString(); persist();
+    audit(on?'Semaine gratuite activée':'Semaine gratuite désactivée', on?`du ${dfr(du)} au ${dfr(au)}`:''); render(); toast(on?'Semaine gratuite enregistrée.':'Semaine gratuite désactivée.'); };
+}
 VIEWS.acces = ()=>{
   const C = UI.cours, all = matAll(), cnt = {gratuit:0, premium:0, masque:0};
   all.forEach(m=>cnt[effective('matiere:'+m.id).acces]++);
@@ -1567,6 +1686,10 @@ VIEWS.acces = ()=>{
   return headHTML('Cours gratuits et Premium', 'Sur chaque cours, touchez <b>🆓 Gratuit</b>, <b>⭐ Premium</b> ou <b>🙈 Masqué</b>. C’est enregistré tout de suite.',
       `<button class="btn" id="preview">${ic('eye')}Voir comme un élève gratuit</button>`) + `
   ${syncBox()}
+  ${undoBar()}
+  ${promoCard()}
+  ${bulkSujCard()}
+  ${premCheckCard()}
   <div class="cstat" role="group" aria-label="Filtrer par accès">${['gratuit','premium','masque'].map(v=>`<button class="${v} ${C.st===v?'on':''}" data-cst="${v}" aria-pressed="${C.st===v}"><b>${cnt[v]}</b><span>${COUR_ST[v][0]} cours ${{gratuit:'gratuits',premium:'Premium',masque:'masqués'}[v]}</span></button>`).join('')}</div>
   <div class="ctool">
     <label class="srch">${ic('search')}<input id="cq" placeholder="Chercher un cours…" value="${esc(C.q)}" aria-label="Chercher un cours"></label>
@@ -1651,14 +1774,31 @@ function seg3(key){ // pour niveaux et fonctions : pas d'héritage visible, vale
   const r = DB.access.regles[key]?.acces || DB.access.defaut;
   return `<div class="seg" role="radiogroup" aria-label="Accès : ${esc(labelOf(key))}">${[['gratuit','Gratuit'],['premium','Premium'],['masque','Masqué']].map(([v,l])=>`<button role="radio" aria-checked="${r===v}" class="${v} ${r===v?'on':''}" data-rule="${key}" data-v="${v}">${l}</button>`).join('')}</div>`;
 }
+/* sujets : questions gratuites propres au sujet, correction à la fin (délégation : les cours s'ouvrent après le rendu) */
+if(!window.__sujDeleg){ window.__sujDeleg=1; document.addEventListener('change', e=>{ const t=e.target; if(!t||!t.dataset) return;
+  if(t.dataset.sqg){ const k=t.dataset.sqg, Q=DB.access.questions=DB.access.questions||{}, v=String(t.value).trim();
+    if(v===''){ delete Q[k]; DB.access.version++; DB.access.misAJour=new Date().toISOString(); audit('Questions gratuites : réglage du cours', labelOf(k)); }
+    else setQg(k,{n:parseInt(v,10)||0, mode:'sujet'});
+    persist(); toast(v===''?'Ce sujet suit le réglage du cours.':`${parseInt(v,10)||0} question(s) gratuite(s) dans ce sujet, le reste Premium.`); }
+  if(t.dataset.sfc){ const k=t.dataset.sfc, F=DB.access.fincorr=DB.access.fincorr||{}; if(t.checked) F[k]=1; else delete F[k];
+    DB.access.version++; DB.access.misAJour=new Date().toISOString(); persist(); audit(t.checked?'Correction à la fin activée':'Correction immédiate rétablie', labelOf(k));
+    toast(t.checked?'Correction à la fin : les résultats s’afficheront à « Fin de ma composition ».':'Correction immédiate rétablie.'); if(!k.includes('/sujet:')) render(); }
+}); }
 function matBody(m){
   const mk='matiere:'+m.id; let h='';
   h += `<div class="item"><span class="it">Résumés de cours</span><span class="eff">${effText(mk+'/resumes')}</span>${seg(mk+'/resumes')}</div>`;
   h += `<div class="item"><span class="it">Application complète</span><span class="eff">${effText(mk+'/appli')}</span>${seg(mk+'/appli')}</div>`;
-  for(let i=1;i<=sujetsOf(m);i++){ const k=`${mk}/sujet:${i}`; h+=`<div class="item"><span class="it">Sujet ${i} <span class="muted">· questions ${(i-1)*50+1} à ${Math.min(i*50,m.q)}</span></span><span class="eff">${effText(k)}</span>${seg(k)}</div>`; }
+  const FC = DB.access.fincorr||{}, QQ = DB.access.questions||{};
+  h += `<div class="item"><label class="it" style="display:flex;gap:8px;align-items:center;cursor:pointer"><input type="checkbox" data-sfc="${mk}" ${FC[mk]?'checked':''} style="width:18px;height:18px"> 📝 <b>Correction à la fin</b> pour tous les sujets de ce cours <span class="muted">(pas de correction immédiate : tout s’affiche à « Fin de ma composition »)</span></label></div>`;
+  for(let i=1;i<=sujetsOf(m);i++){ const k=`${mk}/sujet:${i}`; const st=Array.isArray(m.sujets)&&m.sujets[i-1], own=QQ[k], herit=qgOf(mk);
+    h+=`<div class="item" style="flex-wrap:wrap"><span class="it">${st?esc(st[0]):'Sujet '+i} <span class="muted">· ${st?st[1]+' questions':'questions '+((i-1)*50+1)+' à '+Math.min(i*50,m.q)}</span></span><span class="eff">${effText(k)}</span>${seg(k)}
+      <span class="sqg" style="flex-basis:100%;display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin-top:6px;font-size:13px">
+        <label style="display:flex;gap:6px;align-items:center">🎁 <input type="number" min="0" max="500" data-sqg="${k}" value="${own&&own.n!=null?own.n:''}" placeholder="${herit.n||0}" style="width:64px" class="field" aria-label="Questions gratuites dans ce sujet"> questions gratuites${st?` sur ${st[1]}, le reste Premium`:''} <span class="muted">${own&&own.n!=null?'':'(vide = réglage du cours)'}</span></label>
+        <label style="display:flex;gap:6px;align-items:center;cursor:pointer"><input type="checkbox" data-sfc="${k}" ${FC[k]||FC[mk]?'checked':''} ${FC[mk]?'disabled':''} style="width:18px;height:18px"> 📝 Correction à la fin</label></span></div>`; }
   return h;
 }
 AFTER.acces = ()=>{
+  bindPromo(); bindUndo(); bindBulkSuj(); bindPremCheck();
   const C = UI.cours, q = sel=>document.querySelectorAll(sel);
   q('[data-rule]').forEach(b=>b.onclick=()=>{ setRule(b.dataset.rule, b.dataset.v); render(); });
   q('[data-def]').forEach(b=>b.onclick=()=>{ DB.access.defaut=b.dataset.def; DB.access.version++; DB.access.misAJour=new Date().toISOString(); audit('Règle par défaut : '+ACC_LABEL[b.dataset.def],'Tout le contenu'); render(); });
@@ -1690,6 +1830,114 @@ AFTER.acces = ()=>{
   if($('#orph')) $('#orph').onclick = ()=>{ const L=orphans(); confirmModal('Nettoyer les règles sans cours ?', `${L.length} règle(s) visent des cours qui n’existent plus dans le portail (anciens identifiants de test). Elles seront supprimées.`, 'Supprimer ces règles', ()=>{ L.forEach(k=>delete DB.access.regles[k]); DB.access.version++; DB.access.misAJour=new Date().toISOString(); audit('Règles sans cours supprimées', L.length+' règles'); render(); }); };
 };
 function orphans(){ return Object.keys(DB.access.regles).filter(k=>!NODES[k]); }
+
+/* ---------- Annuler : chaque changement de la page « Cours gratuits et Premium » peut être défait ---------- */
+const UNDO_ACC = []; let UNDO_GEN = 0;
+function accSnap(){ const A = DB.access; return JSON.stringify({regles:A.regles||{}, questions:A.questions||{}, plusapp:A.plusapp||{}, fincorr:A.fincorr||{}, promo:A.promo||null, defaut:A.defaut}); }
+function undoBar(){ const n = UNDO_ACC.length;
+  return `<div id="undoacc" class="undobar" role="region" aria-label="Annuler" style="position:sticky;top:8px;z-index:30;display:${n?'flex':'none'};align-items:center;gap:10px;flex-wrap:wrap;background:var(--ink,#1d1b2e);color:#fff;border-radius:14px;padding:10px 14px;margin:0 0 14px;box-shadow:0 6px 20px rgba(0,0,0,.18)">
+    <span style="flex:1;min-width:160px">↶ <b>${n}</b> modification${n>1?'s':''} sur cette page. Vous pouvez revenir en arrière.</span>
+    <button class="btn sm" id="undoone" style="background:#fff;color:#1d1b2e">↶ Annuler la dernière</button>
+    ${n>1?`<button class="btn sm" id="undoall" style="background:transparent;color:#fff;border-color:rgba(255,255,255,.5)">⟲ Tout annuler (${n})</button>`:''}</div>`; }
+function majUndo(){ const el = document.getElementById('undoacc'); if(!el) return; const w = document.createElement('div'); w.innerHTML = undoBar(); el.replaceWith(w.firstElementChild); bindUndo(); }
+function restaurerAcc(snap, combien){
+  UNDO_GEN++; const o = JSON.parse(snap), A = DB.access;
+  A.regles = o.regles; A.questions = o.questions; A.plusapp = o.plusapp; A.fincorr = o.fincorr; A.defaut = o.defaut; if(o.promo) A.promo = o.promo; else delete A.promo;
+  A.version++; A.misAJour = new Date().toISOString();
+  audit(combien>1 ? `Annulation de ${combien} modifications` : 'Annulation de la dernière modification', 'Cours gratuits et Premium');
+  toast(combien>1 ? `⟲ ${combien} modifications annulées.` : '↶ Dernière modification annulée.'); render();
+}
+function annulerAcc(tout){ if(!UNDO_ACC.length) return; if(tout){ const n = UNDO_ACC.length, s0 = UNDO_ACC[0]; UNDO_ACC.length = 0; restaurerAcc(s0, n); } else restaurerAcc(UNDO_ACC.pop(), 1); }
+function bindUndo(){ const a = $('#undoone'), b = $('#undoall'); if(a) a.onclick = ()=>annulerAcc(false);
+  if(b) b.onclick = ()=>confirmModal('Tout annuler ?', `Les ${UNDO_ACC.length} modifications faites sur cette page seront défaites : les cours et les sujets reviennent à leur état d’avant.`, 'Oui, tout annuler', ()=>{ closeModal(); annulerAcc(true); }); }
+if(!window.__undoAcc){ window.__undoAcc = 1;
+  ['click','change'].forEach(t=>document.addEventListener(t, e=>{
+    if(page!=='acces' || !DB || !DB.access) return; const g = e.target; if(g && g.closest && g.closest('#undoacc,#undoone,#undoall')) return;
+    const avant = accSnap(), gen = UNDO_GEN; setTimeout(()=>{ if(!DB || !DB.access || gen!==UNDO_GEN) return; if(accSnap()!==avant && UNDO_ACC[UNDO_ACC.length-1]!==avant){ UNDO_ACC.push(avant); if(UNDO_ACC.length>60) UNDO_ACC.shift(); majUndo(); } }, 0);
+  }, true));
+  document.addEventListener('keydown', e=>{ if(page!=='acces' || !(e.ctrlKey||e.metaKey) || e.key.toLowerCase()!=='z' || e.shiftKey) return; const t = e.target; if(t && /INPUT|TEXTAREA|SELECT/.test(t.tagName)) return; if(UNDO_ACC.length){ e.preventDefault(); annulerAcc(false); } });
+}
+
+/* ---------- Une même règle pour plusieurs sujets : questions gratuites, correction à la fin, accès ---------- */
+function tousSujets(){ return matAll().flatMap(m=>{ const n = sujetsOf(m), L = []; for(let i=1;i<=n;i++){ const st = Array.isArray(m.sujets) && m.sujets[i-1]; L.push({k:`matiere:${m.id}/sujet:${i}`, mk:'matiere:'+m.id, m, lab: st ? st[0] : 'Sujet '+i, nq: st ? st[1] : null}); } return L; }); }
+function bsState(){ return UI.bs = UI.bs || {qm:'n', n:20, fc:'', acc:'', cible:'tous', sel:new Set(), q:'', open:false, ouv:new Set()}; }
+function bsCibles(){ const B = bsState(), all = tousSujets();
+  if(B.cible==='cours') return all.filter(x=>UI.cours.sel.has(x.mk));
+  if(B.cible==='choix') return all.filter(x=>B.sel.has(x.k));
+  if(B.cible==='visibles'){ const ok = new Set(matAll().filter(courseOk).map(m=>'matiere:'+m.id)); return all.filter(x=>ok.has(x.mk)); }
+  return all; }
+function bulkSujCard(){
+  const B = bsState(), all = tousSujets(), cib = bsCibles(), nc = UI.cours.sel.size, nv = matAll().filter(courseOk).length;
+  const opt = (v,l,cur)=>`<option value="${v}" ${cur===v?'selected':''}>${l}</option>`;
+  const rien = B.qm==='' && !B.fc && !B.acc;
+  let liste = '';
+  if(B.cible==='choix'){ const qq = nrmTxt(B.q.trim());
+    liste = `<div style="margin-top:10px"><input class="field" id="bsq" placeholder="Chercher un cours ou un sujet…" value="${esc(B.q)}" style="max-width:360px" aria-label="Chercher un sujet">
+      <div class="row wrap" style="margin:8px 0;gap:8px"><button class="btn sm" id="bsnone">Tout décocher</button><span class="muted" style="font-size:13px">${B.sel.size} sujet${B.sel.size>1?'s':''} coché${B.sel.size>1?'s':''}</span></div>
+      <div style="max-height:420px;overflow:auto;border:1px solid var(--line);border-radius:12px;padding:6px 10px">${matAll().map(m=>{ const mk = 'matiere:'+m.id, L = all.filter(x=>x.mk===mk && (!qq || nrmTxt(m.nom+' '+x.lab).includes(qq))); if(!L.length) return '';
+        const nOn = L.filter(x=>B.sel.has(x.k)).length, ouv = B.ouv.has(mk) || !!qq;
+        return `<div style="border-bottom:1px solid var(--line);padding:6px 0"><div class="row" style="gap:8px"><input type="checkbox" data-bsm="${mk}" ${nOn===L.length?'checked':''} aria-label="Tous les sujets de ${esc(m.nom)}" style="width:18px;height:18px"><button class="lnk" data-bso="${mk}" style="flex:1;text-align:left;font-weight:700">${ouv?'▾':'▸'} ${esc(m.nom)}</button><span class="muted" style="font-size:12.5px">${nOn}/${L.length}</span></div>
+          ${ouv?`<div style="padding:4px 0 4px 26px;display:grid;gap:4px">${L.map(x=>`<label style="display:flex;gap:8px;align-items:center;cursor:pointer;font-size:13.5px"><input type="checkbox" data-bss="${x.k}" ${B.sel.has(x.k)?'checked':''} style="width:16px;height:16px">${esc(x.lab)}${x.nq?` <span class="muted">· ${x.nq} q.</span>`:''}</label>`).join('')}</div>`:''}</div>`; }).join('')}</div></div>`; }
+  return `<details class="card" id="bscard" ${B.open?'open':''} style="margin-bottom:16px"><summary style="cursor:pointer;font-weight:800;font-size:16px">🧩 Appliquer une même règle à plusieurs sujets</summary>
+    <p class="muted" style="margin:8px 0 12px;font-size:13.5px">Exemple : « 20 premières questions gratuites » pour tous les sujets, pour les cours cochés, ou pour les sujets que vous choisissez.</p>
+    <div style="display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(230px,1fr))">
+      <label style="display:grid;gap:4px"><b style="font-size:13.5px">🎁 Questions gratuites</b><div class="row" style="gap:6px"><select class="field" id="bsqm" style="width:auto">${opt('n','Les premières :',B.qm)}${opt('x','Comme le cours',B.qm)}${opt('','Ne pas changer',B.qm)}</select>${B.qm==='n'?`<input type="number" min="0" max="500" class="field" id="bsn" value="${B.n}" style="width:76px" aria-label="Nombre de questions gratuites">`:''}</div>${B.qm==='n'?`<small class="muted">Les ${B.n} premières questions de chaque sujet sont gratuites, le reste Premium.</small>`:''}</label>
+      <label style="display:grid;gap:4px"><b style="font-size:13.5px">📝 Correction à la fin</b><select class="field" id="bsfc">${opt('','Ne pas changer',B.fc)}${opt('1','Activer (résultats à la fin)',B.fc)}${opt('0','Désactiver (correction immédiate)',B.fc)}</select></label>
+      <label style="display:grid;gap:4px"><b style="font-size:13.5px">🔐 Accès du sujet</b><select class="field" id="bsacc">${opt('','Ne pas changer',B.acc)}${opt('gratuit','🆓 Gratuit',B.acc)}${opt('premium','⭐ Premium',B.acc)}${opt('masque','🙈 Masqué',B.acc)}${opt('inh','↺ Comme le cours',B.acc)}</select></label>
+    </div>
+    <div style="margin-top:14px"><b style="font-size:13.5px">À quels sujets ?</b>
+      <div class="seg" role="radiogroup" aria-label="Sujets visés" style="margin-top:6px;flex-wrap:wrap">${[['tous',`Tous les sujets (${all.length})`],['visibles',`Cours affichés par les filtres (${nv})`],['cours',`Cours cochés ci-dessous (${nc})`],['choix','Je choisis les sujets']].map(([v,l])=>`<button role="radio" aria-checked="${B.cible===v}" class="${B.cible===v?'on':''}" data-bsc="${v}">${l}</button>`).join('')}</div>
+      ${B.cible==='cours'&&!nc?`<p class="muted" style="font-size:13px;margin:6px 0 0">Cochez des cours dans la liste plus bas (case en haut à gauche de chaque cours).</p>`:''}
+      ${liste}</div>
+    <div class="row wrap" style="margin-top:14px;gap:10px"><button class="btn pri" id="bsgo" ${!cib.length||rien?'disabled':''}>Appliquer à ${fmt(cib.length)} sujet${cib.length>1?'s':''}</button><span class="muted" style="font-size:13px">Vous pourrez annuler avec « ↶ Annuler ».</span></div>
+  </details>`;
+}
+function appliquerSujets(L, B){
+  const Q = DB.access.questions = DB.access.questions||{}, F = DB.access.fincorr = DB.access.fincorr||{}, G = DB.access.regles, ks = new Set(L.map(x=>x.k));
+  if(B.fc==='0'){ new Set(L.map(x=>x.mk)).forEach(mk=>{ if(F[mk]){ delete F[mk]; tousSujets().filter(x=>x.mk===mk && !ks.has(x.k)).forEach(x=>F[x.k]=1); } }); }
+  L.forEach(({k})=>{
+    if(B.qm==='n') Q[k] = {n:Math.max(0,Math.min(500,parseInt(B.n,10)||0)), mode:'sujet'}; else if(B.qm==='x') delete Q[k];
+    if(B.fc==='1') F[k] = 1; else if(B.fc==='0') delete F[k];
+    if(B.acc==='inh') delete G[k]; else if(B.acc) G[k] = Object.assign({}, G[k]||{}, {acces:B.acc});
+  });
+  DB.access.version++; DB.access.misAJour = new Date().toISOString();
+  const quoi = [B.qm==='n'?`${parseInt(B.n,10)||0} questions gratuites`:B.qm==='x'?'questions gratuites comme le cours':'', B.fc==='1'?'correction à la fin':B.fc==='0'?'correction immédiate':'', B.acc?(B.acc==='inh'?'accès comme le cours':'accès '+ACC_LABEL[B.acc]):''].filter(Boolean).join(', ');
+  audit(`Règle groupée : ${quoi}`, `${L.length} sujet${L.length>1?'s':''}`); return quoi;
+}
+function bindBulkSuj(){
+  const B = bsState(), card = $('#bscard'); if(!card) return;
+  card.ontoggle = ()=>{ B.open = card.open; };
+  const on = (id, ev, f)=>{ const el = $('#'+id); if(el) el[ev] = f; };
+  on('bsqm','onchange',e=>{ B.qm = e.target.value; render(); });
+  on('bsn','onchange',e=>{ B.n = Math.max(0,Math.min(500,parseInt(e.target.value,10)||0)); render(); });
+  on('bsfc','onchange',e=>{ B.fc = e.target.value; render(); });
+  on('bsacc','onchange',e=>{ B.acc = e.target.value; render(); });
+  card.querySelectorAll('[data-bsc]').forEach(b=>b.onclick=()=>{ B.cible = b.dataset.bsc; render(); });
+  card.querySelectorAll('[data-bso]').forEach(b=>b.onclick=()=>{ const k = b.dataset.bso; B.ouv.has(k)?B.ouv.delete(k):B.ouv.add(k); render(); });
+  card.querySelectorAll('[data-bss]').forEach(c=>c.onchange=()=>{ c.checked?B.sel.add(c.dataset.bss):B.sel.delete(c.dataset.bss); render(); });
+  card.querySelectorAll('[data-bsm]').forEach(c=>c.onchange=()=>{ const mk = c.dataset.bsm, qq = nrmTxt(B.q.trim()); tousSujets().filter(x=>x.mk===mk && (!qq || nrmTxt(x.m.nom+' '+x.lab).includes(qq))).forEach(x=>c.checked?B.sel.add(x.k):B.sel.delete(x.k)); render(); });
+  on('bsnone','onclick',()=>{ B.sel.clear(); render(); });
+  const q = $('#bsq'); if(q) q.oninput = ()=>{ const pos = q.selectionStart; B.q = q.value; clearTimeout(q.t); q.t = setTimeout(()=>{ render(); const n = $('#bsq'); if(n){ n.focus(); try{ n.setSelectionRange(pos,pos); }catch(e){} } }, 200); };
+  on('bsgo','onclick',()=>{ const L = bsCibles(); if(!L.length) return;
+    confirmModal(`Appliquer à ${L.length} sujet${L.length>1?'s':''} ?`, `${[B.qm==='n'?`🎁 ${B.n} premières questions gratuites, le reste Premium`:B.qm==='x'?'🎁 Questions gratuites : comme le cours':'', B.fc==='1'?'📝 Correction à la fin':B.fc==='0'?'📝 Correction immédiate':'', B.acc?'🔐 Accès : '+(B.acc==='inh'?'comme le cours':ACC_LABEL[B.acc]):''].filter(Boolean).join('<br>')}<br><br>Vous pourrez revenir en arrière avec « ↶ Annuler ».`, 'Oui, appliquer', ()=>{ const quoi = appliquerSujets(L, B); closeModal(); toast(`✅ ${L.length} sujet${L.length>1?'s':''} : ${quoi}`); render(); }); });
+}
+
+/* ---------- Cocher directement les cours Premium ---------- */
+function premCheckCard(){
+  const U = UI.pc = UI.pc || {open:false}, vis = CATALOGUE.map(r=>({r, ms:r.matieres.filter(courseOk)})).filter(x=>x.ms.length), n = matAll().filter(m=>effective('matiere:'+m.id).acces==='premium').length;
+  return `<details class="card" id="pccard" ${U.open?'open':''} style="margin-bottom:16px"><summary style="cursor:pointer;font-weight:800;font-size:16px">⭐ Cocher les cours Premium <span class="muted" style="font-weight:500;font-size:13px">· ${n} Premium sur ${matAll().length}</span></summary>
+    <p class="muted" style="margin:8px 0 10px;font-size:13.5px">Case cochée = ⭐ Premium · case vide = 🆓 Gratuit. C’est enregistré tout de suite ; « ↶ Annuler » défait le dernier changement.</p>
+    ${vis.map(({r,ms})=>{ const ks = ms.map(m=>'matiere:'+m.id), tous = ks.every(k=>effective(k).acces==='premium');
+      return `<div style="margin:10px 0"><label style="display:flex;gap:8px;align-items:center;font-weight:800;cursor:pointer"><input type="checkbox" data-pcr="${esc(r.id)}" ${tous?'checked':''} style="width:18px;height:18px"> ${esc(r.nom)}</label>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:4px 14px;padding:6px 0 0 26px">${ms.map(m=>{ const k = 'matiere:'+m.id, e = effective(k).acces;
+          return `<label style="display:flex;gap:8px;align-items:center;cursor:pointer;font-size:14px;${e==='masque'?'opacity:.55':''}"><input type="checkbox" data-pck="${k}" ${e==='premium'?'checked':''} style="width:17px;height:17px">${esc(m.nom)}${e==='masque'?' <span class="muted">(masqué)</span>':''}</label>`; }).join('')}</div></div>`; }).join('')}
+  </details>`;
+}
+function bindPremCheck(){
+  const U = UI.pc = UI.pc || {open:false}, card = $('#pccard'); if(!card) return; card.ontoggle = ()=>{ U.open = card.open; };
+  card.querySelectorAll('[data-pck]').forEach(c=>c.onchange=()=>{ const k = c.dataset.pck, v = c.checked ? 'premium' : 'gratuit'; setCourses([k], v); toast(`${COUR_ST[v][0]} « ${labelOf(k)} » : ${ACC_LABEL[v]}`); render(); });
+  card.querySelectorAll('[data-pcr]').forEach(c=>c.onchange=()=>{ const r = CATALOGUE.find(x=>x.id===c.dataset.pcr); if(!r) return; const v = c.checked ? 'premium' : 'gratuit', ks = r.matieres.filter(courseOk).map(m=>'matiere:'+m.id); const n = setCourses(ks, v); toast(n?`${n} cours : ${ACC_LABEL[v]}`:'Rien à changer.'); render(); });
+}
 function previewModal(){
   const html = CATALOGUE.map(r=>{
     const items = r.matieres.map(m=>{
@@ -2010,13 +2258,19 @@ function cpTexte(c){ const dl=c.date_limite?`\n📅 DATE LIMITE de la compositio
 function cpEtat(c){ if(!c.actif) return ['Close','bad']; if(c.date_limite&&new Date(c.date_limite)<new Date()) return ['Terminée','bad']; return ['Ouverte','ok']; }
 const cpDuree = s=>s==null?'—':(s>=60?Math.floor(s/60)+' min '+String(s%60).padStart(2,'0')+' s':s+' s');
 
+/* sujets classés comme dans l'appli : matière (ou « J · matière ») puis antenne · année */
+function cpOptions(m,f){ const L=m.sujets.filter(s=>s.n>0||!s.t), opt=(s,t)=>`<option value="${s.k}" ${+f.k===s.k?'selected':''}>${esc(t)}${s.n?' · '+s.n+' q.':''}</option>`;
+  const grp=s=>{ const p=String(s.t||'').split(' · '); if(p.length<2) return null; return p[0]==='J'&&p.length>2?['🎓 Préparation au D.E (J) · '+p[1], p.slice(2).join(' · ')]:[p[0], p.slice(1).join(' · ')]; };
+  if(L.filter(grp).length<L.length/2) return L.map(s=>opt(s,s.t||'Sujet '+(s.k+1))).join('');
+  const G=new Map(); L.forEach(s=>{ const g=grp(s)||['Autres',s.t||'Sujet '+(s.k+1)]; if(!G.has(g[0])) G.set(g[0],[]); G.get(g[0]).push([s,g[1]]); });
+  return [...G].map(([g,xs])=>`<optgroup label="${esc(g)}">${xs.sort((a,b)=>a[1].localeCompare(b[1],'fr')).map(([s,t])=>opt(s,t)).join('')}</optgroup>`).join(''); }
 VIEWS.compos = ()=>{
   const cat = CP_CAT[cpBase()], site = UI.cpSite||'eleves', f = UI.cpF||{};
   const m = cat&&cat.L.find(x=>x.id===f.mid) || (cat&&cat.L[0]);
   const form = !cat ? '<p class="sub">Chargement de la liste des sujets…</p>' : !cat.ok ? `<div class="msg bad">${esc(cat.err)}</div>` : `
     <div class="codeform">
       <div style="flex:1 1 230px"><label class="lbl" for="cpmid">Cours</label><select class="field" id="cpmid">${[...new Set(cat.L.map(x=>x.rub))].map(r=>`<optgroup label="${esc(r)}">${cat.L.filter(x=>x.rub===r).map(x=>`<option value="${esc(x.id)}" ${m&&m.id===x.id?'selected':''}>${esc(x.nom)}</option>`).join('')}</optgroup>`).join('')}</select></div>
-      <div style="flex:2 1 320px"><label class="lbl" for="cpk">Sujet</label><select class="field" id="cpk">${m?m.sujets.filter(s=>s.n>0||!s.t).map(s=>`<option value="${s.k}" ${+f.k===s.k?'selected':''}>${esc(s.t||'Sujet '+(s.k+1))}${s.n?' · '+s.n+' questions':''}</option>`).join(''):''}</select></div>
+      <div style="flex:2 1 320px"><label class="lbl" for="cpk">Sujet</label><select class="field" id="cpk">${m?cpOptions(m,f):''}</select></div>
     </div>
     ${m&&!m.titres?`<div class="msg warn">Les titres des sujets de ce site arriveront avec la prochaine publication de l’appli ; en attendant, le sujet est repéré par son numéro.</div>`:''}
     <div class="codeform" style="margin-top:12px">
