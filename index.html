@@ -617,7 +617,7 @@ const MAP = [
     from:r=>({id:r.id, user_id:r.user_id, plan:r.plan, start:r.starts_at, end:r.ends_at, source:r.source, note:r.note||''})},
   {k:'reports', t:'reports', id:'id',
     to:r=>Object.assign({id:r.id, user_id:r.user_id||null, mat:r.mat, question:r.question, message:r.message, statut:r.statut, note:r.note||'', created_at:r.date, appareil:r.appareil||null, qid:r.qid||null}, r.photo!=null?{photo:r.photo}:{}, r.eleve!=null?{eleve:r.eleve}:{}),
-    from:r=>Object.assign({id:r.id, user_id:r.user_id, mat:r.mat, question:r.question, message:r.message, statut:r.statut, note:r.note||'', date:r.created_at, appareil:r.appareil||null, qid:r.qid||null}, r.photo!=null?{photo:r.photo}:{}, r.eleve!=null?{eleve:r.eleve}:{})},
+    from:r=>Object.assign({id:r.id, user_id:r.user_id, mat:r.mat, question:r.question, message:r.message, statut:r.statut, note:r.note||'', date:r.created_at, appareil:r.appareil||null, qid:r.qid||null}, r.photo!=null?{photo:r.photo}:{}, r.eleve!=null?{eleve:r.eleve}:{}, r.reponse!=null?{reponse:r.reponse, reponse_type:r.reponse_type||'', reponse_at:r.reponse_at||null}:{})},
   {k:'announcements', t:'announcements', id:'id',
     to:a=>({id:a.id, titre:a.titre, texte:a.texte, cible:a.cible, couleur:a.couleur, du:a.du, au:a.au, actif:!!a.actif}),
     from:r=>({id:r.id, titre:r.titre, texte:r.texte, cible:r.cible, couleur:r.couleur, du:r.du, au:r.au, actif:r.actif})},
@@ -901,7 +901,7 @@ const fmt = n => new Intl.NumberFormat('fr-FR').format(n);
 const dfr = (iso,opt={day:'numeric',month:'short',year:'numeric'}) => new Date(iso).toLocaleDateString('fr-FR',opt);
 const hfr = iso => new Date(iso).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
 const fullName = p => p ? `${p.prenom} ${p.nom}` : 'Élève supprimé';
-const initials = p => (p.prenom[0]+p.nom.replace(/[^A-Za-zÀ-ÿ]/g,'')[0]).toUpperCase();
+const initials = p => { const w = `${p.prenom||''} ${p.nom||''}`.replace(/[^A-Za-zÀ-ÿ ]/g,' ').trim().split(/\s+/).filter(Boolean); return ((w[0]||'?')[0]+((w[1]||'')[0]||'')).toUpperCase(); };
 const avColor = id => ['#6C3BF5','#17B3A3','#E25DB8','#E89A2C','#3B82F6','#1E9E6A'][[...id].reduce((a,c)=>a+c.charCodeAt(0),0)%6];
 const matName = id => { for(const r of CATALOGUE) for(const m of r.matieres) if(m.id===id) return m.nom; return id; };
 function relTime(iso){
@@ -1068,7 +1068,7 @@ function ring(pct, color){
    ========================================================= */
 const PAGES = [
   {id:'overview', nom:'Vue d’ensemble', icon:'home', grp:1},
-  {id:'eleves', nom:'Élèves', icon:'users', grp:1, count:()=>DB.profiles.length},
+  {id:'eleves', nom:'Élèves', icon:'users', grp:1, count:()=>DB.profiles.length+nomsEleves().length},
   {id:'paiements', nom:'Paiements', icon:'card', grp:1, count:()=>(DB.payments||[]).filter(x=>x.statut==='a_verifier').length},
   {id:'acces', nom:'Cours gratuits / Premium', icon:'lock', grp:1},
   {id:'engagement', nom:'Engagement', icon:'chart', grp:2},
@@ -1114,7 +1114,7 @@ const realTag = ()=> REAL ? `<span class="pill ok">Statistiques réelles du port
    8. VUE D'ENSEMBLE
    ========================================================= */
 function kpiData(){
-  const P = DB.profiles, now = Date.now(), per = UI.period;
+  const P = DB.profiles.concat(nomsEleves()), now = Date.now(), per = UI.period;
   const since = per ? now - per*DAY : 0;
   const inscrits = P.length;
   const nouveaux = P.filter(p=>new Date(p.created_at).getTime()>=since).length;
@@ -1129,18 +1129,21 @@ function kpiData(){
 }
 const delta = (a,b)=> !b ? '' : (a>=b?`<span class="up">+${Math.round((a-b)/b*100)} %</span>`:`<span class="down">−${Math.round((b-a)/b*100)} %</span>`);
 VIEWS.overview = ()=>{
-  const k = kpiData(); const P=DB.profiles;
+  const k = kpiData(); const NM = nomsEleves(), P = DB.profiles.concat(NM);
   const sf = P.filter(p=>p.filiere==='SF').length;
   const periods = [[7,'7 jours'],[30,'30 jours'],[90,'90 jours'],[0,'Tout']];
   const lab = k.days.map(d=>dfr(d.date,{day:'numeric',month:'short'}));
   const full = k.days.map(d=>dfr(d.date,{weekday:'long',day:'numeric',month:'long'}));
   const free = P.length - k.premium;
   const recent = [
-    ...P.map(p=>({t:p.created_at, a:'Inscription', p, st:'<span class="pill free">Gratuit</span>'})),
+    ...P.map(p=>({t:p.created_at, a:p.virtuel?'Inscription avec le nom':'Inscription par e-mail', p, st:'<span class="pill free">Gratuit</span>'})),
+    ...NM.flatMap(p=>(p.quiz||[]).map(z=>({t:z.t, a:'Quiz · '+scSujet(z), p, st:`<span class="pill ok">${scoreTxt(z)}</span>`}))),
+    ...DB.profiles.flatMap(p=>{ const A = activiteCompte(p); return A ? A.quiz.map(z=>({t:z.t, a:'Quiz · '+scSujet(z), p, st:`<span class="pill ok">${scoreTxt(z)}</span>`})) : []; }),
     ...DB.entitlements.map(e=>({t:e.start, a:'Pass '+(e.source==='cadeau'?'offert':e.source==='promo'?'promo':'accordé'), p:api.get('profiles',e.user_id), st:'<span class="pill prem">Premium</span>'})),
     ...(DB.payments||[]).map(x=>({t:x.created_at, a:'Paiement '+fmt(x.montant_xof)+' FCFA · '+(OPS[x.operateur]||[x.operateur])[0], p:api.get('profiles',x.user_id), st: x.statut==='valide'?'<span class="pill ok">Validé</span>':x.statut==='refuse'?'<span class="pill bad">Refusé</span>':'<span class="pill warn">À vérifier</span>'})),
     ...DB.reports.map(r=>({t:r.date, a:'Signalement · '+matName(r.mat), p:api.get('profiles',r.user_id), st: r.statut==='corrige'?'<span class="pill ok">Corrigé</span>':r.statut==='en-cours'?'<span class="pill warn">En cours</span>':'<span class="pill bad">Nouveau</span>'})),
-  ].filter(x=>x.p).sort((a,b)=>new Date(b.t)-new Date(a.t)).slice(0,7);
+  ].filter(x=>x.p && x.t).sort((a,b)=>new Date(b.t)-new Date(a.t));
+  const recAff = recent.slice(0, UI.recAll ? 150 : 12);
   const goalVal = g => g.mesure==='inscrits'?k.inscrits : g.mesure==='premium'?k.premium : k.actifs7;
   const levelCards = FILIERES.flatMap(f=>ANNEES.map(a=>{
     const L = P.filter(p=>p.filiere===f && p.annee===a); const pr = L.filter(p=>isPremium(p.id)).length;
@@ -1158,7 +1161,7 @@ VIEWS.overview = ()=>{
       <div class="big">${fmt(k.inscrits)}</div>
       <span class="delta">+${fmt(k.nouveaux)} ${UI.period?`sur ${UI.period} jours`:'au total'}</span>
       <div class="split" aria-hidden="true"><span style="flex:${sf};background:#FFB4E6"></span><span style="flex:${P.length-sf};background:#7FF0E2"></span></div>
-      <div class="legend"><span>Sage-femme ${fmt(sf)}</span><span>Infirmier ${fmt(P.length-sf)}</span><span>${fmt(P.filter(p=>p.auth_id).length)} vrais comptes</span></div>
+      <div class="legend"><span>Sage-femme ${fmt(sf)}</span><span>Infirmier ${fmt(P.length-sf)}</span><span>${fmt(DB.profiles.length)} par e-mail · ${fmt(NM.length)} avec le nom</span></div>
     </div>
     <div class="card kpi"><div class="lab"><span class="ic">${ic('pulse')}</span>Actifs sur 7 jours</div><div class="big">${fmt(k.actifs7)}</div><div class="foot">${REAL?'appareils, d’après le portail':pct(k.actifs7,k.inscrits)+' % des inscrits'}</div></div>
     <div class="card kpi"><div class="lab"><span class="ic">${ic('star')}</span>Premium actifs</div><div class="big">${fmt(k.premium)}</div><div class="foot">${k.inscrits?(k.premium/k.inscrits*100).toFixed(1).replace('.',','):0} % des inscrits</div></div>
@@ -1191,9 +1194,9 @@ VIEWS.overview = ()=>{
   </div>
 
   <div class="card" style="margin-top:18px">
-    <div class="cardhead"><div class="grow"><h3>Activité récente</h3><p class="sub">Inscriptions, pass et signalements</p></div></div>
+    <div class="cardhead"><div class="grow"><h3>Activité récente</h3><p class="sub">Inscriptions (e-mail et nom), quiz avec la note, pass et signalements</p></div>${recent.length>12?`<button class="btn sm" id="recall">${UI.recAll?'Voir moins':'Voir toute l’activité ('+fmt(Math.min(150,recent.length))+')'}</button>`:''}</div>
     <div class="tablewrap"><table class="t"><thead><tr><th>Activité</th><th>Élève</th><th>Niveau</th><th>Date</th><th>Heure</th><th>Statut</th></tr></thead><tbody>
-    ${recent.map(r=>`<tr class="click" data-user="${r.p.id}"><td>${esc(r.a)}</td><td><div class="who"><div class="av" style="background:${avColor(r.p.id)}">${initials(r.p)}</div><b>${esc(fullName(r.p))}</b></div></td><td style="white-space:nowrap">${r.p.filiere} · ${r.p.annee}</td><td>${dfr(r.t)}</td><td>${hfr(r.t)}</td><td>${r.st}</td></tr>`).join('')}
+    ${recAff.map(r=>`<tr class="click" ${r.p.virtuel?`data-nom="${esc(r.p.a)}"`:`data-user="${r.p.id}"`}><td>${esc(r.a)}</td><td><div class="who"><div class="av" style="background:${avColor(r.p.id)}">${initials(r.p)}</div><b>${esc(r.p.virtuel?r.p.prenom:fullName(r.p))}</b></div></td><td style="white-space:nowrap">${esc([r.p.filiere,r.p.annee].filter(Boolean).join(' · ')||'—')}</td><td>${dfr(r.t)}</td><td>${hfr(r.t)}</td><td>${r.st}</td></tr>`).join('')}
     </tbody></table></div>
   </div>`;
 };
@@ -1201,7 +1204,7 @@ AFTER.overview = ()=>{
   if(!PRES || Date.now()-PRES_T>25e3) loadPresence();
   if(MODE==='supabase' && (!INST || Date.now()-INST_T>5*60e3)) loadInst();
   document.querySelectorAll('[data-period]').forEach(b=>b.onclick=()=>{ UI.period=+b.dataset.period; render(); });
-  bindUserRows(); bindLive();
+  bindUserRows(); bindLive(); bindCnx(); const ra = $('#recall'); if(ra) ra.onclick = ()=>{ UI.recAll = !UI.recAll; render(); };
 };
 /* ---------- Appli installée sur les téléphones (supabase/installations/1_installations.sql) ---------- */
 let INST = null, INST_T = 0;
@@ -1261,12 +1264,14 @@ function bindLive(){
 setInterval(()=>{ if(DB && page==='overview' && !document.hidden) loadPresence(); }, 30e3);
 document.addEventListener('visibilitychange', ()=>{ if(!document.hidden && DB && page==='overview' && Date.now()-PRES_T>20e3) loadPresence(); });
 /* ---------- Heures de connexion : traces « connexion » / « ouverture » envoyées par l'appli (fonction SQL connexions) ---------- */
-let CNX = null;
+let CNX = null, SCX = null;
 async function loadCnx(){
   if(MODE!=='supabase' || !SB){ CNX = null; return; }
   try{ const {data,error} = await SB.rpc('connexions', {p_jours:30});
     CNX = error ? {err: /connexions|function|PGRST/i.test(String(error.message||'')) ? 'sql' : 'reseau'} : {L: cnxPrep(data||[])}; }
   catch(e){ CNX = {err:'reseau'}; }
+  try{ const {data,error} = await SB.rpc('eleves_sans_compte', {p_jours:365}); SCX = error ? {err: /eleves_sans_compte|function|PGRST/i.test(String(error.message||'')) ? 'sql' : 'reseau'} : {L: Array.isArray(data)?data:[]}; }
+  catch(e){ SCX = {err:'reseau'}; }
 }
 function cnxPrep(rows){ // une connexion par appareil et par tranche de 10 minutes ; rattachée à l'élève par son compte ou son appareil
   const L = rows.filter(x=>x && x.t).sort((a,b)=>new Date(b.t)-new Date(a.t)), last = {}, out = [];
@@ -1288,33 +1293,87 @@ function cnxCard(){
   if(X.err) return `<div class="card" id="cnxcard"><h3 style="margin:0 0 6px">🕒 Heures de connexion</h3><p class="muted" style="margin:0">${X.err==='sql'?'Colle le fichier <b>supabase/connexions/1_connexions.sql</b> dans Supabase (SQL Editor → Run) pour voir les heures de connexion.':'Impossible de joindre Supabase pour l’instant. Touchez « Actualiser ».'}</p></div>`;
   const L = X.L, H = Array(24).fill(0); L.forEach(x=>H[new Date(x.t).getHours()]++);
   const mx = Math.max(1,...H), pic = H.indexOf(Math.max(...H)), aff = UI.cnxAll ? 80 : 12;
-  const who = x=>{ const p = x.pid && DB.profiles.find(q=>q.id===x.pid); return p ? `<button class="lnk" data-user="${esc(p.id)}" style="font-weight:700">${esc(fullName(p))}</button>` : `${x.m?`<b>${esc(x.m)}</b> `:''}<span class="muted">${x.m?'· ':''}Sans compte${x.f?' · '+esc(x.f)+(x.n?' '+esc(x.n):''):''}</span>`; };
+  const who = x=>{ const p = x.pid && DB.profiles.find(q=>q.id===x.pid); return p ? `<button class="lnk" data-user="${esc(p.id)}" style="font-weight:700">${esc(fullName(p))}</button>` : `<button class="lnk" data-nom="${esc(x.a)}" style="font-weight:700">${esc(x.m)}</button> <span class="muted">· Inscrit avec le nom${x.f?' · '+esc(x.f)+(x.n?' '+esc(x.n):''):''}</span>`; };
   return `<div class="card" id="cnxcard" style="margin-bottom:16px">
     <div class="row wrap" style="align-items:baseline"><h3 style="margin:0;flex:1">🕒 Heures de connexion <span class="muted" style="font-weight:500;font-size:13px">· 30 derniers jours${X.demo?' · exemple (données locales)':''}</span></h3>${L.length?`<span class="muted" style="font-size:13px">${fmt(L.length)} connexion${L.length>1?'s':''} · le plus de monde vers <b>${pic} h</b></span>`:''}</div>
     ${L.length?`<div style="display:grid;grid-template-columns:repeat(24,1fr);gap:3px;align-items:end;height:90px;margin:14px 0 4px" aria-label="Connexions selon l’heure">${H.map((n,h)=>`<div title="${h} h : ${n} connexion${n>1?'s':''}" style="height:${Math.max(3,Math.round(n/mx*86))}px;border-radius:4px 4px 0 0;background:${h===pic?'var(--brand,#6C3BF5)':'color-mix(in srgb,var(--brand,#6C3BF5) 45%,transparent)'}"></div>`).join('')}</div>
     <div style="display:grid;grid-template-columns:repeat(24,1fr);gap:3px;font-size:10.5px;color:var(--muted,#888);text-align:center">${H.map((n,h)=>`<span>${h%3===0?h+'h':''}</span>`).join('')}</div>
     <div class="sect" style="margin-top:14px">Dernières connexions</div>
-    <div class="tablewrap"><table class="t"><thead><tr><th>Jour et heure</th><th>Élève</th></tr></thead><tbody>${L.slice(0,aff).map(x=>`<tr><td style="white-space:nowrap">${dhfr(x.t)}</td><td>${who(x)}</td></tr>`).join('')}</tbody></table></div>
+    <div class="tablewrap"><table class="t"><thead><tr><th>Jour et heure</th><th>Élève</th></tr></thead><tbody>${L.filter(x=>x.pid||x.m).slice(0,aff).map(x=>`<tr><td style="white-space:nowrap">${dhfr(x.t)}</td><td>${who(x)}</td></tr>`).join('')}</tbody></table></div>
     ${L.length>12?`<button class="btn sm" id="cnxall" style="margin-top:8px">${UI.cnxAll?'Voir moins':'Voir plus de connexions'}</button>`:''}`
     :`<p class="muted" style="margin:8px 0 0">Aucune connexion reçue sur 30 jours. Les heures s’affichent dès que les élèves ouvrent l’appli mise à jour.</p>`}
   </div>`;
 }
+function scLignes(){ // une ligne par appareil sans compte : fonction SQL eleves_sans_compte, sinon les connexions
+  const lie = a => DB.profiles.find(p=>(p.appareils||[]).some(x=>String(x).includes(a)));
+  if(SCX && SCX.L) return SCX.L.filter(g=>g.a && !(g.c && DB.profiles.some(p=>p.auth_id===g.c)) && !lie(g.a)).map(g=>({a:g.a, m:g.m||'', f:g.f||'', n:g.n||'', t:g.derniere, nb:+g.nbc||0, nq:+g.nbq||0, quiz:Array.isArray(g.quiz)?g.quiz:[], sql:true, premiere:g.premiere||null, inscrit:g.inscrit||null, tps:+g.tps||0, cx:Array.isArray(g.cx)?g.cx:[]}));
+  const X = cnxData(); if(X.err || X.demo || !X.L) return [];
+  const G = {}; X.L.filter(x=>!x.pid && x.a).forEach(x=>{ const g = G[x.a] = G[x.a] || {a:x.a, m:'', f:'', n:'', t:x.t, nb:0, nq:null, quiz:[], tps:null, cx:[], inscrit:null}; g.cx.push(x.t); g.inscrit = x.t; g.nb++; if(!g.m && x.m) g.m = x.m; if(!g.f && x.f){ g.f = x.f; g.n = x.n||''; } });
+  return Object.values(G);
+}
+function scSujet(q){ const id = q.mat; let lab = matName(id); const k = q.k!=null && q.k!=='' ? +q.k : null;
+  if(k!=null && q.mode && /sujet|compo|corr/i.test(q.mode)){ for(const r of CATALOGUE) for(const m of r.matieres) if(m.id===id && Array.isArray(m.sujets) && m.sujets[k]) lab += ' · '+m.sujets[k][0]; }
+  return lab; }
+const scNote = q => { const n = +q.n||0, ok = +q.ok||0; return n ? Math.round(ok/n*200)/10 : null; };
+/* ---------- Élèves inscrits avec leur nom (sans e-mail) : des élèves comme les autres, comptés partout ---------- */
+const filNorm = f => { const x = String(f||'').toUpperCase(); return /SF|SAGE/.test(x) ? 'SF' : /IDE|INF/.test(x) ? 'IDE' : x; };
+let NM_CACHE = null, NM_KEY = null;
+function nomsEleves(){ // pseudo-profils, un par téléphone qui a donné un nom
+  const k = (SCX && SCX.L ? SCX.L.length : 0)+'|'+(CNX && CNX.L ? CNX.L.length : 0)+'|'+DB.profiles.length;
+  if(NM_CACHE && NM_KEY===k) return NM_CACHE;
+  NM_KEY = k; return NM_CACHE = scLignes().filter(g=>String(g.m||'').trim()).map(g=>({id:'nom:'+g.a, virtuel:true, a:g.a, prenom:String(g.m).trim(), nom:'', filiere:filNorm(g.f), fil0:g.f||'', annee:g.n||'',
+    created_at:g.inscrit||g.premiere||g.t, last_seen:g.t, nbc:g.nb, nq:g.nq, quiz:g.quiz||[], tps:g.tps, cx:g.cx||[], quizN:g.nq}));
+}
+const nomDe = a => nomsEleves().find(x=>x.a===a);
+function activiteCompte(p){ // statistiques de l'appli pour un élève inscrit par e-mail : par son compte ou ses téléphones
+  if(!(SCX && SCX.L) || !p) return null;
+  const R = SCX.L.filter(g=>(g.c && p.auth_id && g.c===p.auth_id) || (g.a && (p.appareils||[]).some(x=>String(x).includes(g.a))));
+  if(!R.length) return null;
+  return {quiz:R.flatMap(g=>Array.isArray(g.quiz)?g.quiz:[]).sort((a,b)=>new Date(b.t)-new Date(a.t)), tps:R.reduce((n,g)=>n+(+g.tps||0),0), cx:R.flatMap(g=>Array.isArray(g.cx)?g.cx:[]).sort((a,b)=>new Date(b)-new Date(a)), nbc:R.reduce((n,g)=>n+(+g.nbc||0),0)};
+}
+const dureeFr = sec => { sec = Math.round(+sec||0); if(sec<60) return sec ? 'moins d’1 min' : '—'; const h = Math.floor(sec/3600), m = Math.round(sec%3600/60); return h ? `${h} h ${String(m).padStart(2,'0')}` : `${m} min`; };
+const moyQuiz = Q => { const N = (Q||[]).map(scNote).filter(x=>x!=null); return N.length ? Math.round(N.reduce((a,b)=>a+b,0)/N.length*10)/10 : null; };
+const n20 = v => v==null ? '—' : String(v).replace('.',',')+'/20';
+const scoreTxt = z => { const n = +z.n||0, ok = +z.ok||0, nt = scNote(z); return n===20 || nt==null ? `${fmt(ok)}/${fmt(n)}` : `${fmt(ok)}/${fmt(n)} · ${n20(nt)}`; };
+function blocActivite(A){ // matières composées, notes, temps passé, heures de connexion
+  if(!A) return `<div class="sect">Activité dans l’appli</div><p class="muted" style="font-size:13.5px;margin:4px 0">${SCX && SCX.err==='sql' ? 'Colle le fichier SQL des élèves dans Supabase pour voir les quiz, les notes et le temps passé.' : 'Pas encore d’activité reçue pour cet élève.'}</p>`;
+  const M = {}; A.quiz.forEach(q=>{ const m = M[q.mat] = M[q.mat] || {mat:q.mat, L:[]}; m.L.push(q); });
+  const mats = Object.values(M).sort((a,b)=>b.L.length-a.L.length);
+  return `<div class="kv" style="margin-top:14px"><span>Temps passé</span><b>${A.tps==null?'—':dureeFr(A.tps)}</b><span>Quiz terminés</span><b>${fmt(A.quiz.length)}${moyQuiz(A.quiz)!=null?' · moyenne '+n20(moyQuiz(A.quiz)):''}</b><span>Connexions</span><b>${fmt(A.nbc||A.cx.length)}</b></div>
+    <div class="sect">Matières composées · ${mats.length}</div>
+    ${mats.length?`<div class="tablewrap"><table class="t"><thead><tr><th>Matière</th><th>Quiz</th><th>Moyenne</th><th>Meilleure</th></tr></thead><tbody>${mats.map(m=>{ const N = m.L.map(scNote).filter(x=>x!=null); return `<tr><td>${esc(matName(m.mat))}</td><td>${fmt(m.L.length)}</td><td><b>${n20(moyQuiz(m.L))}</b></td><td>${N.length?n20(Math.max(...N)):'—'}</td></tr>`; }).join('')}</tbody></table></div>`:'<p class="muted" style="font-size:13.5px">Aucun quiz terminé pour l’instant.</p>'}
+    ${A.quiz.length?`<div class="sect">Notes · ${A.quiz.length}</div><div style="display:grid;gap:4px">${A.quiz.slice(0,40).map(z=>{ const nt = scNote(z); return `<div class="row" style="gap:10px;font-size:13.5px;flex-wrap:wrap;padding:4px 0;border-top:1px solid var(--line)"><span class="muted" style="min-width:150px">${dhfr(z.t)}</span><span style="flex:1;min-width:150px">${esc(scSujet(z))}</span><b>${fmt(+z.ok||0)}/${fmt(+z.n||0)}</b>${nt!=null?`<span class="pill" style="font-weight:700">${n20(nt)}</span>`:''}</div>`; }).join('')}</div>`:''}
+    ${A.cx.length?`<div class="sect">Heures de connexion · ${A.cx.length}</div><div style="display:flex;flex-wrap:wrap;gap:6px">${A.cx.slice(0,30).map(t=>`<span class="pill" style="font-weight:600">${dhfr(t)}</span>`).join('')}</div>`:''}`;
+}
+function openNom(a){
+  const p = nomDe(a); if(!p) return; const d = $('#drawer'); d.dataset.uid = p.id;
+  d.innerHTML = `<button class="iconbtn x" id="dclose" aria-label="Fermer">${ic('x')}</button>
+    <div class="row" style="gap:14px;margin-top:4px"><div class="av" style="width:52px;height:52px;font-size:17px;background:${avColor(p.id)}">${initials(p)}</div><div><h2 style="margin:0;font-family:var(--display);font-size:22px">${esc(p.prenom)}</h2><div class="muted" style="font-size:13.5px">${esc([p.filiere||p.fil0,p.annee].filter(Boolean).join(' · ')||'Filière pas encore choisie')}</div></div></div>
+    <div style="margin-top:12px"><span class="pill free">✍️ Inscrit avec le nom · Gratuit</span></div>
+    <div class="kv"><span>Filière</span><b>${esc(p.fil0||'—')}</b><span>Licence</span><b>${esc(p.annee||'—')}</b><span>Inscrit le</span><b>${p.created_at?dhfr(p.created_at):'—'}</b><span>Dernière connexion</span><b>${p.last_seen?dhfr(p.last_seen):'—'}</b></div>
+    ${blocActivite({quiz:p.quiz, tps:p.tps, cx:p.cx, nbc:p.nbc})}
+    ${(()=>{ const R = DB.reports.filter(r=>r.appareil===p.a); return R.length?`<div class="sect">Signalements envoyés · ${R.length}</div>${R.map(r=>`<div style="padding:6px 0;font-size:14px">${esc(matName(r.mat))} — <span class="muted">${esc(r.message)}</span>${r.reponse?' · <b>répondu</b>':''}</div>`).join('')}`:''; })()}`;
+  d.classList.add('on'); $('#scrim').classList.add('on'); $('#dclose').onclick = closeDrawer;
+}
 function sansCompteCard(){
-  const X = cnxData(); if(X.err || X.demo || !X.L) return '';
-  const G = {}; X.L.filter(x=>!x.pid && x.a).forEach(x=>{ const g = G[x.a] = G[x.a] || {a:x.a, m:'', f:'', n:'', t:x.t, nb:0}; g.nb++; if(!g.m && x.m) g.m = x.m; if(!g.f && x.f){ g.f = x.f; g.n = x.n||''; } });
-  const q = nrmTxt((UI.scq||'').trim()), L0 = Object.values(G), L = L0.filter(g=>!q || nrmTxt(`${g.m} ${g.f} ${g.n}`).includes(q)).sort((a,b)=>(!!b.m - !!a.m) || new Date(b.t)-new Date(a.t)), nm = L0.filter(g=>g.m).length;
-  if(!L0.length) return '';
-  const aff = UI.scAll ? L.length : 15;
-  return `<div class="card" id="sccard" style="margin-bottom:16px">
-    <div class="row wrap" style="align-items:baseline;gap:10px"><h3 style="margin:0;flex:1">👤 Élèves sans compte <span class="muted" style="font-weight:500;font-size:13px">· nom tapé à l’accueil · 30 derniers jours</span></h3><span class="muted" style="font-size:13px">${fmt(L0.length)} appareil${L0.length>1?'s':''} · ${fmt(nm)} avec un nom</span></div>
-    <input class="field" id="scq" placeholder="Chercher un nom, une filière, une licence…" value="${esc(UI.scq||'')}" style="max-width:360px;margin:10px 0" aria-label="Chercher un élève sans compte">
-    <div class="tablewrap"><table class="t"><thead><tr><th>Nom</th><th>Filière</th><th>Licence</th><th>Dernière connexion</th><th>Connexions</th></tr></thead><tbody>
-    ${L.slice(0,aff).map(g=>`<tr><td>${g.m?`<b>${esc(g.m)}</b>`:'<span class="muted">Nom pas encore tapé</span>'}</td><td>${esc(g.f||'—')}</td><td>${esc(g.n||'—')}</td><td style="white-space:nowrap">${dhfr(g.t)}</td><td>${fmt(g.nb)}</td></tr>`).join('') || `<tr><td colspan="5" class="muted">Aucun résultat.</td></tr>`}</tbody></table></div>
-    ${L.length>15?`<button class="btn sm" id="scall" style="margin-top:8px">${UI.scAll?'Voir moins':`Voir les ${fmt(L.length)}`}</button>`:''}
-    <p class="muted" style="font-size:12.5px;margin:8px 0 0">Les noms arrivent dès qu’un élève ouvre l’appli mise à jour ou change son nom à l’accueil.</p>
+  const L0 = nomsEleves(); if(!L0.length && !(SCX && SCX.err==='sql')) return '';
+  const q = nrmTxt((UI.scq||'').trim()), L = L0.filter(g=>!q || nrmTxt(`${g.prenom} ${g.fil0} ${g.annee}`).includes(q)).sort((a,b)=>new Date(b.last_seen)-new Date(a.last_seen));
+  const aff = UI.scAll ? L.length : 20, sql = SCX && SCX.L;
+  const ligne = g=>{ const mo = moyQuiz(g.quiz);
+    return `<tr class="click" data-nom="${esc(g.a)}"><td><div class="who"><div class="av" style="background:${avColor(g.id)}">${initials(g)}</div><b>${esc(g.prenom)}</b></div></td><td>${esc(g.fil0||'—')}</td><td>${esc(g.annee||'—')}</td><td style="white-space:nowrap">${g.created_at?dfr(g.created_at):'—'}</td><td style="white-space:nowrap">${dhfr(g.last_seen)}</td><td>${fmt(g.nbc)}</td>
+      <td style="white-space:nowrap">${g.nq==null?'—':`<b>${fmt(g.nq)}</b>${mo!=null?` · moy. <b>${n20(mo)}</b>`:''}`}</td><td style="white-space:nowrap">${g.tps==null?'—':dureeFr(g.tps)}</td></tr>`; };
+  return `<div class="card" id="sccard" style="margin-top:16px">
+    <div class="row wrap" style="align-items:baseline;gap:10px"><h3 style="margin:0;flex:1">✍️ Inscrits avec le nom <span class="muted" style="font-weight:500;font-size:13px">· sans e-mail · comptés comme élèves gratuits</span></h3><span class="muted" style="font-size:13px">${fmt(L0.length)} élève${L0.length>1?'s':''}</span></div>
+    ${SCX && SCX.err==='sql'?`<p class="muted" style="font-size:13px;margin:8px 0 0">Colle le fichier <b>supabase/eleves/1_eleves_nom_reponses.sql</b> dans Supabase (SQL Editor → Run) pour voir la date d’inscription, les quiz, les notes et le temps passé.</p>`:''}
+    ${L0.length?`<input class="field" id="scq" placeholder="Chercher un nom, une filière, une licence…" value="${esc(UI.scq||'')}" style="max-width:360px;margin:10px 0" aria-label="Chercher un élève inscrit avec le nom">
+    <div class="tablewrap"><table class="t"><thead><tr><th>Élève</th><th>Filière</th><th>Licence</th><th>Inscrit le</th><th>Dernière connexion</th><th>Connexions</th><th>Quiz · moyenne</th><th>Temps passé</th></tr></thead><tbody>
+    ${L.slice(0,aff).map(ligne).join('') || `<tr><td colspan="8" class="muted">Aucun résultat.</td></tr>`}</tbody></table></div>
+    ${L.length>20?`<button class="btn sm" id="scall" style="margin-top:8px">${UI.scAll?'Voir moins':`Voir les ${fmt(L.length)}`}</button>`:''}
+    <p class="muted" style="font-size:12.5px;margin:8px 0 0">Touchez un élève pour voir ses matières composées, ses notes, ses heures de connexion et son temps passé.${sql?'':' '}</p>`:''}
   </div>`;
 }
-function bindCnx(){ const sa = $('#scall'); if(sa) sa.onclick = ()=>{ UI.scAll = !UI.scAll; render(); };
+function bindCnx(){ document.querySelectorAll('[data-nom]').forEach(r=>r.onclick=e=>{ e.stopPropagation(); openNom(r.dataset.nom); });
+  const sa = $('#scall'); if(sa) sa.onclick = ()=>{ UI.scAll = !UI.scAll; render(); };
   const sq = $('#scq'); if(sq) sq.oninput = ()=>{ const pos = sq.selectionStart; UI.scq = sq.value; clearTimeout(sq.t); sq.t = setTimeout(()=>{ render(); const n = $('#scq'); if(n){ n.focus(); try{ n.setSelectionRange(pos,pos); }catch(e){} } }, 250); }; const b = $('#cnxall'); if(b) b.onclick = ()=>{ UI.cnxAll = !UI.cnxAll; render(); }; document.querySelectorAll('#cnxcard [data-user]').forEach(x=>x.onclick=()=>openUser(x.dataset.user)); }
 function derniereCnx(p){ const c = cnxDe(p.id)[0]; return c ? dhfr(c.t) : relTime(p.last_seen); }
 function bindUserRows(){ document.querySelectorAll('[data-user]').forEach(tr=>tr.onclick=e=>{ if(e.target.closest('input,button')) return; openUser(tr.dataset.user); }); }
@@ -1351,8 +1410,13 @@ VIEWS.eleves = ()=>{
   const rows = L.slice((s.page-1)*per, s.page*per);
   const sel = (name,val,opts)=>`<select class="field" style="width:auto" data-f="${name}" aria-label="${name}">${opts.map(([v,l])=>`<option value="${v}" ${val===v?'selected':''}>${l}</option>`).join('')}</select>`;
   const nReal = DB.profiles.filter(p=>p.auth_id).length;
-  return headHTML('Élèves', `${fmt(DB.profiles.length)} élèves dont ${fmt(nReal)} vrai${nReal>1?'s':''} compte${nReal>1?'s':''} · cliquez sur un élève pour ouvrir sa fiche.`, `${demoTag()}${MODE==='supabase'?`<button class="btn" id="ureload">Actualiser</button>`:''}<button class="btn" id="csv">${ic('dl')}Exporter en CSV</button><button class="btn pri" id="adduser">${ic('plus')}Ajouter un élève</button>`) + cnxCard() + sansCompteCard() + `
-  <div class="card">
+  const nNom = nomsEleves().length;
+  return headHTML('Élèves', `${fmt(DB.profiles.length+nNom)} élèves : ${fmt(DB.profiles.length)} inscrit${DB.profiles.length>1?'s':''} par e-mail (${fmt(nReal)} vrai${nReal>1?'s':''} compte${nReal>1?'s':''}) et ${fmt(nNom)} inscrit${nNom>1?'s':''} avec le nom · cliquez sur un élève pour ouvrir sa fiche.`, `${demoTag()}${MODE==='supabase'?`<button class="btn" id="ureload">Actualiser</button>`:''}<button class="btn" id="csv">${ic('dl')}Exporter en CSV</button><button class="btn pri" id="adduser">${ic('plus')}Ajouter un élève</button>`) + `
+  <div class="chips" role="group" aria-label="Partie" style="margin-bottom:14px">${[['tous','Tous · '+fmt(DB.profiles.length+nNom)],['mail','📧 Inscrits par e-mail · '+fmt(DB.profiles.length)],['nom','✍️ Inscrits avec le nom · '+fmt(nNom)],['cnx','🕒 Heures de connexion']].map(([v,l])=>`<button class="chip ${(UI.elPart||'tous')===v?'on':''}" data-elpart="${v}">${l}</button>`).join('')}</div>
+  ${['tous','nom'].includes(UI.elPart||'tous')?sansCompteCard().replace('style="margin-top:16px"','style="margin-bottom:16px"'):''}
+  ${(UI.elPart||'tous')==='cnx'?cnxCard():''}
+  <div class="card" style="${['tous','mail'].includes(UI.elPart||'tous')?'':'display:none'}">
+    <h3 style="margin:0 0 10px">📧 Inscrits par e-mail</h3>
     <div class="row wrap" style="margin-bottom:12px">
       <input class="field" id="uq" placeholder="Nom, téléphone ou identifiant" value="${esc(s.q)}" style="flex:1;min-width:200px" aria-label="Rechercher">
       ${sel('fil',s.fil,[['tous','Toutes filières'],['SF','Sage-femme'],['IDE','Infirmier']])}
@@ -1376,7 +1440,7 @@ AFTER.eleves = ()=>{
   document.querySelectorAll('[data-sel]').forEach(cb=>cb.onchange=()=>{ cb.checked?s.sel.add(cb.dataset.sel):s.sel.delete(cb.dataset.sel); render(); });
   $('#selall').onchange = e=>{ const L=filteredUsers().slice((s.page-1)*20, s.page*20); L.forEach(p=> e.target.checked?s.sel.add(p.id):s.sel.delete(p.id)); render(); };
   $('#pprev').onclick=()=>{ s.page--; render(); }; $('#pnext').onclick=()=>{ s.page++; render(); };
-  $('#adduser').onclick = addUserModal; bindCnx();
+  $('#adduser').onclick = addUserModal; bindCnx(); document.querySelectorAll('[data-elpart]').forEach(b=>b.onclick=()=>{ UI.elPart = b.dataset.elpart; render(); });
   if($('#ureload')) $('#ureload').onclick = async ()=>{ try{ toast('Actualisation…'); DB = await SupabaseSource.load(); await loadReal(); render(); toast('Liste à jour.'); }catch(e){ toast(frErr(e)); } };
   $('#csv').onclick = ()=>{
     const L = filteredUsers();
@@ -1422,6 +1486,7 @@ function openUser(id){
     ${(()=>{ const C=cnxDe(p.id); return C.length?`<div class="sect">Heures de connexion · 30 derniers jours (${C.length})</div><div style="display:flex;flex-wrap:wrap;gap:6px">${C.slice(0,24).map(x=>`<span class="pill" style="font-weight:600">${dhfr(x.t)}</span>`).join('')}</div>`:''; })()}
     <div class="sect">Historique des accès</div>
     ${hist.length? `<table class="t"><thead><tr><th>Pass</th><th>Du</th><th>Au</th><th>Origine</th></tr></thead><tbody>${hist.map(e=>`<tr><td>${plan(e.plan)}</td><td>${dfr(e.start,{day:'numeric',month:'short'})}</td><td>${dfr(e.end,{day:'numeric',month:'short',year:'2-digit'})}</td><td>${{cadeau:'Offert',manuel:'Manuel',promo:'Code promo'}[e.source]||e.source}</td></tr>`).join('')}</tbody></table>` : '<div class="muted">Jamais Premium.</div>'}
+    ${blocActivite(activiteCompte(p))}
     ${reps.length?`<div class="sect">Signalements envoyés · ${reps.length}</div>${reps.map(r=>`<div style="padding:6px 0;font-size:14px">${esc(matName(r.mat))} — <span class="muted">${esc(r.message)}</span></div>`).join('')}`:''}
     <div style="margin-top:26px;border-top:1px solid var(--line);padding-top:14px"><button class="btn sm danger" id="ddel">Supprimer le compte</button></div>`;
   $('#drawer').classList.add('on'); $('#scrim').classList.add('on');
@@ -2161,14 +2226,16 @@ VIEWS.signalements = ()=>{
   </div>
   ${waDestCard()}
   <div class="chips" style="margin-bottom:14px">${tabs.map(([v,l])=>`<button class="chip ${st===v?'on':''}" data-sig="${v}">${l} · ${cnt(v)}</button>`).join('')}</div>
-  <div class="siglist">${L.map(r=>{ const p=api.get('profiles',r.user_id); const qui = p?esc(fullName(p)):r.eleve?esc(r.eleve):r.appareil?'Élève anonyme ('+esc(String(r.appareil).slice(4,10))+')':'Élève anonyme';
+  <div class="siglist">${L.map(r=>{ const p=api.get('profiles',r.user_id), pn = r.appareil && nomDe(r.appareil); const qui = p?esc(fullName(p)):pn?esc(pn.prenom)+' · inscrit avec le nom':r.eleve?esc(String(r.eleve).replace(' (sans compte)',' · inscrit avec le nom')):r.appareil?'Élève ('+esc(String(r.appareil).slice(4,10))+')':'Élève';
     return `<article class="sigcard st-${esc(r.statut)}">
     <div class="sighead"><b>${esc(matName(r.mat))}</b><span class="cnote">👤 ${qui} · ${dfr(r.date)} à ${hfr(r.date)}</span></div>
     <div class="sigq"><span class="lab">Question${r.qid?' n° '+esc(r.qid):''}</span>${esc(r.question)}</div>
     <div class="sigmsg"><span class="lab">💬 Message de l’élève</span>${esc(r.message).replace(/\n/g,'<br>')}</div>
     ${r.photo?`<div class="sigph" data-photo="${esc(r.photo)}"><span class="cnote">📷 Chargement de la photo…</span></div>`:''}
     ${r.note?`<div class="cnote" style="margin-top:6px">📝 Note : ${esc(r.note)}</div>`:''}
+    ${r.reponse?`<div class="sigrep" style="margin-top:10px;padding:10px 12px;border-radius:12px;background:${r.reponse_type==='corrigee'?'#e9f9ef':'#eef2ff'}"><b>${r.reponse_type==='corrigee'?'✅ Réponse corrigée':'💡 Éclaircissement'}</b> <span class="cnote">· envoyé${r.reponse_at?' le '+dfr(r.reponse_at)+' à '+hfr(r.reponse_at):''} sur le téléphone de l’élève</span><div style="margin-top:4px;white-space:pre-wrap">${esc(r.reponse)}</div></div>`:''}
     <div class="row wrap" style="margin-top:12px">
+      ${r.appareil?`<button class="btn" data-rrep="${r.id}" style="border-color:var(--violet);color:var(--violet);font-weight:700">✉️ ${r.reponse?'Modifier la réponse':'Répondre à l’élève'}</button>`:''}
       ${r.qid?`<a class="btn pri" href="${esc(editeurUrl()+'?q='+encodeURIComponent(r.qid))}" target="_blank" rel="noopener" data-edopen="${r.id}">✏️ Corriger dans l’éditeur</a>`:''}
       ${r.statut!=='en-cours'&&r.statut!=='corrige'?`<button class="btn" data-rs="${r.id}" data-to="en-cours">Prendre en charge</button>`:''}
       ${r.statut!=='corrige'?`<button class="btn" data-rs="${r.id}" data-to="corrige">✅ Marquer corrigé</button>`:`<button class="btn" data-rs="${r.id}" data-to="nouveau">Rouvrir</button>`}
@@ -2215,6 +2282,7 @@ AFTER.signalements = ()=>{
   if($('#wadn')) $('#wadn').onkeydown = e=>{ if(e.key==='Enter') waDestEnregistrer($('#wadn').value); };
   if($('#wadx')) $('#wadx').onclick = ()=>waDestEnregistrer('');
   document.querySelectorAll('[data-sig]').forEach(b=>b.onclick=()=>{ UI.sig=b.dataset.sig; render(); });
+  document.querySelectorAll('[data-rrep]').forEach(b=>b.onclick=()=>repondreModal(b.dataset.rrep));
   document.querySelectorAll('[data-photo]').forEach(async el=>{ const u = await photoUrl(el.dataset.photo);
     el.innerHTML = u ? `<a href="${esc(u)}" target="_blank" rel="noopener" title="Agrandir"><img src="${esc(u)}" alt="Photo envoyée par l’élève" loading="lazy"></a>` : `<span class="cnote">📷 Photo jointe (visible une fois connecté à Supabase).</span>`; });
   if($('#notifon')) $('#notifon').onclick = async ()=>{ try{ await Notification.requestPermission(); }catch(e){} render(); };
@@ -2227,6 +2295,34 @@ AFTER.signalements = ()=>{
     } else { api.update('reports',r.id,{statut:to}); audit(to==='en-cours'?'Signalement pris en charge':'Signalement rouvert', matName(r.mat)); render(); }
   });
 };
+
+/* ---------- répondre à l'élève qui a signalé : le message s'affiche sur SON téléphone à l'accueil (fonction SQL repondre_signalement) ---------- */
+const REP_MODELES = {corrigee:'Merci pour ton signalement ! La question a été corrigée : la bonne réponse est maintenant ',
+  eclaircie:'Merci pour ton signalement ! Après vérification, la réponse proposée est juste : '};
+function repondreModal(id){
+  const r = api.get('reports', id); if(!r) return; let type = r.reponse_type || (r.statut==='corrige' ? 'corrigee' : 'eclaircie');
+  const draw = ()=>{ $('#rtype').innerHTML = [['corrigee','✅ Réponse corrigée','La question avait une erreur, elle est corrigée'],['eclaircie','💡 Éclaircir sa lanterne','La réponse était juste : expliquer pourquoi']].map(([v,l,d])=>`<button type="button" class="rtyp ${type===v?'on':''}" data-rt="${v}" aria-pressed="${type===v}" style="flex:1;min-width:180px;text-align:left;padding:12px;border-radius:14px;border:2px solid ${type===v?'var(--violet)':'var(--line)'};background:${type===v?'color-mix(in srgb,var(--violet) 9%,transparent)':'transparent'};cursor:pointer;color:inherit;font:inherit"><b>${l}</b><br><span class="muted" style="font-size:13px">${d}</span></button>`).join('');
+    document.querySelectorAll('[data-rt]').forEach(b=>b.onclick=()=>{ const t = $('#rtxt'); if(!t.value.trim() || Object.values(REP_MODELES).includes(t.value)) t.value = REP_MODELES[b.dataset.rt]; type = b.dataset.rt; draw(); }); };
+  openModal(`<h2 style="margin:0 0 6px;font-family:var(--display)">✉️ Répondre à l’élève</h2>
+    <p class="muted" style="margin:0 0 8px;font-size:13.5px"><b>${esc(matName(r.mat))}</b> · ${esc(String(r.question||'')).slice(0,200)}</p>
+    <div class="cnote" style="margin-bottom:10px">💬 Son message : « ${esc(String(r.message||'')).slice(0,240)} »</div>
+    <div class="row wrap" id="rtype" style="gap:10px"></div>
+    <label class="lbl" for="rtxt" style="margin-top:12px">Votre message (il s’affichera sur son téléphone, à l’accueil, à sa prochaine ouverture de l’appli)</label>
+    <textarea class="field" id="rtxt" rows="5" maxlength="2000" style="width:100%;resize:vertical">${esc(r.reponse || REP_MODELES[type])}</textarea>
+    <p class="cnote" style="margin:6px 0 0">Seul l’élève qui a envoyé ce signalement le recevra.</p>
+    <div class="row" style="justify-content:flex-end;margin-top:16px"><button class="btn" id="mno">Annuler</button><button class="btn pri" id="mok">Envoyer la réponse</button></div>`);
+  draw(); $('#mno').onclick = closeModal;
+  $('#mok').onclick = async ()=>{ const txt = $('#rtxt').value.trim(); if(txt.length<2){ toast('Écrivez votre réponse.'); return; }
+    const b = $('#mok'); b.disabled = true; b.textContent = 'Envoi…';
+    try{
+      if(MODE==='supabase' && SB){ const {data, error} = await SB.rpc('repondre_signalement', {p_id:String(r.id), p_type:type, p_texte:txt}); if(error) throw error; if(!data || !data.ok) throw new Error(data && data.raison==='introuvable' ? 'Signalement introuvable dans la base.' : 'Réponse refusée.'); }
+      r.reponse = txt; r.reponse_type = type; r.reponse_at = new Date().toISOString(); if(type==='corrigee') r.statut = 'corrige';
+      if(MODE!=='supabase') persist();
+      audit(type==='corrigee' ? 'Réponse envoyée : question corrigée' : 'Réponse envoyée : éclaircissement', matName(r.mat)); closeModal(); toast('✉️ Réponse envoyée : l’élève la verra à l’accueil de son appli.'); render();
+    }catch(e){ b.disabled = false; b.textContent = 'Envoyer la réponse';
+      toast(/repondre_signalement|function|schema cache|does not exist/i.test(String(e.message||e)) ? 'Colle d’abord supabase/eleves/1_eleves_nom_reponses.sql dans Supabase.' : 'Envoi impossible : '+(typeof frErr==='function'?frErr(e):e.message), 6000); }
+  };
+}
 
 /* ---------- alertes en direct : nouveaux signalements (toutes les 45 s, tableau de bord ouvert) ---------- */
 let SIG_TITRE = document.title, sigNonVus = 0;
