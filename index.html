@@ -307,7 +307,7 @@ pre.code{background:var(--ink);color:#E9E4FF;border-radius:var(--r-md);padding:1
 @media (prefers-reduced-motion:reduce){.live-dot{animation:none}}
 .live-main{display:flex;align-items:center;gap:16px;margin-top:10px}.live-main .big{font-size:44px;font-weight:800;line-height:1}
 .live-list{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
-.live-who{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:99px;padding:4px 12px 4px 4px;font:inherit;font-size:14px;cursor:pointer}
+.live-who{display:inline-flex;align-items:center;gap:8px;text-align:left;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:99px;padding:4px 12px 4px 4px;font:inherit;font-size:14px;cursor:pointer}
 .live-who .av{width:26px;height:26px;font-size:11px}
 
 /* ---------- lisibilité : texte plus grand et plus contrasté ---------- */
@@ -629,7 +629,7 @@ const MAP = [
 const VIRTUAL = [
   {t:'access_rules', id:'cle', rows:db=>Object.entries(db.access.regles).map(([cle,v])=>({cle, acces:v.acces, quota_gratuit:v.quotaGratuit==null?null:v.quotaGratuit}))},
   {t:'app_settings', id:'cle', noDelete:true, rows:db=>[
-    {cle:'public.access', valeur:Object.assign({defaut:db.access.defaut, version:db.access.version, misAJour:db.access.misAJour, questions:db.access.questions||{}, plusapp:db.access.plusapp||{}}, db.access.promo?{promo:db.access.promo}:{}, db.access.fincorr&&Object.keys(db.access.fincorr).length?{fincorr:db.access.fincorr}:{})},
+    {cle:'public.access', valeur:Object.assign({defaut:db.access.defaut, version:db.access.version, misAJour:db.access.misAJour, questions:db.access.questions||{}, plusapp:db.access.plusapp||{}}, db.access.promo?{promo:db.access.promo}:{}, db.access.fincorr&&Object.keys(db.access.fincorr).length?{fincorr:db.access.fincorr}:{}, db.access.nosig&&Object.keys(db.access.nosig).length?{nosig:db.access.nosig}:{}, db.access.offres&&typeof db.access.offres==='object'?{offres:db.access.offres}:{})},
     {cle:'goals', valeur:db.goals},
     {cle:'demo_stats', valeur:db.stats},
     {cle:'meta', valeur:{demo:!!db.meta.demo}},
@@ -674,7 +674,7 @@ const SupabaseSource = {
     const rawRules = await fetchAll('access_rules'), rawSettings = await fetchAll('app_settings');
     rawRules.forEach(r=>{ db.access.regles[r.cle] = r.quota_gratuit==null ? {acces:r.acces} : {acces:r.acces, quotaGratuit:r.quota_gratuit}; });
     rawSettings.forEach(r=>{
-      if(r.cle==='public.access'){ if(r.valeur.promo && typeof r.valeur.promo==='object') db.access.promo = r.valeur.promo; db.access.fincorr = (r.valeur.fincorr && typeof r.valeur.fincorr==='object') ? r.valeur.fincorr : {}; db.access.defaut = r.valeur.defaut||'gratuit'; db.access.version = r.valeur.version||1; db.access.misAJour = r.valeur.misAJour||db.access.misAJour; db.access.questions = (r.valeur.questions&&typeof r.valeur.questions==='object')?r.valeur.questions:{}; db.access.plusapp = (r.valeur.plusapp&&typeof r.valeur.plusapp==='object')?r.valeur.plusapp:{}; }
+      if(r.cle==='public.access'){ if(r.valeur.promo && typeof r.valeur.promo==='object') db.access.promo = r.valeur.promo; db.access.fincorr = (r.valeur.fincorr && typeof r.valeur.fincorr==='object') ? r.valeur.fincorr : {}; db.access.nosig = (r.valeur.nosig && typeof r.valeur.nosig==='object') ? r.valeur.nosig : {}; db.access.offres = (r.valeur.offres && typeof r.valeur.offres==='object') ? r.valeur.offres : null; db.access.defaut = r.valeur.defaut||'gratuit'; db.access.version = r.valeur.version||1; db.access.misAJour = r.valeur.misAJour||db.access.misAJour; db.access.questions = (r.valeur.questions&&typeof r.valeur.questions==='object')?r.valeur.questions:{}; db.access.plusapp = (r.valeur.plusapp&&typeof r.valeur.plusapp==='object')?r.valeur.plusapp:{}; }
       if(r.cle==='goals' && Array.isArray(r.valeur)) db.goals = r.valeur;
       if(r.cle==='demo_stats' && r.valeur && r.valeur.daily) db.stats = r.valeur;
       if(r.cle==='meta' && r.valeur) db.meta.demo = !!r.valeur.demo;
@@ -1071,9 +1071,11 @@ const PAGES = [
   {id:'eleves', nom:'Élèves', icon:'users', grp:1, count:()=>DB.profiles.length+nomsEleves().length},
   {id:'paiements', nom:'Paiements', icon:'card', grp:1, count:()=>(DB.payments||[]).filter(x=>x.statut==='a_verifier').length},
   {id:'acces', nom:'Cours gratuits / Premium', icon:'lock', grp:1},
+  {id:'offres', nom:'Offres', icon:'star', grp:1},
   {id:'engagement', nom:'Engagement', icon:'chart', grp:2},
   {id:'annonces', nom:'Annonces', icon:'bell', grp:2, count:()=>DB.announcements.filter(a=>annonceLive(a)).length},
-  {id:'signalements', nom:'Signalements', icon:'flag', grp:2, count:()=>DB.reports.filter(r=>r.statut!=='corrige').length},
+  {id:'signalements', nom:'Signalements', icon:'flag', grp:2, count:()=>sigGroupes(DB.reports.filter(r=>r.statut!=='corrige')).length},
+  {id:'questions', nom:'Questions', icon:'quiz', grp:2, count:()=>(QX.suspects||[]).length},
   {id:'compos', nom:'Compositions', icon:'quiz', grp:2},
   {id:'reglages', nom:'Réglages', icon:'gear', grp:3},
 ];
@@ -1154,6 +1156,7 @@ VIEWS.overview = ()=>{
 
   return headHTML('Vue d’ensemble', 'L’activité de Révision INFAS en un coup d’œil.', `${realTag()}${demoTag()}<div class="chips" role="group" aria-label="Période">${periods.map(([v,l])=>`<button class="chip ${UI.period===v?'on':''}" data-period="${v}">${l}</button>`).join('')}</div>`) + `
   <div id="live">${liveHTML()}</div>
+  ${bilanCard()}
   <div id="instcard">${instHTML()}</div>
   <div class="grid kpis">
     <div class="hero">
@@ -1204,7 +1207,7 @@ AFTER.overview = ()=>{
   if(!PRES || Date.now()-PRES_T>25e3) loadPresence();
   if(MODE==='supabase' && (!INST || Date.now()-INST_T>5*60e3)) loadInst();
   document.querySelectorAll('[data-period]').forEach(b=>b.onclick=()=>{ UI.period=+b.dataset.period; render(); });
-  bindUserRows(); bindLive(); bindCnx(); const ra = $('#recall'); if(ra) ra.onclick = ()=>{ UI.recAll = !UI.recAll; render(); };
+  bindUserRows(); bindLive(); bindCnx(); bindBilan(); const ra = $('#recall'); if(ra) ra.onclick = ()=>{ UI.recAll = !UI.recAll; render(); };
 };
 /* ---------- Appli installée sur les téléphones (supabase/installations/1_installations.sql) ---------- */
 let INST = null, INST_T = 0;
@@ -1229,12 +1232,14 @@ function instHTML(){
 }
 /* ---------- « En ce moment » : élèves présents dans l'appli (3 dernières minutes) ---------- */
 let PRES = null, PRES_T = 0, PRES_BUSY = false;
+let PRESD = null;
 async function loadPresence(){
   if(PRES_BUSY) return; PRES_BUSY = true;
   try{
     if(MODE==='supabase' && SB){
       const {data,error} = await SB.rpc('presents', {p_minutes:3});
       PRES = error ? {err: /presents|function/i.test(error.message||'') ? 'sql' : 'reseau'} : data;
+      try{ const r = await SB.rpc('presents_detail', {p_minutes:3}); PRESD = r.error ? {err: /presents_detail|function|PGRST/i.test(String(r.error.message||'')) ? 'sql' : 'reseau'} : {L: Array.isArray(r.data) ? r.data : []}; }catch(e){ PRESD = {err:'reseau'}; }
     } else {
       const P = DB.profiles.slice(0, 3), n = 4 + (Date.now()/6e4|0)%5;
       PRES = {demo:true, total:n+P.length, comptes:P.length, anonymes:n, aujourdhui:n*6+P.length,
@@ -1249,17 +1254,33 @@ function liveHTML(){
   if(!X) return `<div class="card live"><div class="live-top"><span class="live-dot off"></span><b>En ce moment</b><span class="muted">Chargement…</span></div></div>`;
   if(X.err) return `<div class="card live"><div class="live-top"><span class="live-dot off"></span><b>En ce moment</b><span class="muted">${X.err==='sql'?'Lance le script supabase-presence.sql dans Supabase pour voir qui est dans l’appli.':'Impossible de joindre Supabase. Nouvel essai dans 30 secondes.'}</span></div></div>`;
   const niv = Object.entries(X.niveaux||{}).sort((a,b)=>b[1]-a[1]).map(([k,n])=>`<span class="chip">${esc(k.replace(/\?/g,'–'))} · ${n}</span>`).join('');
-  const el = (X.eleves||[]).slice(0,12).map(p=>`<button class="live-who" data-user="${esc(p.id)}"><span class="av" style="background:${avColor(p.id)}">${initials(p)}</span>${esc(((p.prenom||'')+' '+(p.nom||'')).trim()||'Élève')}</button>`).join('');
+  const D = presDetail(); let el, ligne;
+  if(D){ const mail = D.filter(x=>x.type==='mail'), nom = D.filter(x=>x.type==='nom'), autre = D.filter(x=>x.type==='autre');
+    ligne = `${fmt(mail.length)} inscrit${mail.length>1?'s':''} par e-mail · ${fmt(nom.length)} inscrit${nom.length>1?'s':''} avec le nom${autre.length?` · ${fmt(autre.length)} sur une ancienne version de l’appli`:''} · ${fmt(X.aujourdhui||0)} appareils aujourd’hui`;
+    el = mail.concat(nom).map(x=>`<button class="live-who" ${x.type==='mail'?`data-user="${esc(x.p.id)}"`:`data-pnom="${esc(x.a)}"`} title="${x.type==='mail'?'Inscrit par e-mail':'Inscrit avec le nom'}"><span class="av" style="background:${avColor(x.type==='mail'?x.p.id:'nom:'+x.a)}">${initials(x.type==='mail'?x.p:{prenom:x.m,nom:''})}</span><span><b style="font-weight:700">${esc(x.type==='mail'?fullName(x.p):x.m)}</b><small class="muted" style="display:block;font-size:11.5px;line-height:1.2">${x.type==='mail'?'📧 inscrit par e-mail':'✍️ inscrit avec le nom'}${x.f||x.n?' · '+esc([x.f,x.n].filter(Boolean).join(' ')):''}${(()=>{ const o = x.type==='mail' ? originePremium(x.p) : null; return o && !o.promo ? ` · <b style="color:var(--violet)">⭐ ${esc(o.court)}</b>` : ''; })()}</small></span></button>`).join('')
+      + autre.map(x=>`<span class="live-who" style="opacity:.75;cursor:default" title="Appli pas encore mise à jour"><span class="av" style="background:#9aa3ad">?</span><span>Élève${x.f||x.n?' · '+esc([x.f,x.n].filter(Boolean).join(' ')):''}</span></span>`).join(''); }
+  else { ligne = `${fmt(X.comptes||0)} inscrit${(X.comptes||0)>1?'s':''} par e-mail · ${fmt(X.anonymes||0)} inscrit${(X.anonymes||0)>1?'s':''} avec le nom · ${fmt(X.aujourdhui||0)} appareils aujourd’hui${PRESD&&PRESD.err==='sql'?' · <b>colle supabase/eleves/2_en_ce_moment.sql pour voir les noms</b>':''}`;
+    el = (X.eleves||[]).slice(0,12).map(p=>`<button class="live-who" data-user="${esc(p.id)}"><span class="av" style="background:${avColor(p.id)}">${initials(p)}</span>${esc(((p.prenom||'')+' '+(p.nom||'')).trim()||'Élève')}</button>`).join(''); }
   return `<div class="card live">
     <div class="live-top"><span class="live-dot ${X.total?'':'off'}"></span><b>En ce moment</b><span class="muted">${X.demo?'exemple · ':''}actualisé à ${hfr(new Date(PRES_T).toISOString())}</span><button class="btn sm" id="liveR">Actualiser</button></div>
-    <div class="live-main"><div class="big num">${fmt(X.total||0)}</div><div><b>${(X.total||0)>1?'élèves dans l’appli':'élève dans l’appli'}</b><div class="muted">${fmt(X.comptes||0)} avec compte · ${fmt(X.anonymes||0)} sans compte · ${fmt(X.aujourdhui||0)} appareils aujourd’hui</div></div></div>
+    ${promoEnCours()?`<div class="cnote" style="margin:8px 0 0">⭐ <b>Semaine gratuite en cours</b> : tous les élèves sont Premium jusqu’au ${dfr(promoEnCours().au)}.</div>`:''}
+    <div class="live-main"><div class="big num">${fmt(X.total||0)}</div><div><b>${(X.total||0)>1?'élèves dans l’appli':'élève dans l’appli'}</b><div class="muted">${ligne}</div></div></div>
     ${niv?`<div class="chips" style="margin-top:12px">${niv}</div>`:''}
     ${el?`<div class="live-list">${el}</div>`:''}
   </div>`;
 }
+function presDetail(){ // qui est dans l'appli : rattaché à un compte e-mail, sinon inscrit avec le nom
+  if(!(PRESD && PRESD.L)) return null;
+  return PRESD.L.map(x=>{ const p = (x.u && DB.profiles.find(q=>q.auth_id===x.u)) || (x.a && DB.profiles.find(q=>(q.appareils||[]).some(v=>String(v).includes(x.a))));
+    if(p) return {type:'mail', p, a:x.a, f:p.filiere, n:p.annee, t:x.t};
+    const g = x.a && nomDe(x.a), m = String(x.m||(g&&g.prenom)||'').trim();
+    return {type: m ? 'nom' : 'autre', a:x.a, m, f:x.f||(g&&g.fil0)||'', n:x.n||(g&&g.annee)||'', t:x.t}; })
+   .filter((x,i,L)=>x.type!=='mail' || L.findIndex(y=>y.type==='mail' && y.p.id===x.p.id)===i);
+}
 function bindLive(){
   const r = document.getElementById('liveR'); if(r) r.onclick = ()=>loadPresence();
   document.querySelectorAll('#live [data-user]').forEach(b=>b.onclick=()=>openUser(b.dataset.user));
+  document.querySelectorAll('#live [data-pnom]').forEach(b=>b.onclick=()=>openNom(b.dataset.pnom));
 }
 setInterval(()=>{ if(DB && page==='overview' && !document.hidden) loadPresence(); }, 30e3);
 document.addEventListener('visibilitychange', ()=>{ if(!document.hidden && DB && page==='overview' && Date.now()-PRES_T>20e3) loadPresence(); });
@@ -1346,17 +1367,21 @@ function blocActivite(A){ // matières composées, notes, temps passé, heures d
     ${A.cx.length?`<div class="sect">Heures de connexion · ${A.cx.length}</div><div style="display:flex;flex-wrap:wrap;gap:6px">${A.cx.slice(0,30).map(t=>`<span class="pill" style="font-weight:600">${dhfr(t)}</span>`).join('')}</div>`:''}`;
 }
 function openNom(a){
-  const p = nomDe(a); if(!p) return; const d = $('#drawer'); d.dataset.uid = p.id;
+  let p = nomDe(a);
+  if(!p){ const x = PRESD && PRESD.L && PRESD.L.find(y=>y.a===a); if(!x) return; p = {id:'nom:'+a, virtuel:true, a, prenom:String(x.m||'Élève').trim(), nom:'', filiere:filNorm(x.f), fil0:x.f||'', annee:x.n||'', created_at:null, last_seen:x.t, nbc:null, nq:null, quiz:[], tps:null, cx:[]}; } const d = $('#drawer'); d.dataset.uid = p.id;
   d.innerHTML = `<button class="iconbtn x" id="dclose" aria-label="Fermer">${ic('x')}</button>
     <div class="row" style="gap:14px;margin-top:4px"><div class="av" style="width:52px;height:52px;font-size:17px;background:${avColor(p.id)}">${initials(p)}</div><div><h2 style="margin:0;font-family:var(--display);font-size:22px">${esc(p.prenom)}</h2><div class="muted" style="font-size:13.5px">${esc([p.filiere||p.fil0,p.annee].filter(Boolean).join(' · ')||'Filière pas encore choisie')}</div></div></div>
-    <div style="margin-top:12px"><span class="pill free">✍️ Inscrit avec le nom · Gratuit</span></div>
+    <div style="margin-top:12px">${promoEnCours()?'<span class="pill prem">✍️ Inscrit avec le nom · ⭐ Premium (semaine gratuite)</span>':'<span class="pill free">✍️ Inscrit avec le nom · Gratuit</span>'}</div>
     <div class="kv"><span>Filière</span><b>${esc(p.fil0||'—')}</b><span>Licence</span><b>${esc(p.annee||'—')}</b><span>Inscrit le</span><b>${p.created_at?dhfr(p.created_at):'—'}</b><span>Dernière connexion</span><b>${p.last_seen?dhfr(p.last_seen):'—'}</b></div>
     ${blocActivite({quiz:p.quiz, tps:p.tps, cx:p.cx, nbc:p.nbc})}
     ${(()=>{ const R = DB.reports.filter(r=>r.appareil===p.a); return R.length?`<div class="sect">Signalements envoyés · ${R.length}</div>${R.map(r=>`<div style="padding:6px 0;font-size:14px">${esc(matName(r.mat))} — <span class="muted">${esc(r.message)}</span>${r.reponse?' · <b>répondu</b>':''}</div>`).join('')}`:''; })()}`;
   d.classList.add('on'); $('#scrim').classList.add('on'); $('#dclose').onclick = closeDrawer;
 }
 function sansCompteCard(){
-  const L0 = nomsEleves(); if(!L0.length && !(SCX && SCX.err==='sql')) return '';
+  const L0 = nomsEleves();
+  if(!L0.length && SCX && SCX.err && SCX.err!=='sql') return `<div class="card" id="sccard" style="margin-top:16px"><h3 style="margin:0 0 6px">✍️ Inscrits avec le nom</h3><p class="muted" style="margin:0">⚠️ La liste n’a pas pu être chargée depuis Supabase (connexion coupée ou calcul trop long). Collez <b>supabase/eleves/3_eleves_rapide.sql</b> dans Supabase, puis touchez « Actualiser ».</p></div>`;
+  if(!L0.length && SCX && SCX.L) return `<div class="card" id="sccard" style="margin-top:16px"><h3 style="margin:0 0 6px">✍️ Inscrits avec le nom · 0</h3><p class="muted" style="margin:0">Aucun nom reçu pour l’instant : ils arrivent quand les élèves ouvrent l’appli à jour.</p></div>`;
+  if(!L0.length && !(SCX && SCX.err==='sql')) return '';
   const q = nrmTxt((UI.scq||'').trim()), L = L0.filter(g=>!q || nrmTxt(`${g.prenom} ${g.fil0} ${g.annee}`).includes(q)).sort((a,b)=>new Date(b.last_seen)-new Date(a.last_seen));
   const aff = UI.scAll ? L.length : 20, sql = SCX && SCX.L;
   const ligne = g=>{ const mo = moyQuiz(g.quiz);
@@ -1397,6 +1422,20 @@ function filteredUsers(){
     return true;
   }).sort((a,b)=>new Date(b.last_seen)-new Date(a.last_seen));
 }
+/* ---------- d'où vient le Premium : pass offert, paiement, code, semaine gratuite ---------- */
+function promoEnCours(){ const pr = DB.access && DB.access.promo; return pr && promoEtat(pr)[0]==='En cours' ? pr : null; }
+function originePass(e){
+  const n = String(e.note||'').trim(), code = (/^code\s+(.+)$/i.exec(n)||[])[1] || (e.source==='code' ? n : '');
+  if(code) return `Code « ${code} »`;
+  if(e.source==='wave' || /^wave/i.test(n)) return 'Paiement Wave';
+  return ({cadeau:'Pass offert', manuel:'Paiement reçu hors appli', promo:'Code promo', paiement:'Paiement'}[e.source] || e.source || 'Pass') + (n && e.source!=='paiement' ? ` (${n})` : '');
+}
+function originePremium(p){ // texte court, ou null si l'élève n'est pas Premium
+  const pr = promoEnCours(), e = p && !p.virtuel && activePass(p.id);
+  if(e) return {court:originePass(e), long:`${originePass(e)} · jusqu’au ${dfr(e.end)}`, e};
+  if(pr) return {court:'Semaine gratuite', long:`Semaine gratuite pour tout le monde · jusqu’au ${dfr(pr.au)}`, promo:true};
+  return null;
+}
 function accessPill(p){
   if(p.statut==='bloque') return '<span class="pill bad">Bloqué</span>';
   const pass = activePass(p.id);
@@ -1428,7 +1467,7 @@ VIEWS.eleves = ()=>{
     <div class="tablewrap"><table class="t"><thead><tr><th style="width:30px"><input type="checkbox" id="selall" aria-label="Tout sélectionner" ${rows.length && rows.every(p=>s.sel.has(p.id))?'checked':''}></th><th>Élève</th><th>Niveau</th><th>Accès</th><th>Dernière connexion</th><th>Quiz</th><th>Appareils</th></tr></thead><tbody>
     ${rows.map(p=>`<tr class="click" data-user="${p.id}"><td><input type="checkbox" data-sel="${p.id}" ${s.sel.has(p.id)?'checked':''} aria-label="Sélectionner ${esc(fullName(p))}"></td>
       <td><div class="who"><div class="av" style="background:${avColor(p.id)}">${initials(p)}</div><div><b>${esc(fullName(p))}${p.auth_id?' <span class="pill ok" style="font-size:11px">Compte</span>':''}</b><small>${esc(p.email||p.telephone)}</small></div></div></td>
-      <td style="white-space:nowrap">${p.filiere} · ${p.annee}</td><td>${accessPill(p)}</td><td style="white-space:nowrap">${derniereCnx(p)}</td><td class="num">${fmt(p.quiz)}</td><td>${p.appareils.length}${p.appareils.length>1?' <span class="pill warn">2</span>':''}</td></tr>`).join('') || `<tr><td colspan="7"><div class="empty">Aucun élève ne correspond à ces filtres. Modifiez la recherche ou réinitialisez les filtres.</div></td></tr>`}
+      <td style="white-space:nowrap">${p.filiere} · ${p.annee}</td><td>${accessPill(p)}${(()=>{ const o = originePremium(p); return o && !o.promo ? `<div class="muted" style="font-size:12px;margin-top:3px">⭐ ${esc(o.court)}</div>` : ''; })()}</td><td style="white-space:nowrap">${derniereCnx(p)}</td><td class="num">${fmt(p.quiz)}</td><td>${p.appareils.length}${p.appareils.length>1?' <span class="pill warn">2</span>':''}</td></tr>`).join('') || `<tr><td colspan="7"><div class="empty">Aucun élève ne correspond à ces filtres. Modifiez la recherche ou réinitialisez les filtres.</div></td></tr>`}
     </tbody></table></div>
     <div class="pager"><span>${L.length?`${(s.page-1)*per+1}–${Math.min(s.page*per,L.length)} sur ${fmt(L.length)}`:'0 résultat'}</span><div class="row"><button class="btn sm" id="pprev" ${s.page<=1?'disabled':''}>Précédent</button><span>Page ${s.page} / ${pages}</span><button class="btn sm" id="pnext" ${s.page>=pages?'disabled':''}>Suivant</button></div></div>
   </div>`;
@@ -1466,6 +1505,7 @@ function openUser(id){
     <button class="iconbtn x" id="dclose" aria-label="Fermer">${ic('x')}</button>
     <div class="row" style="gap:14px;margin-top:4px"><div class="av" style="width:52px;height:52px;font-size:17px;background:${avColor(id)}">${initials(p)}</div><div><h2 style="margin:0;font-family:var(--display);font-size:22px">${esc(fullName(p))}</h2><div class="muted" style="font-size:13.5px">${FIL_NOM[p.filiere]||'—'} · ${p.annee||'—'} · n° ${esc(p.id.slice(0,8))}</div></div></div>
     <div style="margin-top:12px">${accessPill(p)}</div>
+    ${(()=>{ const o = originePremium(p); const n = (p.appareils||[]).length; return o ? `<div class="cnote" style="margin-top:8px;padding:8px 12px;border-radius:12px;background:color-mix(in srgb,var(--violet) 8%,transparent);color:inherit;font-size:13.5px">⭐ <b>Premium : ${esc(o.long)}</b>${n>1&&!o.promo?` · <span style="color:var(--danger,#c62828)">compte utilisé sur ${n} téléphones</span>`:''}</div>` : ''; })()}
     <div class="kv">
       <span>Compte</span><b>${p.auth_id?'✅ '+esc(p.email||'connecté'):'Élève de test (sans compte)'}</b>
       <span>Téléphone</span><b>${esc(p.telephone)}</b>
@@ -1473,7 +1513,7 @@ function openUser(id){
       <span>Programme</span><b>${esc(p.programme)}</b>
       <span>Inscrit le</span><b>${dfr(p.created_at)}</b>
       <span>Dernière connexion</span><b>${(()=>{ const c=cnxDe(p.id)[0]; return c?dhfr(c.t):relTime(p.last_seen)+' ('+dfr(p.last_seen)+')'; })()}</b>
-      <span>Quiz terminés</span><b>${fmt(p.quiz)}</b>
+      <span>Quiz terminés</span><b>${(()=>{ const A = activiteCompte(p); return fmt(A ? Math.max(A.quiz.length, p.quiz|0) : p.quiz); })()}</b>
       ${pass?`<span>Pass en cours</span><b>${plan(pass.plan)} jusqu’au ${dfr(pass.end)}</b>`:''}
     </div>
     <div class="row wrap">
@@ -1615,6 +1655,7 @@ VIEWS.paiements = ()=>{
   const ops = Object.keys(OPS).map(k=>{ const v=val.filter(x=>x.operateur===k); return `<div class="lvl"><div class="t"><span class="dot" style="background:${OPS[k][1]}"></span>${OPS[k][0]}</div><div class="n num">${fcfa(sum(v))}</div><div class="s">${v.length} paiement${v.length>1?'s':''} validé${v.length>1?'s':''} · ${cfg.numeros&&cfg.numeros[k]?'numéro '+esc(cfg.numeros[k]):'non proposé'}</div></div>`; }).join('');
   return headHTML('Paiements', 'Paiements Mobile Money déclarés par les élèves. Vérifie la réception sur ton téléphone avant de valider.',
     `${MODE==='supabase'?'<button class="btn" id="payreload">Actualiser</button>':'<span class="demo">Paiements fictifs de test</span>'}<button class="btn" id="paycsv">${ic('dl')}Exporter en CSV</button>`) +
+  (cfg.visible!==true ? `<div class="card" style="margin-bottom:18px;border:2px solid var(--amber)"><b>Paiement et offres masqués aux élèves.</b> <span class="muted">Rien de payant n’est visible dans l’appli et tous les élèves sont Premium. Pour les rendre visibles : page Offres.</span> <button class="btn sm" onclick="go('offres')">Ouvrir Offres</button></div>` : '') +
   (cfg.actif ? '' : `<div class="card" style="margin-bottom:18px;border:2px solid var(--amber)"><b>Le paiement est fermé dans l’appli.</b> <span class="muted">Les élèves ne voient pas encore le bouton « Payer ». Renseigne tes numéros et ouvre le paiement dans Réglages.</span> <button class="btn sm" data-page="reglages" style="margin-left:6px">Ouvrir les réglages</button></div>`) +
   (DB.paymentsErreur ? `<div class="card" style="margin-bottom:18px;border:2px solid var(--red)"><b>Paiements illisibles :</b> ${esc(DB.paymentsErreur)} <span class="muted">Lance d’abord supabase-paiements.sql dans Supabase.</span></div>` : '') + `
   <div class="grid kpis">
@@ -1693,7 +1734,7 @@ AFTER.paiements = ()=>{
     $('#mok').onclick=async()=>{ $('#mok').disabled=true;
       try{
         if(MODE==='supabase'){ const {data,error}=await SB.rpc('valider_paiement',{p_id:x.id}); if(error) throw error; if(!data||!data.ok) throw new Error(data&&data.raison==='deja_traite'?'Ce paiement a déjà été traité.':'Validation impossible.'); await refreshTables(); }
-        else { const cur=activePass(x.user_id), deb=cur?new Date(cur.end).getTime():Date.now(), pl=DB.plans.find(q=>q.id===x.plan); const e={id:uid(), user_id:x.user_id, plan:x.plan, start:new Date(deb).toISOString(), end:new Date(deb+(pl?pl.jours:30)*DAY).toISOString(), source:'paiement', note:x.operateur+' '+x.reference}; DB.entitlements.push(e); Object.assign(x,{statut:'valide', traite_at:new Date().toISOString(), entitlement_id:e.id}); persist(); }
+        else { const cur=activePass(x.user_id), deb=cur?new Date(cur.end).getTime():Date.now(), pl=DB.plans.find(q=>q.id===x.plan); const e={id:uid(), user_id:x.user_id, plan:x.plan, start:new Date(deb).toISOString(), end:(()=>{const j=((DB.access.offres||{}).formules||{})[x.plan]; const fj=j&&j.jusqu?new Date(j.jusqu+'T00:00:00').getTime()+DAY:0; return new Date(fj>deb?fj:deb+(pl?pl.jours:30)*DAY).toISOString();})(), source:'paiement', note:x.operateur+' '+x.reference}; DB.entitlements.push(e); Object.assign(x,{statut:'valide', traite_at:new Date().toISOString(), entitlement_id:e.id}); persist(); }
         audit('Paiement validé ('+fcfa(x.montant_xof)+', '+OPS[x.operateur][0]+')', p?fullName(p):'—'); closeModal(); toast('Paiement validé : Premium activé.'); render();
       }catch(e){ closeModal(); toast(frErr(e)); } };
   });
@@ -2164,7 +2205,13 @@ AFTER.engagement = (function(prev){ return ()=>{ if(typeof prev==='function') pr
    12. ANNONCES
    ========================================================= */
 const annonceLive = a => a.actif && a.du <= new Date().toISOString().slice(0,10) && a.au >= new Date().toISOString().slice(0,10);
-const cibleLabel = c => c==='tous'?'Tous les élèves': c==='gratuit'?'Élèves gratuits': c==='premium'?'Élèves Premium': c.replace('-',' · ');
+function cibleUn(x){ x = String(x||'').trim();
+  if(x==='tous') return 'Tous les élèves'; if(x==='gratuit') return 'Élèves gratuits'; if(x==='premium') return 'Élèves Premium';
+  if(x.startsWith('fil:')) return 'Toute la filière '+(FIL_NOM[x.slice(4)]||x.slice(4)); if(x.startsWith('niv:')) return 'Toutes les '+x.slice(4);
+  if(x.startsWith('uid:')){ const p = DB.profiles.find(q=>q.auth_id===x.slice(4)); return p ? fullName(p) : 'Un élève'; }
+  if(x.startsWith('app:')){ const g = nomDe(x.slice(4)) || DB.profiles.find(q=>(q.appareils||[]).some(v=>String(v).includes(x.slice(4)))); return g ? (g.virtuel ? g.prenom : fullName(g)) : 'Un élève'; }
+  return x.replace('-',' · '); }
+const cibleLabel = c => { const L = String(c||'tous').split(',').filter(Boolean); return L.length>3 ? L.slice(0,3).map(cibleUn).join(', ')+' et '+(L.length-3)+' autre'+(L.length>4?'s':'') : L.map(cibleUn).join(', '); };
 VIEWS.annonces = ()=>{
   const L = [...DB.announcements].sort((a,b)=>b.du.localeCompare(a.du));
   return headHTML('Annonces', 'Bannières affichées en haut de l’appli des élèves.', `<button class="btn pri" id="newann">${ic('plus')}Nouvelle annonce</button>`) + `
@@ -2179,6 +2226,7 @@ AFTER.annonces = ()=>{
   document.querySelectorAll('[data-ann-toggle]').forEach(b=>b.onclick=()=>{ const a=api.get('announcements',b.dataset.annToggle); api.update('announcements',a.id,{actif:!a.actif}); audit(a.actif?'Annonce activée':'Annonce désactivée', a.titre); render(); });
   document.querySelectorAll('[data-ann-edit]').forEach(b=>b.onclick=()=>annonceModal(api.get('announcements',b.dataset.annEdit)));
 };
+function cibleMode(c){ c = String(c||'tous'); if(['tous','gratuit','premium'].includes(c)) return c; return /(^|,)(uid|app):/.test(c) ? 'eleves' : 'groupes'; }
 function annonceModal(a){
   const t = new Date().toISOString().slice(0,10);
   a = a || {titre:'', texte:'', cible:'tous', couleur:'#6C3BF5', du:t, au:new Date(Date.now()+7*DAY).toISOString().slice(0,10), actif:true};
@@ -2188,18 +2236,30 @@ function annonceModal(a){
     <div class="banner" id="aprev" style="background:${a.couleur}"></div>
     <label class="lbl" for="at">Titre</label><input class="field" id="at" value="${esc(a.titre)}" maxlength="40">
     <label class="lbl" for="ax">Message</label><textarea class="field" id="ax" rows="3" maxlength="160">${esc(a.texte)}</textarea>
-    <label class="lbl" for="ac">Public</label><select class="field" id="ac">${cibles.map(([v,l])=>`<option value="${v}" ${a.cible===v?'selected':''}>${l}</option>`).join('')}</select>
+    <label class="lbl" for="ac">Public</label><select class="field" id="ac">${[['tous','Tous les élèves'],['gratuit','Élèves gratuits'],['premium','Élèves Premium'],['groupes','Une ou plusieurs filières / licences'],['eleves','Un ou quelques élèves']].map(([v,l])=>`<option value="${v}" ${cibleMode(a.cible)===v?'selected':''}>${l}</option>`).join('')}</select>
+    <div id="acx"></div>
     <label class="lbl">Couleur</label><div class="row">${couleurs.map(c=>`<button class="iconbtn" data-col="${c}" aria-label="Couleur ${c}" style="background:${c};border:${a.couleur===c?'3px solid var(--ink)':'1px solid var(--line)'}"></button>`).join('')}</div>
     <div class="row"><div style="flex:1"><label class="lbl" for="ad">Du</label><input class="field" type="date" id="ad" value="${a.du}"></div><div style="flex:1"><label class="lbl" for="aa">Au</label><input class="field" type="date" id="aa" value="${a.au}"></div></div>
     <div class="row" style="justify-content:space-between;margin-top:18px">${a.id?'<button class="btn danger" id="adel">Supprimer</button>':'<span></span>'}<div class="row"><button class="btn" id="mno">Annuler</button><button class="btn pri" id="mok">${a.id?'Enregistrer':'Publier l’annonce'}</button></div></div>`);
-  let col = a.couleur;
+  let col = a.couleur; const SEL = new Set(String(a.cible||'').split(',').filter(x=>x && !['tous','gratuit','premium'].includes(x))); let qe = '';
+  const drawC = ()=>{ const m = $('#ac').value, z = $('#acx');
+    if(m==='groupes') z.innerHTML = `<div class="cnote" style="margin:6px 0">Cochez un ou plusieurs groupes :</div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px">${FILIERES.flatMap(f=>[[`fil:${f}`,`Toute la filière ${FIL_NOM[f]}`]].concat(ANNEES.map(y=>[`${f}-${y}`,`${FIL_NOM[f]} · ${y}`]))).concat(ANNEES.map(y=>[`niv:${y}`,`Toutes les ${y}`])).map(([v,l])=>`<label class="row" style="gap:6px;cursor:pointer;font-size:14px"><input type="checkbox" data-acg="${v}" ${SEL.has(v)?'checked':''}>${esc(l)}</label>`).join('')}</div>`;
+    else if(m==='eleves'){ const q = nrmTxt(qe.trim()), all = DB.profiles.map(p=>({v:p.auth_id?'uid:'+p.auth_id:(()=>{ const m = (p.appareils||[]).map(x=>String(x).match(/dev-[\w-]+/)).find(Boolean); return m ? 'app:'+m[0] : ''; })(), l:fullName(p), d:'📧 '+[p.filiere,p.annee].filter(Boolean).join(' ')})).concat(nomsEleves().map(g=>({v:'app:'+g.a, l:g.prenom, d:'✍️ '+[g.fil0,g.annee].filter(Boolean).join(' ')}))).filter(x=>x.v);
+      const L = all.filter(x=>SEL.has(x.v) || (q && nrmTxt(x.l+' '+x.d).includes(q))).slice(0,30);
+      z.innerHTML = `<input class="field" id="acq" placeholder="Chercher un élève par son nom…" value="${esc(qe)}" style="margin-top:6px"><div style="max-height:220px;overflow:auto;margin-top:6px">${L.map(x=>`<label class="row" style="gap:8px;padding:5px 0;cursor:pointer"><input type="checkbox" data-acg="${esc(x.v)}" ${SEL.has(x.v)?'checked':''}><b>${esc(x.l)}</b> <span class="cnote">${esc(x.d)}</span></label>`).join('') || `<div class="cnote">${q?'Aucun élève trouvé.':'Tapez un nom.'}</div>`}</div><div class="cnote">${SEL.size} élève${SEL.size>1?'s':''} choisi${SEL.size>1?'s':''} · le message ne s’affiche que chez eux.</div>`;
+      const i = $('#acq'); i.oninput = ()=>{ qe = i.value; drawC(); const n = $('#acq'); n.focus(); n.setSelectionRange(qe.length, qe.length); }; }
+    else z.innerHTML = '';
+    z.querySelectorAll('[data-acg]').forEach(c=>c.onchange=()=>{ c.checked ? SEL.add(c.dataset.acg) : SEL.delete(c.dataset.acg); if($('#ac').value==='eleves') drawC(); }); };
+  $('#ac').onchange = ()=>{ SEL.clear(); drawC(); }; drawC();
   const upd = ()=>{ $('#aprev').style.background=col; $('#aprev').innerHTML = `<b>${esc($('#at').value||'Titre')}</b> — ${esc($('#ax').value||'Votre message')}`; };
   upd(); $('#at').oninput=upd; $('#ax').oninput=upd;
   document.querySelectorAll('[data-col]').forEach(b=>b.onclick=()=>{ col=b.dataset.col; document.querySelectorAll('[data-col]').forEach(x=>x.style.border= x===b?'3px solid var(--ink)':'1px solid var(--line)'); upd(); });
   $('#mx').onclick=$('#mno').onclick=closeModal;
   if($('#adel')) $('#adel').onclick=()=>{ api.remove('announcements',a.id); audit('Annonce supprimée',a.titre); closeModal(); toast('Annonce supprimée.'); render(); };
   $('#mok').onclick=()=>{
-    const row={titre:$('#at').value.trim(), texte:$('#ax').value.trim(), cible:$('#ac').value, couleur:col, du:$('#ad').value, au:$('#aa').value};
+    const mo = $('#ac').value, cib = ['groupes','eleves'].includes(mo) ? [...SEL].filter(x=>mo==='eleves' ? /^(uid|app):/.test(x) : !/^(uid|app):/.test(x)).join(',') : mo;
+    const row={titre:$('#at').value.trim(), texte:$('#ax').value.trim(), cible:cib, couleur:col, du:$('#ad').value, au:$('#aa').value};
+    if(!row.cible){ toast(mo==='eleves'?'Choisissez au moins un élève.':'Cochez au moins un groupe.'); return; }
     if(!row.titre||!row.texte){ toast('Ajoutez un titre et un message.'); return; }
     if(row.au<row.du){ toast('La date de fin doit suivre la date de début.'); return; }
     if(a.id){ api.update('announcements',a.id,row); audit('Annonce modifiée',row.titre); toast('Annonce enregistrée.'); }
@@ -2211,8 +2271,39 @@ function annonceModal(a){
 /* =========================================================
    13. SIGNALEMENTS
    ========================================================= */
+function sigCarte(r){ const p=api.get('profiles',r.user_id), pn = r.appareil && nomDe(r.appareil); const qui = p?esc(fullName(p)):pn?esc(pn.prenom)+' · inscrit avec le nom':r.eleve?esc(String(r.eleve).replace(' (sans compte)',' · inscrit avec le nom')):r.appareil?'Élève ('+esc(String(r.appareil).slice(4,10))+')':'Élève';
+    return `<article class="sigcard st-${esc(r.statut)}">
+    <div class="sighead"><b>${esc(matName(r.mat))}</b><span class="cnote">👤 ${qui} · ${dfr(r.date)} à ${hfr(r.date)}</span></div>
+    <div class="sigq"><span class="lab">Question${r.qid?' n° '+esc(r.qid):''}</span>${esc(r.question)}</div>
+    <div class="sigmsg"><span class="lab">💬 Message de l’élève</span>${esc(r.message).replace(/\n/g,'<br>')}</div>
+    ${r.photo?`<div class="sigph" data-photo="${esc(r.photo)}"><span class="cnote">📷 Chargement de la photo…</span></div>`:''}
+    ${r.note?`<div class="cnote" style="margin-top:6px">📝 Note : ${esc(r.note)}</div>`:''}
+    ${r.reponse?`<div class="sigrep" style="margin-top:10px;padding:10px 12px;border-radius:12px;background:${r.reponse_type==='corrigee'?'#e9f9ef':'#eef2ff'}"><b>${r.reponse_type==='corrigee'?'✅ Réponse corrigée':'💡 Éclaircissement'}</b> <span class="cnote">· envoyé${r.reponse_at?' le '+dfr(r.reponse_at)+' à '+hfr(r.reponse_at):''} sur le téléphone de l’élève</span><div style="margin-top:4px;white-space:pre-wrap">${esc(r.reponse)}</div></div>`:''}
+    <div class="row wrap" style="margin-top:12px">
+      ${r.appareil?`<button class="btn" data-rrep="${r.id}" style="border-color:var(--violet);color:var(--violet);font-weight:700">✉️ ${r.reponse?'Modifier la réponse':'Répondre à l’élève'}</button>`:''}
+      ${r.qid?`<button class="btn pri" data-qedit="${esc(r.qid)}">✏️ Corriger ici</button><a class="btn" href="${esc(editeurUrl()+'?q='+encodeURIComponent(r.qid))}" target="_blank" rel="noopener" data-edopen="${r.id}">✏️ Corriger dans l’éditeur</a><button class="btn" data-nosig="${esc(r.qid)}">${nosigOn(r.qid)?'⚑ Réactiver le signalement':'🚫 Désactiver le signalement'}</button>`:''}
+      ${r.statut!=='en-cours'&&r.statut!=='corrige'?`<button class="btn" data-rs="${r.id}" data-to="en-cours">Prendre en charge</button>`:''}
+      ${r.statut!=='corrige'?`<button class="btn" data-rs="${r.id}" data-to="corrige">✅ Marquer corrigé</button>`:`<button class="btn" data-rs="${r.id}" data-to="nouveau">Rouvrir</button>`}
+    </div>
+  </article>`; }
+/* signalements regroupés par question : une carte « N signalements », une seule correction et une seule réponse pour tous */
+function sigCle(r){ return r.qid ? 'q:'+r.qid : 'm:'+r.mat+'|'+nrmTxt(String(r.question||'').slice(0,120)); }
+function sigGroupes(L){ const G = new Map(); L.forEach(r=>{ const k = sigCle(r); if(!G.has(k)) G.set(k, {k, L:[]}); G.get(k).L.push(r); });
+  return [...G.values()].map(g=>(g.L.sort((a,b)=>new Date(b.date)-new Date(a.date)), g)).sort((a,b)=>new Date(b.L[0].date)-new Date(a.L[0].date)); }
+function sigQui(r){ const p = api.get('profiles',r.user_id), pn = r.appareil && nomDe(r.appareil); return p?esc(fullName(p)):pn?esc(pn.prenom)+' · inscrit avec le nom':r.eleve?esc(String(r.eleve).replace(' (sans compte)',' · inscrit avec le nom')):'Élève'; }
+function sigGroupeCarte(g){ const r = g.L[0], ids = g.L.map(x=>x.id).join(','), sans = g.L.filter(x=>x.appareil && !x.reponse).length;
+  return `<article class="sigcard st-${esc(r.statut)}">
+    <div class="sighead"><b>${esc(matName(r.mat))}</b><span class="pill" style="background:var(--danger,#c62828);color:#fff;font-weight:800">🚩 ${g.L.length} signalements</span><span class="cnote">dernier le ${dfr(r.date)} à ${hfr(r.date)}</span></div>
+    <div class="sigq"><span class="lab">Question${r.qid?' n° '+esc(r.qid):''}</span>${esc(r.question)}</div>
+    <div class="sigmsg"><span class="lab">💬 Messages des élèves</span>${g.L.map(x=>`<div style="padding:6px 0;border-top:1px solid var(--line)"><b>${sigQui(x)}</b> <span class="cnote">· ${dfr(x.date)} à ${hfr(x.date)}${x.photo?' · 📷 photo':''}${x.reponse?' · ✉️ répondu':''}</span><div>${esc(x.message).replace(/\n/g,'<br>')}</div></div>`).join('')}</div>
+    <div class="row wrap" style="margin-top:12px">
+      ${sans?`<button class="btn" data-rrep="${esc(g.L.filter(x=>x.appareil && !x.reponse).map(x=>x.id).join(','))}" style="border-color:var(--violet);color:var(--violet);font-weight:700">✉️ Répondre aux ${sans} élève${sans>1?'s':''}</button>`:''}
+      ${r.qid?`<button class="btn pri" data-qedit="${esc(r.qid)}">✏️ Corriger ici</button><a class="btn" href="${esc(editeurUrl()+'?q='+encodeURIComponent(r.qid))}" target="_blank" rel="noopener" data-edopen="${esc(ids)}">Corriger dans l’éditeur</a><button class="btn" data-nosig="${esc(r.qid)}">${nosigOn(r.qid)?'⚑ Réactiver le signalement':'🚫 Désactiver le signalement'}</button>`:''}
+      ${r.statut!=='en-cours'&&r.statut!=='corrige'?`<button class="btn" data-rs="${esc(ids)}" data-to="en-cours">Prendre en charge</button>`:''}
+      ${r.statut!=='corrige'?`<button class="btn" data-rs="${esc(ids)}" data-to="corrige">✅ Marquer corrigé (${g.L.length})</button>`:`<button class="btn" data-rs="${esc(ids)}" data-to="nouveau">Rouvrir</button>`}
+    </div></article>`; }
 VIEWS.signalements = ()=>{
-  const st = UI.sig, cnt = s=>DB.reports.filter(r=>r.statut===s).length;
+  const st = UI.sig, cnt = s=>sigGroupes(DB.reports.filter(r=>r.statut===s)).length;
   const L = DB.reports.filter(r=>r.statut===st).sort((a,b)=>new Date(b.date)-new Date(a.date));
   const tabs = [['nouveau','🚩 Nouveaux'],['en-cours','🛠️ En cours'],['corrige','✅ Corrigés']];
   const notif = ('Notification' in window) ? Notification.permission : 'absent';
@@ -2226,21 +2317,7 @@ VIEWS.signalements = ()=>{
   </div>
   ${waDestCard()}
   <div class="chips" style="margin-bottom:14px">${tabs.map(([v,l])=>`<button class="chip ${st===v?'on':''}" data-sig="${v}">${l} · ${cnt(v)}</button>`).join('')}</div>
-  <div class="siglist">${L.map(r=>{ const p=api.get('profiles',r.user_id), pn = r.appareil && nomDe(r.appareil); const qui = p?esc(fullName(p)):pn?esc(pn.prenom)+' · inscrit avec le nom':r.eleve?esc(String(r.eleve).replace(' (sans compte)',' · inscrit avec le nom')):r.appareil?'Élève ('+esc(String(r.appareil).slice(4,10))+')':'Élève';
-    return `<article class="sigcard st-${esc(r.statut)}">
-    <div class="sighead"><b>${esc(matName(r.mat))}</b><span class="cnote">👤 ${qui} · ${dfr(r.date)} à ${hfr(r.date)}</span></div>
-    <div class="sigq"><span class="lab">Question${r.qid?' n° '+esc(r.qid):''}</span>${esc(r.question)}</div>
-    <div class="sigmsg"><span class="lab">💬 Message de l’élève</span>${esc(r.message).replace(/\n/g,'<br>')}</div>
-    ${r.photo?`<div class="sigph" data-photo="${esc(r.photo)}"><span class="cnote">📷 Chargement de la photo…</span></div>`:''}
-    ${r.note?`<div class="cnote" style="margin-top:6px">📝 Note : ${esc(r.note)}</div>`:''}
-    ${r.reponse?`<div class="sigrep" style="margin-top:10px;padding:10px 12px;border-radius:12px;background:${r.reponse_type==='corrigee'?'#e9f9ef':'#eef2ff'}"><b>${r.reponse_type==='corrigee'?'✅ Réponse corrigée':'💡 Éclaircissement'}</b> <span class="cnote">· envoyé${r.reponse_at?' le '+dfr(r.reponse_at)+' à '+hfr(r.reponse_at):''} sur le téléphone de l’élève</span><div style="margin-top:4px;white-space:pre-wrap">${esc(r.reponse)}</div></div>`:''}
-    <div class="row wrap" style="margin-top:12px">
-      ${r.appareil?`<button class="btn" data-rrep="${r.id}" style="border-color:var(--violet);color:var(--violet);font-weight:700">✉️ ${r.reponse?'Modifier la réponse':'Répondre à l’élève'}</button>`:''}
-      ${r.qid?`<a class="btn pri" href="${esc(editeurUrl()+'?q='+encodeURIComponent(r.qid))}" target="_blank" rel="noopener" data-edopen="${r.id}">✏️ Corriger dans l’éditeur</a>`:''}
-      ${r.statut!=='en-cours'&&r.statut!=='corrige'?`<button class="btn" data-rs="${r.id}" data-to="en-cours">Prendre en charge</button>`:''}
-      ${r.statut!=='corrige'?`<button class="btn" data-rs="${r.id}" data-to="corrige">✅ Marquer corrigé</button>`:`<button class="btn" data-rs="${r.id}" data-to="nouveau">Rouvrir</button>`}
-    </div>
-  </article>`; }).join('') || `<div class="cempty">${st==='corrige'?'Aucun signalement corrigé pour l’instant.':'Rien à traiter ici. Les nouveaux signalements des élèves apparaîtront dans cette liste.'}</div>`}</div>`;
+  <div class="siglist">${sigGroupes(L).map(g=>g.L.length>1?sigGroupeCarte(g):sigCarte(g.L[0])).join('') || `<div class="cempty">${st==='corrige'?'Aucun signalement corrigé pour l’instant.':'Rien à traiter ici. Les nouveaux signalements des élèves apparaîtront dans cette liste.'}</div>`}</div>`;
 };
 /* numéro WhatsApp qui reçoit les signalements : gardé côté serveur (secrets_internes), lu et changé par l'admin seulement */
 const WADEST = {charge:false, v:'', etat:'', msg:''};
@@ -2282,43 +2359,359 @@ AFTER.signalements = ()=>{
   if($('#wadn')) $('#wadn').onkeydown = e=>{ if(e.key==='Enter') waDestEnregistrer($('#wadn').value); };
   if($('#wadx')) $('#wadx').onclick = ()=>waDestEnregistrer('');
   document.querySelectorAll('[data-sig]').forEach(b=>b.onclick=()=>{ UI.sig=b.dataset.sig; render(); });
-  document.querySelectorAll('[data-rrep]').forEach(b=>b.onclick=()=>repondreModal(b.dataset.rrep));
+  document.querySelectorAll('[data-rrep]').forEach(b=>b.onclick=()=>repondreModal(b.dataset.rrep.split(',')));
+  bindQedit();
   document.querySelectorAll('[data-photo]').forEach(async el=>{ const u = await photoUrl(el.dataset.photo);
     el.innerHTML = u ? `<a href="${esc(u)}" target="_blank" rel="noopener" title="Agrandir"><img src="${esc(u)}" alt="Photo envoyée par l’élève" loading="lazy"></a>` : `<span class="cnote">📷 Photo jointe (visible une fois connecté à Supabase).</span>`; });
   if($('#notifon')) $('#notifon').onclick = async ()=>{ try{ await Notification.requestPermission(); }catch(e){} render(); };
-  document.querySelectorAll('[data-edopen]').forEach(a=>a.addEventListener('click',()=>{ const r=api.get('reports',a.dataset.edopen); if(r && r.statut==='nouveau'){ api.update('reports',r.id,{statut:'en-cours'}); audit('Signalement pris en charge (éditeur ouvert)', matName(r.mat)); setTimeout(render,300); } }));
+  document.querySelectorAll('[data-edopen]').forEach(a=>a.addEventListener('click',()=>{ const RR = a.dataset.edopen.split(',').map(i=>api.get('reports',i)).filter(r=>r && r.statut==='nouveau'); if(RR.length){ RR.forEach(r=>api.update('reports',r.id,{statut:'en-cours'})); audit('Signalement pris en charge (éditeur ouvert)', matName(RR[0].mat)); setTimeout(render,300); } }));
   document.querySelectorAll('[data-rs]').forEach(b=>b.onclick=()=>{
-    const r = api.get('reports',b.dataset.rs), to=b.dataset.to;
+    const ids = b.dataset.rs.split(','), RR = ids.map(i=>api.get('reports',i)).filter(Boolean), r = RR[0], to=b.dataset.to; if(!r) return;
     if(to==='corrige'){
       openModal(`<h2 style="margin:0 0 6px;font-family:var(--display)">Marquer comme corrigé</h2><p class="muted">${esc(r.question)}</p><label class="lbl" for="rn">Ce qui a été corrigé (facultatif)</label><input class="field" id="rn" value="${esc(r.note)}"><div class="row" style="justify-content:flex-end;margin-top:16px"><button class="btn" id="mno">Annuler</button><button class="btn pri" id="mok">Marquer corrigé</button></div>`);
-      $('#mno').onclick=closeModal; $('#mok').onclick=()=>{ api.update('reports',r.id,{statut:'corrige',note:$('#rn').value}); audit('Signalement corrigé', matName(r.mat)); closeModal(); toast('Signalement marqué corrigé.'); render(); };
-    } else { api.update('reports',r.id,{statut:to}); audit(to==='en-cours'?'Signalement pris en charge':'Signalement rouvert', matName(r.mat)); render(); }
+      $('#mno').onclick=closeModal; $('#mok').onclick=()=>{ RR.forEach(x=>api.update('reports',x.id,{statut:'corrige',note:$('#rn').value})); audit(RR.length>1?RR.length+' signalements corrigés':'Signalement corrigé', matName(r.mat)); closeModal(); toast(RR.length>1?RR.length+' signalements marqués corrigés.':'Signalement marqué corrigé.'); render(); };
+    } else { RR.forEach(x=>api.update('reports',x.id,{statut:to})); audit(to==='en-cours'?'Signalement pris en charge':'Signalement rouvert', matName(r.mat)); render(); }
   });
 };
+
+
+/* =====================================================================
+   ✏️ QUESTIONS : corriger une question (QCM, QCD, ouverte) et la publier tout de suite
+   Les questions sont lues dans l'appli élève elle-même (même adresse github.io), ouverte en lecture
+   (?lecture=1 : aucune statistique). La correction part dans Supabase (publier_correction) :
+   les téléphones l'appliquent à l'ouverture, l'éditeur la récupère dans ses modifications.
+   ===================================================================== */
+const QX = {etat:'', W:null, mid:'', q:'', suspects:null, corr:null, err:'', lim:40};
+const QL = 'ABCDEFGH';
+function qxSite(){ if(window.__QSITE) return window.__QSITE; const t = UI.qSite || (/revision-infas-test/.test(location.href) ? 'test' : 'eleves'); return t==='test' ? CP_TEST : portailUrl(); }
+function qxCharger(force){
+  if(QX.etat==='charge' && !force) return; if(QX.etat==='ok' && !force) return;
+  QX.etat = 'charge'; QX.err = ''; QX.W = null;
+  let f = document.getElementById('qxframe'); if(f) f.remove();
+  f = document.createElement('iframe'); f.id = 'qxframe'; f.setAttribute('aria-hidden','true'); f.tabIndex = -1;
+  f.style.cssText = 'position:fixed;left:-9999px;top:0;width:420px;height:800px;border:0;visibility:hidden';
+  f.src = qxSite() + (qxSite().includes('?') ? '&' : '?') + 'lecture=1'; document.body.appendChild(f);
+  const t0 = Date.now();
+  const tick = ()=>{ let W = null; try{ W = f.contentWindow; void W.document; }catch(e){ QX.etat = 'err'; QX.err = 'origine'; if(page==='questions') render(); return; }
+    try{ if(W && W.PORTAIL_READY && W.eval('typeof QI')==='object'){ QX.W = W; QX.etat = 'ok'; if(page==='questions') render(); return; } }catch(e){}
+    if(Date.now()-t0 > 90e3){ QX.etat = 'err'; QX.err = 'delai'; if(page==='questions') render(); return; }
+    setTimeout(tick, 400); };
+  setTimeout(tick, 600);
+}
+const qxEval = js => { try{ return QX.W ? QX.W.eval(js) : null; }catch(e){ return null; } };
+function qxQ(qid){ const q = qxEval('QI['+JSON.stringify(qid)+']'); return q ? JSON.parse(JSON.stringify(q)) : null; }
+function qxMats(){ return qxEval('MAT.map(m=>({id:m.id,nom:m.title||m.short||m.id,n:(QBM[m.id]||[]).length}))') || []; }
+function qxListe(mid){ return qxEval('(QBM['+JSON.stringify(mid)+']||[]).map(q=>({id:q.id,t:q.t,q:String(q.q||""),s:String(q.s||""),c:!!q.__corr}))') || []; }
+function qxCle(q){ if(!q) return ''; if(q.t==='vf') return q.v==null?'':q.v?'V':'F'; if(q.t!=='qcm') return ''; const a = Array.isArray(q.am)&&q.am.length ? q.am : [q.a]; return a.filter(i=>i!=null&&i>=0).map(i=>QL[i]).sort().join(''); }
+const qxCleTxt = k => k==='V'?'Vrai':k==='F'?'Faux':(k||'—').split('').join(', ');
+async function qxSuspects(force){
+  if(MODE!=='supabase' || !SB){ QX.suspects = []; return; }
+  if(QX.suspects && !force) return;
+  try{ const {data,error} = await SB.rpc('corriges_suspects', {p_min:10, p_part:0.6}); if(error) throw error; QX.suspects = Array.isArray(data)?data:[]; }
+  catch(e){ QX.suspects = []; QX.sqlManque = /corriges_suspects|function|schema cache/i.test(String(e.message||e)); }
+  try{ const {data,error} = await SB.rpc('corrections_liste'); if(!error) QX.corr = Array.isArray(data)?data:[]; }catch(e){}
+  if(page==='questions') render();
+}
+VIEWS.questions = ()=>{
+  if(QX.etat!=='ok' && QX.etat!=='charge' && QX.etat!=='err') qxCharger();
+  if(QX.suspects===null) qxSuspects();
+  const site = UI.qSite || (/revision-infas-test/.test(location.href) ? 'test' : 'eleves');
+  const head = headHTML('Questions', 'Corrigez une question (propositions, bonne réponse, Vrai / Faux, explication) : la correction arrive sur les téléphones à leur prochaine ouverture, sans nouvelle publication, et l’éditeur la récupère dans vos modifications.',
+    `<div class="seg" role="radiogroup" aria-label="Appli lue">${[['eleves','Site élèves'],['test','Site test']].map(([v,l])=>`<button role="radio" aria-checked="${site===v}" class="${site===v?'on':''}" data-qsite="${v}">${l}</button>`).join('')}</div>`);
+  if(QX.etat==='err') return head + `<div class="card"><b>Impossible d’ouvrir les questions de l’appli.</b><p class="muted">${QX.err==='origine'?'Le tableau de bord doit être ouvert depuis la même adresse que l’appli (qidevelloper-cpu.github.io).':'L’appli met trop de temps à se charger : vérifiez la connexion puis réessayez.'}</p><button class="btn pri" id="qxre">Réessayer</button></div>`;
+  if(QX.etat!=='ok') return head + `<div class="card"><p class="muted" style="margin:0">⏳ Chargement des questions de l’appli (${site==='test'?'site test':'site élèves'})… la première fois peut prendre quelques secondes.</p></div>`;
+  const mats = qxMats(); if(!QX.mid && mats.length) QX.mid = mats[0].id;
+  const S_ = (QX.suspects||[]).map(z=>Object.assign({}, z, {q:qxQ(z.qid)})).filter(z=>z.q && qxCle(z.q)===z.cle);
+  const susp = `<div class="card" style="margin-bottom:16px"><h3 style="margin:0 0 4px">🔎 Corrigés à vérifier <span class="muted" style="font-weight:500;font-size:13px">· la plupart des élèves choisissent une autre réponse que le corrigé</span></h3>
+    ${QX.sqlManque?'<p class="muted">Collez le fichier <b>supabase/outils/1_corrections_choix_bilan.sql</b> dans Supabase pour activer la détection.</p>':S_.length?S_.slice(0,30).map(z=>{ const tot = +z.total||0, dist = z.dist||{}, ks = Object.keys(dist).sort((a,b)=>dist[b]-dist[a]);
+      return `<div class="row wrap" style="gap:12px;padding:10px 0;border-top:1px solid var(--line);align-items:flex-start"><div style="flex:1;min-width:240px"><b>${esc(matName(z.q.m))}</b> <span class="muted" style="font-size:12.5px">· ${esc(z.qid)}</span><div style="font-size:14px;margin-top:2px">${esc(String(z.q.q).slice(0,180))}</div>
+        <div style="margin-top:6px;font-size:13.5px"><b style="color:var(--danger,#c62828)">${Math.round(z.part*100)} % ont choisi ${esc(qxCleTxt(z.top))}</b> alors que le corrigé dit <b>${esc(qxCleTxt(z.cle))}</b> · ${fmt(tot)} réponses</div>
+        <div style="display:flex;gap:4px;margin-top:6px;flex-wrap:wrap">${ks.map(k=>`<span class="pill" style="font-weight:700;${k===z.cle?'background:#e9f9ef;color:#166534':''}">${esc(qxCleTxt(k))} · ${Math.round(dist[k]/tot*100)} %</span>`).join('')}</div></div>
+        <button class="btn pri" data-qedit="${esc(z.qid)}">✏️ Corriger</button></div>`; }).join('') : '<p class="muted" style="margin:6px 0 0">Aucun corrigé suspect pour l’instant (il faut au moins 10 réponses à une question). Les réponses arrivent avec la nouvelle version de l’appli.</p>'}</div>`;
+  const C = (QX.corr||[]);
+  const corr = C.length ? `<div class="card" style="margin-bottom:16px"><h3 style="margin:0 0 6px">✅ Corrections publiées · ${C.filter(c=>c.actif).length}</h3>${C.slice(0,30).map(c=>`<div class="row wrap" style="gap:10px;padding:8px 0;border-top:1px solid var(--line)"><span style="flex:1;min-width:200px"><b>${esc(matName(String(c.qid).split('.')[0]))}</b> · ${esc(c.qid)} <span class="muted">· ${dhfr(c.t)}${c.note?' · '+esc(c.note):''}</span></span>${c.actif?`<span class="pill ok">En ligne</span><button class="btn sm" data-qedit="${esc(c.qid)}">Modifier</button><button class="btn sm" data-qann="${esc(c.qid)}">Annuler</button>`:'<span class="pill">Annulée</span>'}</div>`).join('')}</div>` : '';
+  const qq = nrmTxt((QX.q||'').trim()), L = qxListe(QX.mid).filter(x=>!qq || nrmTxt(x.q+' '+x.s+' '+x.id).includes(qq));
+  return head + susp + corr + `<div class="card">
+    <h3 style="margin:0 0 10px">📚 Toutes les questions</h3>
+    <div class="row wrap" style="gap:10px;margin-bottom:10px"><select class="field" id="qxmid" style="max-width:340px" aria-label="Matière">${mats.map(m=>`<option value="${esc(m.id)}" ${m.id===QX.mid?'selected':''}>${esc(m.nom)} · ${m.n}</option>`).join('')}</select>
+      <input class="field" id="qxq" placeholder="Chercher des mots de la question ou son numéro…" value="${esc(QX.q||'')}" style="flex:1;min-width:220px" aria-label="Chercher une question"></div>
+    <div class="muted" style="font-size:13px;margin-bottom:6px">${fmt(L.length)} question${L.length>1?'s':''}</div>
+    ${L.slice(0,QX.lim).map(x=>`<div class="row" style="gap:10px;padding:8px 0;border-top:1px solid var(--line)"><span class="pill" style="min-width:58px;justify-content:center">${x.t==='vf'?'QCD':x.t==='open'?'Ouverte':'QCM'}</span><span style="flex:1;font-size:14px">${esc(x.q.slice(0,160))}${x.c?' <span class="pill ok">corrigée</span>':''}${nosigOn(x.id)?' <span class="pill">🚫 signalement désactivé</span>':''}<br><span class="muted" style="font-size:12px">${esc(x.id)}</span></span><button class="btn sm" data-nosig="${esc(x.id)}" title="${nosigOn(x.id)?'Réactiver':'Désactiver'} « Signaler une erreur »">${nosigOn(x.id)?'⚑ Réactiver':'🚫'}</button><button class="btn sm" data-qedit="${esc(x.id)}">✏️ Corriger</button></div>`).join('')}
+    ${L.length>QX.lim?`<button class="btn sm" id="qxplus" style="margin-top:8px">Voir plus</button>`:''}
+  </div>`;
+};
+AFTER.questions = ()=>{
+  document.querySelectorAll('[data-qsite]').forEach(b=>b.onclick=()=>{ UI.qSite = b.dataset.qsite; QX.etat=''; QX.mid=''; render(); });
+  const re = $('#qxre'); if(re) re.onclick = ()=>{ QX.etat=''; render(); };
+  const m = $('#qxmid'); if(m) m.onchange = ()=>{ QX.mid = m.value; QX.lim = 40; render(); };
+  const q = $('#qxq'); if(q) q.oninput = ()=>{ const pos = q.selectionStart; QX.q = q.value; clearTimeout(q.t); q.t = setTimeout(()=>{ render(); const n = $('#qxq'); if(n){ n.focus(); try{ n.setSelectionRange(pos,pos); }catch(e){} } }, 250); };
+  const pl = $('#qxplus'); if(pl) pl.onclick = ()=>{ QX.lim += 60; render(); };
+  bindQedit();
+  document.querySelectorAll('[data-qann]').forEach(b=>b.onclick=()=>confirmModal('Annuler la correction ?', 'La question revient à sa version d’origine sur les téléphones, à leur prochaine ouverture.', 'Oui, annuler', async ()=>{
+    try{ const {data,error} = await SB.rpc('annuler_correction', {p_qid:b.dataset.qann}); if(error) throw error; closeModal(); audit('Correction annulée', b.dataset.qann); toast('Correction annulée.'); QX.etat=''; await qxSuspects(true); render(); }
+    catch(e){ toast('Annulation impossible : '+(typeof frErr==='function'?frErr(e):e.message)); } }));
+};
+/* « Signaler une erreur » désactivé pour certaines questions (déjà vérifiées) : réglage public.access.nosig, lu par l’appli */
+const nosigOn = qid => !!((DB.access.nosig||{})[qid]);
+function nosigSet(qid, on){ const N = DB.access.nosig = DB.access.nosig || {}; if(on) N[qid] = 1; else delete N[qid]; DB.access.version++; DB.access.misAJour = new Date().toISOString();
+  audit(on ? '« Signaler une erreur » désactivé' : '« Signaler une erreur » réactivé', qid); persist(); toast(on ? '🚫 Les élèves ne pourront plus signaler cette question.' : '⚑ « Signaler une erreur » réactivé pour cette question.'); }
+/* ======================= OFFRES (écran unique : mode, verrous, formules, leviers, statistiques) =======================
+   Rangé dans public.access → offres, lu par l'appli et par les fonctions Supabase (supabase/offres/1_offres.sql). */
+const OF_DEF = () => ({ mode:'', f:{suivi:'premium', erreurs:'premium', examens:'premium', examens_gratuits:1, calc:'sujet', explications:'quota', expl_jour:2},
+  formules:{}, essai:{actif:true, jours:3}, debloquer:{texte:''}, rappel:{actif:true, jours:3}, parent:{actif:true},
+  concours:{actif:false, date:'', seuil:60, texte:'avant le concours'}, promo:{actif:false, pct:20, du:'', au:'', formules:[], titre:''} });
+function ofCfg(){ const d = OF_DEF(), o = DB.access.offres || {}; const r = Object.assign(d, JSON.parse(JSON.stringify(o)));
+  ['f','essai','debloquer','rappel','parent','concours','promo'].forEach(k=>{ r[k] = Object.assign(OF_DEF()[k], (o[k]&&typeof o[k]==='object')?JSON.parse(JSON.stringify(o[k])):{}); });
+  r.formules = (o.formules&&typeof o.formules==='object') ? JSON.parse(JSON.stringify(o.formules)) : {}; return r; }
+const OF_MODES = {
+  lancement:{nom:'🚀 Lancement', d:'Tout est gratuit pour tous : idéal pour attirer les premiers élèves. Aucun verrou, aucun écran de paiement.'},
+  standard:{nom:'⭐ Standard', d:'Gratuit : sujets gratuits, 2 explications par jour, 1 examen blanc, calculatrice dans les sujets gratuits. Premium : tout le reste. Essai 3 jours, rappel avant la fin, « Faire payer un parent ».'},
+  concours:{nom:'🎯 Période concours', d:'Comme Standard, avec le compte à rebours « J-30 » sur l’accueil de tous les élèves.'},
+  perso:{nom:'🛠️ Personnalisé', d:'Tes propres réglages ci-dessous. Toute modification d’un réglage passe l’écran dans ce mode.'} };
+const OF_UNDO = [];
+function ofSave(nv, action, cible){ OF_UNDO.push(JSON.stringify(DB.access.offres || null)); if(OF_UNDO.length > 30) OF_UNDO.shift();
+  DB.access.offres = nv; DB.access.version++; DB.access.misAJour = new Date().toISOString(); audit(action, cible || 'Offres'); persist(); }
+function ofPreset(mode){ const c = ofCfg(), d = OF_DEF(); c.mode = mode;
+  if(mode==='lancement'){ c.f = {suivi:'gratuit', erreurs:'gratuit', examens:'gratuit', examens_gratuits:1, calc:'gratuit', explications:'gratuit', expl_jour:c.f.expl_jour||2}; c.essai.actif=false; c.rappel.actif=false; c.parent.actif=false; }
+  if(mode==='standard' || mode==='concours'){ c.f = d.f; c.essai = {actif:true, jours:3}; c.rappel = {actif:true, jours:3}; c.parent = {actif:true}; c.concours.actif = mode==='concours'; }
+  return c; }
+function ofPerso(mut, action, cible){ const c = ofCfg(); mut(c); if(c.mode && c.mode!=='perso' && !ofPerso.garder) c.mode = 'perso'; if(!c.mode) c.mode = 'perso'; ofSave(c, action, cible); render(); }
+const OF_SEL = (k, v, opts) => `<select class="field" data-of="${k}" style="max-width:240px">${opts.map(([a,b])=>`<option value="${a}" ${String(v)===a?'selected':''}>${b}</option>`).join('')}</select>`;
+const OF_GP = [['gratuit','Gratuit pour tous'],['premium','Premium']];
+const OF_ENDROITS = {explication:'Explication (quota du jour)', erreur:'Après une erreur', calculatrice:'Calculatrice', notes:'Mes notes / suivi', erreurs:'Refaire mes erreurs', examen:'Examen blanc', fin_examen:'Fin d’un examen', contenu:'Sujet ou contenu Premium', rappel:'Rappel de fin'};
+let OFS = null, OFS_J = 30;
+const ofJour = d => { try{ return new Date(d).toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'}); }catch(e){ return d; } };
+const ofLocal = iso => { if(!iso) return ''; const d = new Date(iso); if(isNaN(d)) return ''; const p = n=>String(n).padStart(2,'0'); return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+'T'+p(d.getHours())+':'+p(d.getMinutes()); };
+function ofPrix(p, c){ const base = +p.prix||0, pr = c.promo, t = Date.now();
+  if(pr.actif && pr.au && Date.parse(pr.au) > t && (!pr.du || Date.parse(pr.du) <= t) && (!pr.formules.length || pr.formules.includes(p.id))) return Math.max(100, Math.round(base*(100-Math.max(1,Math.min(90,+pr.pct||0)))/100/50)*50);
+  return base; }
+VIEWS.offres = () => { const c = ofCfg(), f = c.f, m = c.mode, plans = DB.plans || [], t = Date.now();
+  const prOn = c.promo.actif && c.promo.au && Date.parse(c.promo.au) > t;
+  const ccJ = c.concours.date ? Math.round((Date.parse(c.concours.date+'T00:00:00') - Date.parse(new Date().toISOString().slice(0,10)+'T00:00:00'))/864e5) : null;
+  const vis = ((DB.paiementCfg||{}).visible)===true;
+  return headHTML('Offres', 'Tout ce que voient les élèves non Premium : verrous, bouton « Débloquer », essai, formules, promotions.', OF_UNDO.length ? `<button class="btn" id="ofundo">↩️ Annuler la dernière modification</button>` : '') + `
+  <div class="card" style="margin-bottom:18px;border:2px solid ${vis?'var(--line)':'var(--amber)'}"><div class="cardhead"><div class="grow"><h3>💳 Paiement et offres visibles par les élèves</h3>
+    <p class="sub">${vis?'<b>Visibles</b> : les élèves voient les prix, le bouton « Payer », les numéros Mobile Money et les offres de cette page.':'<b>Masqués</b> : aucun prix, bouton « Payer », numéro Mobile Money, offre, promotion ni « Faire payer un parent » dans l’appli. <b>Tous les élèves sont Premium</b> (« MEMBRE PREMIUM », tout ouvert, sauf ce que tu as masqué).'}</p></div>
+    <button class="btn ${vis?'':'pri'}" id="ofvis">${vis?'🙈 Masquer aux élèves':'👁️ Rendre visible aux élèves'}</button></div></div>` + `
+  <div class="card"><div class="cardhead"><div class="grow"><h3>Mode des offres</h3><p class="sub">${m ? 'Mode actuel : <b>'+OF_MODES[m].nom+'</b>' : 'Aucun mode choisi : l’appli fonctionne comme avant (règles de « Cours gratuits / Premium » seulement).'}</p></div></div>
+    <div class="grid accgrid">${Object.entries(OF_MODES).map(([k,x])=>`<button class="card" data-ofmode="${k}" style="text-align:left;cursor:pointer;border:2px solid ${m===k?'var(--pri,#6C3BF5)':'var(--line)'};${m===k?'background:var(--soft,#f4f2fb)':''}"><b>${x.nom}</b>${m===k?' <span class="pill">actif</span>':''}<p class="sub" style="margin:6px 0 0">${x.d}</p></button>`).join('')}</div>
+    ${m ? `<div class="row" style="justify-content:flex-end;margin-top:10px"><button class="btn sm" id="ofoff">Désactiver les offres (revenir à avant)</button></div>` : ''}</div>
+
+  <div class="grid accgrid" style="margin-top:18px">
+  <div class="card"><div class="cardhead"><div class="grow"><h3>Fonctionnalités</h3><p class="sub">Pour les élèves sans Premium. Les sujets eux-mêmes se règlent dans « Cours gratuits / Premium ».</p></div></div>
+    <div class="kv" style="align-items:center">
+      <span>📊 Suivi et « Mes notes »</span><b>${OF_SEL('f.suivi', f.suivi, OF_GP)}</b>
+      <span>📌 « Refaire mes erreurs »</span><b>${OF_SEL('f.erreurs', f.erreurs, OF_GP)}</b>
+      <span>⏱️ Examens blancs</span><b>${OF_SEL('f.examens', f.examens, OF_GP)}${f.examens==='premium'?` <span class="row" style="gap:6px;margin-top:6px">gratuits : <input class="field" type="number" min="0" max="20" style="width:70px" data-ofn="f.examens_gratuits" value="${+f.examens_gratuits||0}"></span>`:''}</b>
+      <span>🧮 Calculatrice</span><b>${OF_SEL('f.calc', f.calc, [['sujet','Gratuite dans un sujet gratuit, Premium dans un sujet Premium'],['gratuit','Gratuite partout'],['premium','Premium partout']])}</b>
+      <span>💡 Explications</span><b>${OF_SEL('f.explications', f.explications, [['quota','Quelques-unes gratuites par jour'],['gratuit','Gratuites'],['premium','Premium'],['regles','Selon « Cours gratuits / Premium »']])}${f.explications==='quota'?` <span class="row" style="gap:6px;margin-top:6px">par jour : <input class="field" type="number" min="0" max="50" style="width:70px" data-ofn="f.expl_jour" value="${+f.expl_jour||0}"></span>`:''}</b>
+    </div>
+    <label class="lbl" for="ofdeb">Texte de l’écran « Débloquer » (facultatif)</label><textarea class="field" id="ofdeb" rows="2" placeholder="Premium ouvre tous les sujets, les explications complètes, la calculatrice…">${esc(c.debloquer.texte||'')}</textarea></div>
+
+  <div class="card"><div class="cardhead"><div class="grow"><h3>Leviers</h3><p class="sub">Essai, rappel, parents, concours</p></div></div>
+    <label class="row" style="gap:8px;margin:6px 0"><input type="checkbox" data-ofc="essai.actif" ${c.essai.actif?'checked':''}> <span>🎁 <b>Essai gratuit</b> au premier blocage, une seule fois par élève et par téléphone : <input class="field" type="number" min="1" max="14" style="width:60px" data-ofn="essai.jours" value="${+c.essai.jours||3}"> jours</span></label>
+    <label class="row" style="gap:8px;margin:6px 0"><input type="checkbox" data-ofc="rappel.actif" ${c.rappel.actif?'checked':''}> <span>⏳ <b>Rappel</b> sur l’accueil <input class="field" type="number" min="1" max="15" style="width:60px" data-ofn="rappel.jours" value="${+c.rappel.jours||3}"> jours avant la fin du Premium</span></label>
+    <label class="row" style="gap:8px;margin:6px 0"><input type="checkbox" data-ofc="parent.actif" ${c.parent.actif?'checked':''}> <span>👪 <b>« Faire payer un parent »</b> : message WhatsApp prêt avec la formule, le prix et le lien Wave</span></label>
+    <div style="border-top:1px solid var(--line);margin-top:10px;padding-top:10px"><label class="row" style="gap:8px"><input type="checkbox" data-ofc="concours.actif" ${c.concours.actif?'checked':''}> <span>🎯 <b>Compte à rebours du concours</b> sur l’accueil${ccJ!=null&&ccJ>=0?` : <b>J-${ccJ}</b>`:''}</span></label>
+      <div class="row wrap" style="gap:8px;margin-top:6px"><span>Date</span><input class="field" type="date" id="ofccd" value="${esc(c.concours.date||'')}" style="width:170px"><span>Afficher à partir de J-</span><input class="field" type="number" min="0" max="365" style="width:70px" data-ofn="concours.seuil" value="${+c.concours.seuil||0}"></div>
+      <input class="field" id="ofcct" style="margin-top:6px" value="${esc(c.concours.texte||'')}" placeholder="avant le concours"></div></div>
+  </div>
+
+  <div class="card" style="margin-top:18px"><div class="cardhead"><div class="grow"><h3>Formules</h3><p class="sub">Nom, durée et prix sont partagés avec « Réglages › Pass Premium ». L’ordre décide de la place dans l’écran « Débloquer ».</p></div></div>
+    <div class="tablewrap"><table class="t"><thead><tr><th>Formule</th><th>Jours</th><th>Prix (FCFA)</th><th>Prix barré</th><th>Étiquette</th><th>Ordre</th><th>Jusqu’au (concours)</th><th>Affiché à l’élève</th></tr></thead><tbody>
+    ${plans.map(p=>{ const x = c.formules[p.id]||{}, px = ofPrix(p, c), j = x.jusqu ? Math.max(1, Math.ceil((Date.parse(x.jusqu+'T23:59:59')-t)/864e5)) : (+p.jours||30);
+      return `<tr><td><input class="field" data-ofp="${esc(p.id)}" data-k="nom" value="${esc(p.nom)}" style="min-width:120px"></td><td><input class="field" type="number" min="1" style="width:70px" data-ofp="${esc(p.id)}" data-k="jours" value="${p.jours}"></td>
+       <td><input class="field" type="number" min="0" step="50" style="width:90px" data-ofp="${esc(p.id)}" data-k="prix" value="${p.prix}"></td>
+       <td><input class="field" type="number" min="0" step="50" style="width:90px" data-off="${esc(p.id)}" data-k="barre" value="${x.barre||''}" placeholder="—"></td>
+       <td><input class="field" data-off="${esc(p.id)}" data-k="etiquette" value="${esc(x.etiquette||'')}" placeholder="Le plus choisi" style="width:130px"></td>
+       <td><input class="field" type="number" min="0" max="99" style="width:60px" data-off="${esc(p.id)}" data-k="ordre" value="${x.ordre==null?'':x.ordre}"></td>
+       <td><input class="field" type="date" data-off="${esc(p.id)}" data-k="jusqu" value="${esc(x.jusqu||'')}" style="width:150px"></td>
+       <td class="muted" style="white-space:nowrap">${p.actif?'':'(inactive) '}${fcfa(px)}${px<(+p.prix||0)?` <s>${fcfa(p.prix)}</s>`:x.barre>px?` <s>${fcfa(x.barre)}</s>`:''}<br><small>${x.jusqu?'jusqu’au '+esc(ofJour(x.jusqu+'T12:00:00')):j+' jours'} · ${fmt(Math.round(px/Math.max(1,j)))} F/jour</small></td></tr>`; }).join('')}
+    </tbody></table></div></div>
+
+  <div class="card" style="margin-top:18px"><div class="cardhead"><div class="grow"><h3>🔥 Promotion limitée</h3><p class="sub">Vraie réduction, vraie date de fin : le prix payé dans Wave est le prix réduit, et tout s’arrête tout seul à la date de fin.</p></div>${prOn?'<span class="pill">en cours</span>':''}</div>
+    <label class="row" style="gap:8px"><input type="checkbox" id="ofpra" ${c.promo.actif?'checked':''}> <b>Promotion active</b></label>
+    <div class="row wrap" style="gap:8px;margin-top:8px"><span>Réduction</span><input class="field" type="number" min="1" max="90" id="ofprp" value="${+c.promo.pct||20}" style="width:70px"><span>%</span>
+      <span>du</span><input class="field" type="datetime-local" id="ofprd" value="${esc(ofLocal(c.promo.du))}" style="width:200px"><span>au</span><input class="field" type="datetime-local" id="ofpru" value="${esc(ofLocal(c.promo.au))}" style="width:200px"></div>
+    <input class="field" id="ofprt" style="margin-top:8px" value="${esc(c.promo.titre||'')}" placeholder="Titre (facultatif) : Offre de rentrée">
+    <div class="row wrap" style="gap:12px;margin-top:8px"><span class="muted">Formules concernées :</span>${plans.map(p=>`<label class="row" style="gap:4px"><input type="checkbox" data-ofpf="${esc(p.id)}" ${!c.promo.formules.length||c.promo.formules.includes(p.id)?'checked':''}> ${esc(p.nom)}</label>`).join('')}</div>
+    <div class="row" style="justify-content:flex-end;margin-top:10px"><button class="btn pri" id="ofprok">Enregistrer la promotion</button></div></div>
+
+  <div class="card" style="margin-top:18px"><div class="cardhead"><div class="grow"><h3>📈 Statistiques des offres</h3><p class="sub">Où les élèves touchent « Débloquer », essais transformés en paiements, revenus par formule</p></div>
+    ${OF_SEL('ofsj', String(OFS_J), [['7','7 jours'],['30','30 jours'],['90','90 jours']]).replace('data-of="ofsj"','id="ofsj"')}</div><div id="ofstats" class="muted">${MODE==='supabase'?'Chargement…':'Disponible quand le tableau de bord est branché à Supabase.'}</div></div>`;
+};
+function ofStatsHTML(s){ if(!s) return ''; if(s.err) return s.err==='sql' ? 'Lance d’abord le fichier SQL <b>supabase/offres/1_offres.sql</b> dans Supabase.' : 'Statistiques indisponibles pour le moment (réseau).';
+  const C = Object.entries(s.clics||{}).sort((a,b)=>b[1]-a[1]), tot = C.reduce((a,x)=>a+x[1],0), R = s.revenus||[], rt = R.reduce((a,x)=>a+(+x.total||0),0);
+  const tx = s.essais ? Math.round((s.essais_payes||0)/s.essais*100) : 0;
+  return `<div class="kv"><span>Clics « Débloquer »</span><b>${fmt(tot)}</b><span>Essais gratuits commencés</span><b>${fmt(s.essais||0)}</b><span>Essais transformés en paiement</span><b>${fmt(s.essais_payes||0)}${s.essais?' ('+tx+' %)':''}</b><span>Messages « Faire payer un parent »</span><b>${fmt(s.parents||0)}</b><span>Revenus validés</span><b>${fcfa(rt)}</b><span>Paiements à vérifier</span><b>${fmt(s.paiements_attente||0)}</b></div>
+  <div class="grid accgrid" style="margin-top:10px"><div><b>Où les élèves touchent « Débloquer »</b>${C.length?C.map(([k,n])=>`<div class="row" style="gap:8px;padding:5px 0;border-top:1px solid var(--line)"><span style="flex:1">${esc(OF_ENDROITS[k]||k)}</span><b>${fmt(n)}</b><span class="muted" style="width:48px;text-align:right">${tot?Math.round(n/tot*100):0} %</span></div>`).join(''):'<p class="muted">Aucun clic pour le moment.</p>'}</div>
+  <div><b>Revenus par formule</b>${R.length?R.map(x=>`<div class="row" style="gap:8px;padding:5px 0;border-top:1px solid var(--line)"><span style="flex:1">${esc(planNom(x.plan))}</span><span class="muted">${fmt(x.n)} paiement(s)</span><b>${fcfa(x.total)}</b></div>`).join(''):'<p class="muted">Aucun paiement validé sur la période.</p>'}</div></div>`; }
+async function ofStatsCharger(){ const el = $('#ofstats'); if(!el || MODE!=='supabase') return;
+  try{ const {data,error} = await SB.rpc('offres_stats', {p_jours:OFS_J}); OFS = error ? {err: /offres_stats|function|PGRST/i.test(String(error.message||'')) ? 'sql' : 'reseau'} : (data||{}); }catch(e){ OFS = {err:'reseau'}; }
+  const e2 = $('#ofstats'); if(e2){ e2.classList.remove('muted'); e2.innerHTML = ofStatsHTML(OFS); } }
+const ofSet = (o, path, v) => { const k = path.split('.'); let x = o; while(k.length > 1) x = x[k.shift()]; x[k[0]] = v; };
+AFTER.offres = () => {
+  $('#ofvis').onclick = ()=>{ const vis = ((DB.paiementCfg||{}).visible)===true;
+    confirmModal(vis ? 'Masquer le paiement et les offres ?' : 'Rendre le paiement et les offres visibles ?',
+      vis ? 'Les élèves ne verront plus aucun prix, bouton « Payer », numéro Mobile Money, offre ni promotion, jusqu’à ce que tu les rendes visibles ici. Pendant ce temps, tous les élèves sont Premium : tout est ouvert (sauf ce que tu as masqué) et ils voient « MEMBRE PREMIUM ».'
+          : 'Les élèves verront de nouveau les prix, le bouton « Payer » (si le paiement est ouvert dans Réglages) et les offres réglées sur cette page. Les règles d’accès normales reviennent : seuls les élèves qui ont payé ou activé un code restent Premium.',
+      vis ? 'Masquer' : 'Rendre visible', ()=>{ DB.paiementCfg = Object.assign(PAY_DEFAUT(), DB.paiementCfg||{}, {visible:!vis}); audit(vis ? 'Paiement et offres masqués aux élèves' : 'Paiement et offres visibles par les élèves', 'Offres'); persist(); toast(vis ? 'Paiement et offres masqués aux élèves.' : 'Paiement et offres de nouveau visibles.'); render(); }); };
+  document.querySelectorAll('[data-ofmode]').forEach(b=>b.onclick=()=>{ const k = b.dataset.ofmode, x = OF_MODES[k], c0 = ofCfg();
+    if(k==='perso'){ ofPerso.garder = true; ofPerso(c=>{ c.mode = 'perso'; }, 'Offres : mode Personnalisé'); ofPerso.garder = false; toast('Mode Personnalisé : règle chaque élément ci-dessous.'); return; }
+    const warn = k==='concours' && !c0.concours.date ? '<br><br><b>Pense à choisir la date du concours</b> dans « Leviers » : sans date, le compte à rebours ne s’affiche pas.' : '';
+    confirmModal('Appliquer le mode « '+x.nom+' » ?', x.d + '<br><br>Les élèves le verront à leur prochaine ouverture de l’appli. Les formules, la promotion et la date du concours sont gardées.' + warn, 'Appliquer', ()=>{ ofSave(ofPreset(k), 'Offres : mode '+x.nom.replace(/^\S+\s/,'')); toast('Mode « '+x.nom+' » appliqué.'); render(); }); });
+  if($('#ofoff')) $('#ofoff').onclick = ()=>confirmModal('Désactiver les offres ?', 'L’appli revient à son fonctionnement d’avant : seules les règles de « Cours gratuits / Premium » s’appliquent. Tes réglages sont gardés pour plus tard.', 'Désactiver', ()=>{ const c = ofCfg(); c.mode = ''; ofSave(c, 'Offres désactivées'); render(); });
+  if($('#ofundo')) $('#ofundo').onclick = ()=>{ const s = OF_UNDO.pop(); DB.access.offres = JSON.parse(s); DB.access.version++; DB.access.misAJour = new Date().toISOString(); audit('Offres : modification annulée', 'Offres'); persist(); toast('Dernière modification annulée.'); render(); };
+  document.querySelectorAll('select[data-of]').forEach(el=>el.onchange=()=>ofPerso(c=>ofSet(c, el.dataset.of, el.value), 'Offres : réglage modifié', el.dataset.of));
+  document.querySelectorAll('[data-ofn]').forEach(el=>el.onchange=()=>ofPerso(c=>ofSet(c, el.dataset.ofn, Math.max(0, Math.round(+el.value||0))), 'Offres : réglage modifié', el.dataset.ofn));
+  document.querySelectorAll('[data-ofc]').forEach(el=>el.onchange=()=>ofPerso(c=>ofSet(c, el.dataset.ofc, el.checked), 'Offres : '+(el.checked?'activé':'désactivé'), el.dataset.ofc));
+  $('#ofdeb').onchange = e=>ofPerso(c=>{ c.debloquer.texte = e.target.value.trim().slice(0,300); }, 'Offres : texte « Débloquer »');
+  $('#ofcct').onchange = e=>ofPerso(c=>{ c.concours.texte = e.target.value.trim().slice(0,80); }, 'Offres : texte du concours');
+  $('#ofccd').onchange = e=>{ const v = e.target.value; if(v && Date.parse(v+'T23:59:59') < Date.now()){ toast('Cette date est déjà passée : choisis la date du prochain concours.'); e.target.value = ofCfg().concours.date||''; return; }
+    ofPerso(c=>{ c.concours.date = v; }, 'Offres : date du concours', v); };
+  document.querySelectorAll('[data-ofp]').forEach(el=>el.onchange=()=>{ const p = DB.plans.find(x=>x.id===el.dataset.ofp), k = el.dataset.k; p[k] = k==='nom' ? el.value : Math.max(k==='jours'?1:0, +el.value||0); persist(); audit('Pass modifié', p.nom); toast('Formule enregistrée.'); render(); });
+  document.querySelectorAll('[data-off]').forEach(el=>el.onchange=()=>{ const id = el.dataset.off, k = el.dataset.k; let v = el.value.trim();
+    if(k==='jusqu' && v && Date.parse(v+'T23:59:59') < Date.now()){ toast('Cette date est déjà passée.'); el.value = (ofCfg().formules[id]||{}).jusqu||''; return; }
+    ofPerso(c=>{ const x = c.formules[id] = c.formules[id] || {}; if(v==='') delete x[k]; else x[k] = (k==='barre'||k==='ordre') ? Math.max(0, Math.round(+v||0)) : k==='etiquette' ? v.slice(0,24) : v; if(!Object.keys(x).length) delete c.formules[id]; }, 'Offres : formule modifiée', planNom(id)); });
+  $('#ofprok').onclick = ()=>{ const a = $('#ofpra').checked, pct = Math.round(+$('#ofprp').value||0), du = $('#ofprd').value, au = $('#ofpru').value, F = [...document.querySelectorAll('[data-ofpf]')].filter(x=>x.checked).map(x=>x.dataset.ofpf);
+    if(a){ if(!au){ toast('Choisis la date de fin de la promotion.'); return; } const fin = new Date(au).getTime();
+      if(!(fin > Date.now())){ toast('La date de fin est déjà passée : une promotion doit avoir une vraie date de fin à venir.'); return; }
+      if(du && new Date(du).getTime() >= fin){ toast('La date de début doit être avant la date de fin.'); return; }
+      if(!(pct >= 1 && pct <= 90)){ toast('Réduction entre 1 et 90 %.'); return; }
+      if(!F.length){ toast('Coche au moins une formule.'); return; } }
+    ofPerso(c=>{ c.promo = {actif:a, pct:Math.max(1,Math.min(90,pct||20)), du:du?new Date(du).toISOString():'', au:au?new Date(au).toISOString():'', formules:F.length===(DB.plans||[]).length?[]:F, titre:$('#ofprt').value.trim().slice(0,60)}; }, a ? 'Offres : promotion -'+pct+' % jusqu’au '+ofJour(au) : 'Offres : promotion arrêtée');
+    toast(a ? 'Promotion enregistrée : -'+pct+' % jusqu’au '+ofJour(au)+'.' : 'Promotion arrêtée.'); };
+  $('#ofsj').onchange = e=>{ OFS_J = +e.target.value||30; ofStatsCharger(); };
+  if(OFS && MODE==='supabase'){ $('#ofstats').classList.remove('muted'); $('#ofstats').innerHTML = ofStatsHTML(OFS); }
+  ofStatsCharger(); };
+function bindQedit(){ document.querySelectorAll('[data-nosig]').forEach(b=>b.onclick=()=>{ const q = b.dataset.nosig, on = !nosigOn(q); nosigSet(q, on); render(); }); document.querySelectorAll('[data-qedit]').forEach(b=>b.onclick=()=>qxEditer(b.dataset.qedit)); }
+function qxEditer(qid, reps){
+  if(QX.etat!=='ok'){ toast('⏳ Chargement des questions de l’appli…'); qxCharger(); const t0 = Date.now(); const w = ()=>{ if(QX.etat==='ok') qxEditer(qid, reps); else if(QX.etat!=='err' && Date.now()-t0<90e3) setTimeout(w, 500); else toast('Impossible de charger les questions de l’appli.'); }; setTimeout(w, 500); return; }
+  const q0 = qxQ(qid); if(!q0){ toast('Question introuvable dans l’appli ('+qid+').'); return; }
+  let T = q0.t || 'qcm', OP = (q0.o||[]).map((t,i)=>({t:String(t), ok:(Array.isArray(q0.am)&&q0.am.length?q0.am:[q0.a]).includes(i)}));
+  if(OP.length<2) OP = OP.concat([{t:'',ok:false},{t:'',ok:false}]).slice(0, Math.max(2, OP.length));
+  let VV = q0.v==null ? null : (q0.v?1:0);
+  const R = (reps || DB.reports.filter(r=>r.qid===qid && !r.reponse && r.appareil));
+  const draw = ()=>{
+    const z = $('#qxrep'); if(!z) return;
+    if(T==='qcm') z.innerHTML = `<div class="lbl">Propositions — cochez la ou les bonnes réponses</div>${OP.map((x,i)=>`<div class="row" style="gap:8px;margin:6px 0;padding:6px 8px;border:1.5px solid ${x.ok?'#16a34a':'var(--line)'};border-radius:12px;background:${x.ok?'#effbf2':'transparent'}"><label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" data-qok="${i}" ${x.ok?'checked':''} style="width:20px;height:20px;accent-color:#16a34a" aria-label="Proposition ${QL[i]} correcte"><b>${QL[i]}</b></label><input class="field" data-qot="${i}" value="${esc(x.t)}" placeholder="Proposition ${QL[i]}" style="flex:1;margin:0"><button class="btn sm" data-qod="${i}" ${OP.length<=2?'disabled':''} aria-label="Retirer la proposition ${QL[i]}">✕</button></div>`).join('')}
+      ${OP.length<8?'<button class="btn sm" id="qxadd">＋ Ajouter une proposition</button>':''}<div class="cnote" style="margin-top:6px">${OP.some(x=>x.ok)?'✅ Bonne(s) réponse(s) : '+OP.map((x,i)=>x.ok?QL[i]:'').filter(Boolean).join(', '):'⚠️ Cochez au moins une bonne réponse'}</div>`;
+    else if(T==='vf') z.innerHTML = `<div class="lbl">Bonne réponse</div><div class="row" style="gap:10px">${[[1,'Vrai'],[0,'Faux']].map(([v,l])=>`<button type="button" class="btn" data-qvf="${v}" aria-pressed="${VV===v}" style="flex:1;min-height:56px;font-size:17px;font-weight:800;border:2px solid ${VV===v?'#16a34a':'var(--line)'};background:${VV===v?'#effbf2':'transparent'};color:${VV===v?'#166534':'inherit'}">${VV===v?'✓ ':''}${l}</button>`).join('')}</div>`;
+    else z.innerHTML = `<label class="lbl" for="qxr">Réponse attendue, puis les variantes acceptées (une par ligne)</label><textarea class="field" id="qxr" rows="3">${esc([q0.r].concat(q0.acc||[]).filter(Boolean).join('\n'))}</textarea>`;
+    z.querySelectorAll('[data-qot]').forEach(x=>x.oninput=()=>{ OP[+x.dataset.qot].t = x.value; });
+    z.querySelectorAll('[data-qok]').forEach(x=>x.onchange=()=>{ OP[+x.dataset.qok].ok = x.checked; draw(); });
+    z.querySelectorAll('[data-qod]').forEach(x=>x.onclick=()=>{ if(OP.length>2){ OP.splice(+x.dataset.qod,1); draw(); } });
+    z.querySelectorAll('[data-qvf]').forEach(x=>x.onclick=()=>{ VV = +x.dataset.qvf; draw(); });
+    const ad = $('#qxadd'); if(ad) ad.onclick = ()=>{ OP.push({t:'',ok:false}); draw(); const L = z.querySelectorAll('[data-qot]'); L[L.length-1].focus(); };
+  };
+  openModal(`<button class="iconbtn x" id="mx" aria-label="Fermer">${ic('x')}</button><h2 style="margin:0 0 4px;font-family:var(--display)">✏️ Corriger la question</h2>
+    <p class="muted" style="margin:0 0 10px;font-size:13px">${esc(matName(q0.m))} · ${esc(qid)}${q0.__corr?' · <b>déjà corrigée depuis le tableau de bord</b>':''}</p>
+    <label class="lbl" for="qxt">Type</label><select class="field" id="qxt"><option value="qcm" ${T==='qcm'?'selected':''}>QCM</option><option value="vf" ${T==='vf'?'selected':''}>QCD · Vrai / Faux</option><option value="open" ${T==='open'?'selected':''}>Question ouverte</option></select>
+    <label class="lbl" for="qxs">Situation clinique (cas clinique seulement)</label><textarea class="field" id="qxs" rows="2">${esc(q0.s||'')}</textarea>
+    <label class="lbl" for="qxe">Énoncé</label><textarea class="field" id="qxe" rows="3">${esc(q0.q||'')}</textarea>
+    <div id="qxrep" style="margin-top:8px"></div>
+    <label class="lbl" for="qxx">Explication</label><textarea class="field" id="qxx" rows="3">${esc(q0.x||'')}</textarea>
+    <label class="row" style="gap:8px;margin-top:12px;cursor:pointer;padding:10px 12px;border-radius:12px;background:var(--soft,#f4f2fb)"><input type="checkbox" id="qxns" ${nosigOn(qid)?'checked':''} style="width:18px;height:18px"><span>🚫 <b>Désactiver « Signaler une erreur »</b> pour cette question (question vérifiée : les élèves ne verront plus le bouton) <span class="cnote">· enregistré tout de suite</span></span></label>
+    <label class="lbl" for="qxn">Ce qui a été corrigé (pour vous, facultatif)</label><input class="field" id="qxn" maxlength="200" placeholder="Ex. bonne réponse C au lieu de B">
+    ${R.length?`<label class="row" style="gap:8px;margin-top:10px;cursor:pointer"><input type="checkbox" id="qxpre" checked style="width:18px;height:18px"><span>✉️ Prévenir ${R.length>1?`les <b>${R.length}</b> élèves qui ont signalé`:'l’élève qui a signalé'} cette question (« ✅ Réponse corrigée »)</span></label>`:''}
+    <div class="row" style="justify-content:flex-end;margin-top:16px"><button class="btn" id="mno">Annuler</button><button class="btn pri" id="mok">Publier la correction</button></div>`);
+  $('#modal').style.width = 'min(760px,calc(100% - 28px))';
+  $('#qxns').onchange = e=>nosigSet(qid, e.target.checked);
+  draw(); $('#qxt').onchange = e=>{ T = e.target.value; if(T==='qcm' && OP.length<2) OP = [{t:'',ok:false},{t:'',ok:false}]; draw(); };
+  const fermer = ()=>{ $('#modal').style.width = ''; closeModal(); };
+  $('#mx').onclick = $('#mno').onclick = fermer;
+  $('#mok').onclick = async ()=>{
+    const n = {t:T, q:$('#qxe').value.trim(), s:$('#qxs').value.trim(), x:$('#qxx').value.trim()};
+    if(!n.q){ toast('L’énoncé ne peut pas être vide.'); return; }
+    if(T==='qcm'){ const F = OP.filter(x=>x.t.trim()); if(F.length<2){ toast('Écrivez au moins 2 propositions.'); return; } const ls = F.map((x,i)=>x.ok?i:-1).filter(i=>i>=0); if(!ls.length){ toast('Cochez la ou les bonnes réponses.'); return; }
+      n.o = F.map(x=>x.t.trim()); n.a = ls[0]; n.am = ls.length>1 ? ls : null; n.v = null; if(q0.r!=null) n.r = null; if(q0.acc!=null) n.acc = null; }
+    else if(T==='vf'){ if(VV==null){ toast('Touchez « Vrai » ou « Faux ».'); return; } n.v = VV; n.o = null; n.a = null; n.am = null; if(q0.r!=null) n.r = null; if(q0.acc!=null) n.acc = null; }
+    else { const L = $('#qxr').value.split('\n').map(x=>x.trim()).filter(Boolean); if(!L.length){ toast('Écrivez la réponse attendue.'); return; } n.r = L[0]; n.acc = L.slice(1); n.o = null; n.a = null; n.am = null; n.v = null; }
+    const champs = {}; Object.keys(n).forEach(k=>{ const a = n[k]==null||n[k]===''?null:n[k], b = q0[k]==null||q0[k]===''?null:q0[k]; if(JSON.stringify(a)!==JSON.stringify(b)) champs[k] = n[k]===''?null:n[k]; });
+    if(!Object.keys(champs).length){ toast('Rien n’a changé.'); return; }
+    const b = $('#mok'); b.disabled = true; b.textContent = 'Publication…';
+    try{
+      /* une question déjà corrigée : on GARDE les champs de la correction précédente (énoncé, réponse…) et on y ajoute les nouveaux,
+         sinon la nouvelle correction remplaçait l'ancienne (ex. énoncé corrigé puis réponse corrigée : l'énoncé était perdu) */
+      if(MODE==='supabase' && SB){ try{ const {data,error} = await SB.rpc('corrections_liste'); if(!error && Array.isArray(data)) QX.corr = data; }catch(e){} }
+      const avant = (QX.corr||[]).find(c=>c.qid===qid && c.actif);
+      if(avant && avant.c && typeof avant.c==='object') Object.keys(avant.c).forEach(k=>{ if(!(k in champs)) champs[k] = avant.c[k]; });
+      if(MODE==='supabase' && SB){ const {data,error} = await SB.rpc('publier_correction', {p_qid:qid, p_champs:champs, p_note:$('#qxn').value.trim()||null}); if(error) throw error; if(!data || !data.ok) throw new Error('Correction refusée.');
+        const L = QX.corr = (QX.corr||[]).filter(c=>c.qid!==qid); L.unshift({id:data.id, qid, c:JSON.parse(JSON.stringify(champs)), note:$('#qxn').value.trim()||null, actif:true, t:data.t}); }
+      try{ const W = QX.W, Q = W.eval('QI['+JSON.stringify(qid)+']'); Object.keys(champs).forEach(k=>{ if(champs[k]===null) delete Q[k]; else Q[k] = JSON.parse(JSON.stringify(champs[k])); }); Q.__corr = 1; }catch(e){}
+      let nr = 0;
+      if($('#qxpre') && $('#qxpre').checked && MODE==='supabase' && SB){ const txt = 'Merci pour ton signalement ! La question a été corrigée'+(T==='qcm'?' : la bonne réponse est maintenant '+OP.filter(x=>x.t.trim()).map((x,i)=>x.ok?QL[i]:'').filter(Boolean).join(', ')+'.':T==='vf'?' : la bonne réponse est « '+(VV?'Vrai':'Faux')+' ».':'.');
+        for(const r of R){ try{ const {data} = await SB.rpc('repondre_signalement', {p_id:String(r.id), p_type:'corrigee', p_texte:txt}); if(data && data.ok){ r.reponse = txt; r.reponse_type = 'corrigee'; r.reponse_at = new Date().toISOString(); r.statut = 'corrige'; nr++; } }catch(e){} } }
+      audit('Question corrigée depuis le tableau de bord', matName(q0.m)+' · '+qid); fermer();
+      toast('✅ Correction publiée : les téléphones la recevront à leur prochaine ouverture'+(nr?' · '+nr+' élève'+(nr>1?'s':'')+' prévenu'+(nr>1?'s':''):'')+'.', 5000);
+      QX.suspects = null; qxSuspects(true); render();
+    }catch(e){ b.disabled = false; b.textContent = 'Publier la correction'; toast(/publier_correction|function|schema cache/i.test(String(e.message||e)) ? 'Collez d’abord supabase/outils/1_corrections_choix_bilan.sql dans Supabase.' : 'Publication impossible : '+(typeof frErr==='function'?frErr(e):e.message), 6000); }
+  };
+}
+
+
+/* ---------- 📊 bilan de la semaine (fonction SQL bilan_semaine) : carte sur la vue d’ensemble, fenêtre le lundi, texte pour WhatsApp ---------- */
+const BIL = {d:null, err:'', charge:false};
+async function bilanCharger(){
+  if(BIL.charge || MODE!=='supabase' || !SB) return; BIL.charge = true;
+  try{ const {data,error} = await SB.rpc('bilan_semaine'); if(error) throw error; BIL.d = data; BIL.err = ''; }
+  catch(e){ BIL.err = /bilan_semaine|function|schema cache/i.test(String(e.message||e)) ? 'sql' : 'reseau'; }
+  if(page==='overview') render(); bilanLundi();
+}
+function bilanTexte(){ const b = BIL.d; if(!b) return '';
+  const L = [`📊 Révision INFAS · bilan de la semaine (${dfr(b.du,{day:'numeric',month:'short'})} → ${dfr(b.au,{day:'numeric',month:'short'})})`,
+    `👥 Nouveaux inscrits : ${fmt((+b.nouveaux_mail||0)+(+b.nouveaux_nom||0))} (${fmt(+b.nouveaux_mail||0)} par e-mail · ${fmt(+b.nouveaux_nom||0)} avec le nom)`,
+    `📱 Élèves actifs : ${fmt(+b.actifs||0)} téléphones`, `⭐ Premium actifs : ${fmt(+b.premium||0)}`, `📝 Quiz terminés : ${fmt(+b.quiz||0)}`,
+    `🚩 Signalements : ${fmt(+b.signalements_semaine||0)} cette semaine · ${fmt(+b.signalements_attente||0)} en attente`];
+  if((b.matieres||[]).length) L.push('📚 Matières les plus travaillées : '+b.matieres.slice(0,5).map(m=>`${matName(m.mat)} (${fmt(+m.n)})`).join(', '));
+  if((b.ratees||[]).length) L.push('❌ Questions les plus ratées : '+b.ratees.slice(0,5).map(q=>`${q.qid} (${Math.round(q.taux*100)} % d’erreurs)`).join(', '));
+  return L.join('\n'); }
+function bilanCard(){
+  if(MODE!=='supabase') return '';
+  if(!BIL.d && !BIL.err){ setTimeout(bilanCharger, 0); return `<div class="card" id="bilan" style="margin-bottom:16px"><b>📊 Bilan de la semaine</b> <span class="muted">· chargement…</span></div>`; }
+  if(BIL.err) return `<div class="card" id="bilan" style="margin-bottom:16px"><b>📊 Bilan de la semaine</b><p class="muted" style="margin:6px 0 0">${BIL.err==='sql'?'Collez le fichier <b>supabase/outils/1_corrections_choix_bilan.sql</b> dans Supabase pour l’activer.':'Bilan indisponible pour l’instant.'}</p></div>`;
+  const b = BIL.d, tile = (n,l)=>`<div style="flex:1;min-width:130px;padding:10px 12px;border-radius:14px;background:var(--soft,#f4f2fb)"><div class="num" style="font-size:24px;font-weight:800">${n}</div><div class="muted" style="font-size:13px">${l}</div></div>`;
+  return `<div class="card" id="bilan" style="margin-bottom:16px">
+    <div class="row wrap" style="align-items:baseline;gap:10px"><h3 style="margin:0;flex:1">📊 Bilan de la semaine <span class="muted" style="font-weight:500;font-size:13px">· ${dfr(b.du,{day:'numeric',month:'short'})} → ${dfr(b.au,{day:'numeric',month:'short'})}</span></h3><button class="btn sm" id="bilcp">📋 Copier pour WhatsApp</button></div>
+    <div class="row wrap" style="gap:10px;margin-top:10px">${tile(fmt((+b.nouveaux_mail||0)+(+b.nouveaux_nom||0)),`nouveaux inscrits (${fmt(+b.nouveaux_mail||0)} e-mail · ${fmt(+b.nouveaux_nom||0)} nom)`)}${tile(fmt(+b.actifs||0),'élèves actifs')}${tile(fmt(+b.premium||0),'Premium actifs')}${tile(fmt(+b.quiz||0),'quiz terminés')}${tile(fmt(+b.signalements_attente||0),'signalements en attente')}</div>
+    <div class="row wrap" style="gap:18px;margin-top:12px;font-size:14px;align-items:flex-start">
+      <div style="flex:1;min-width:240px"><b>📚 Matières les plus travaillées</b>${(b.matieres||[]).length?`<ol style="margin:6px 0 0;padding-left:20px">${b.matieres.slice(0,6).map(m=>`<li>${esc(matName(m.mat))} · ${fmt(+m.n)} quiz</li>`).join('')}</ol>`:'<div class="muted">Pas encore de quiz cette semaine.</div>'}</div>
+      <div style="flex:1;min-width:240px"><b>❌ Questions les plus ratées</b>${(b.ratees||[]).length?`<ol style="margin:6px 0 0;padding-left:20px">${b.ratees.slice(0,6).map(q=>`<li><button class="lnk" data-qedit="${esc(q.qid)}">${esc(matName(String(q.qid).split('.')[0]))} · ${esc(q.qid)}</button> · ${Math.round(q.taux*100)} % d’erreurs (${fmt(+q.total)} réponses)</li>`).join('')}</ol>`:'<div class="muted">Les réponses arrivent avec la nouvelle version de l’appli.</div>'}</div>
+    </div></div>`;
+}
+function bindBilan(){ const c = $('#bilcp'); if(c) c.onclick = async ()=>{ try{ await navigator.clipboard.writeText(bilanTexte()); toast('📋 Bilan copié : collez-le dans WhatsApp.'); }catch(e){ openModal(`<h2 style="margin:0 0 8px">Bilan de la semaine</h2><textarea class="field" rows="10" style="width:100%">${esc(bilanTexte())}</textarea><div class="row" style="justify-content:flex-end;margin-top:12px"><button class="btn pri" id="mno">Fermer</button></div>`); $('#mno').onclick = closeModal; } };
+  if(typeof bindQedit==='function') bindQedit(); }
+function bilanLundi(){ // le lundi (ou à la 1re ouverture de la semaine), le bilan s’ouvre une fois tout seul
+  try{ if(!BIL.d) return; const d = new Date(), lundi = new Date(d); lundi.setHours(0,0,0,0); lundi.setDate(lundi.getDate()-((lundi.getDay()+6)%7)); const k = 'tdb_bilan_vu', vu = localStorage.getItem(k);
+    if(vu===lundi.toISOString().slice(0,10) || document.getElementById('modal').classList.contains('on')) return; localStorage.setItem(k, lundi.toISOString().slice(0,10));
+    openModal(`<h2 style="margin:0 0 8px;font-family:var(--display)">📊 Bilan de la semaine</h2><pre style="white-space:pre-wrap;font:inherit;font-size:14.5px;line-height:1.55;margin:0">${esc(bilanTexte())}</pre><div class="row" style="justify-content:flex-end;margin-top:14px"><button class="btn" id="mno">Fermer</button><button class="btn pri" id="mok">📋 Copier pour WhatsApp</button></div>`);
+    $('#mno').onclick = closeModal; $('#mok').onclick = async ()=>{ try{ await navigator.clipboard.writeText(bilanTexte()); toast('📋 Bilan copié.'); }catch(e){} closeModal(); };
+  }catch(e){} }
 
 /* ---------- répondre à l'élève qui a signalé : le message s'affiche sur SON téléphone à l'accueil (fonction SQL repondre_signalement) ---------- */
 const REP_MODELES = {corrigee:'Merci pour ton signalement ! La question a été corrigée : la bonne réponse est maintenant ',
   eclaircie:'Merci pour ton signalement ! Après vérification, la réponse proposée est juste : '};
 function repondreModal(id){
-  const r = api.get('reports', id); if(!r) return; let type = r.reponse_type || (r.statut==='corrige' ? 'corrigee' : 'eclaircie');
+  const RR = (Array.isArray(id) ? id : [id]).map(i=>api.get('reports', i)).filter(Boolean), r = RR[0]; if(!r) return; let type = r.reponse_type || (r.statut==='corrige' ? 'corrigee' : 'eclaircie');
   const draw = ()=>{ $('#rtype').innerHTML = [['corrigee','✅ Réponse corrigée','La question avait une erreur, elle est corrigée'],['eclaircie','💡 Éclaircir sa lanterne','La réponse était juste : expliquer pourquoi']].map(([v,l,d])=>`<button type="button" class="rtyp ${type===v?'on':''}" data-rt="${v}" aria-pressed="${type===v}" style="flex:1;min-width:180px;text-align:left;padding:12px;border-radius:14px;border:2px solid ${type===v?'var(--violet)':'var(--line)'};background:${type===v?'color-mix(in srgb,var(--violet) 9%,transparent)':'transparent'};cursor:pointer;color:inherit;font:inherit"><b>${l}</b><br><span class="muted" style="font-size:13px">${d}</span></button>`).join('');
     document.querySelectorAll('[data-rt]').forEach(b=>b.onclick=()=>{ const t = $('#rtxt'); if(!t.value.trim() || Object.values(REP_MODELES).includes(t.value)) t.value = REP_MODELES[b.dataset.rt]; type = b.dataset.rt; draw(); }); };
   openModal(`<h2 style="margin:0 0 6px;font-family:var(--display)">✉️ Répondre à l’élève</h2>
     <p class="muted" style="margin:0 0 8px;font-size:13.5px"><b>${esc(matName(r.mat))}</b> · ${esc(String(r.question||'')).slice(0,200)}</p>
-    <div class="cnote" style="margin-bottom:10px">💬 Son message : « ${esc(String(r.message||'')).slice(0,240)} »</div>
+    ${RR.length>1?`<div class="cnote" style="margin-bottom:10px">💬 ${RR.length} élèves ont signalé cette question. Une seule réponse leur sera envoyée à tous.</div>`:`<div class="cnote" style="margin-bottom:10px">💬 Son message : « ${esc(String(r.message||'')).slice(0,240)} »</div>`}
     <div class="row wrap" id="rtype" style="gap:10px"></div>
     <label class="lbl" for="rtxt" style="margin-top:12px">Votre message (il s’affichera sur son téléphone, à l’accueil, à sa prochaine ouverture de l’appli)</label>
     <textarea class="field" id="rtxt" rows="5" maxlength="2000" style="width:100%;resize:vertical">${esc(r.reponse || REP_MODELES[type])}</textarea>
-    <p class="cnote" style="margin:6px 0 0">Seul l’élève qui a envoyé ce signalement le recevra.</p>
+    <p class="cnote" style="margin:6px 0 0">${RR.length>1?`Seuls les ${RR.length} élèves qui ont signalé cette question la recevront.`:'Seul l’élève qui a envoyé ce signalement le recevra.'}</p>
     <div class="row" style="justify-content:flex-end;margin-top:16px"><button class="btn" id="mno">Annuler</button><button class="btn pri" id="mok">Envoyer la réponse</button></div>`);
   draw(); $('#mno').onclick = closeModal;
   $('#mok').onclick = async ()=>{ const txt = $('#rtxt').value.trim(); if(txt.length<2){ toast('Écrivez votre réponse.'); return; }
     const b = $('#mok'); b.disabled = true; b.textContent = 'Envoi…';
     try{
-      if(MODE==='supabase' && SB){ const {data, error} = await SB.rpc('repondre_signalement', {p_id:String(r.id), p_type:type, p_texte:txt}); if(error) throw error; if(!data || !data.ok) throw new Error(data && data.raison==='introuvable' ? 'Signalement introuvable dans la base.' : 'Réponse refusée.'); }
-      r.reponse = txt; r.reponse_type = type; r.reponse_at = new Date().toISOString(); if(type==='corrigee') r.statut = 'corrige';
+      for(const x of RR){
+        if(MODE==='supabase' && SB){ const {data, error} = await SB.rpc('repondre_signalement', {p_id:String(x.id), p_type:type, p_texte:txt}); if(error) throw error; if(!data || !data.ok) throw new Error(data && data.raison==='introuvable' ? 'Signalement introuvable dans la base.' : 'Réponse refusée.'); }
+        x.reponse = txt; x.reponse_type = type; x.reponse_at = new Date().toISOString(); if(type==='corrigee') x.statut = 'corrige'; }
       if(MODE!=='supabase') persist();
-      audit(type==='corrigee' ? 'Réponse envoyée : question corrigée' : 'Réponse envoyée : éclaircissement', matName(r.mat)); closeModal(); toast('✉️ Réponse envoyée : l’élève la verra à l’accueil de son appli.'); render();
+      audit(type==='corrigee' ? 'Réponse envoyée : question corrigée' : 'Réponse envoyée : éclaircissement', matName(r.mat)); closeModal(); toast(RR.length>1?`✉️ Réponse envoyée aux ${RR.length} élèves : ils la verront à l’accueil de leur appli.`:'✉️ Réponse envoyée : l’élève la verra à l’accueil de son appli.'); render();
     }catch(e){ b.disabled = false; b.textContent = 'Envoyer la réponse';
       toast(/repondre_signalement|function|schema cache|does not exist/i.test(String(e.message||e)) ? 'Colle d’abord supabase/eleves/1_eleves_nom_reponses.sql dans Supabase.' : 'Envoi impossible : '+(typeof frErr==='function'?frErr(e):e.message), 6000); }
   };
