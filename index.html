@@ -2874,7 +2874,7 @@ function cpBase(){ return (UI.cpSite||'eleves')==='test' ? CP_TEST : portailUrl(
 function cpLien(code){ return cpBase()+'?compo='+encodeURIComponent(code); }
 async function cpCatalogue(){ const b=cpBase(); if(CP_CAT[b]) return CP_CAT[b];
   try{ const r=await fetch(b+'catalogue.json?t='+Date.now(),{cache:'no-store'}); if(!r.ok) throw new Error(r.status); const c=await r.json();
-    const L=[]; (c.rubriques||[]).forEach(rb=>(rb.matieres||[]).forEach(m=>{ const S=Array.isArray(m.sujets)?m.sujets.map((x,k)=>({k,t:x[0],n:x[1]})):Array.from({length:m.nsuj||0},(x,k)=>({k,t:'',n:0})); if(S.some(s=>s.n>0||!s.t)) L.push({rub:prettyRub(rb.nom), id:m.id, nom:m.court||m.nom, titres:Array.isArray(m.sujets), sujets:S}); }));
+    const L=[]; (c.rubriques||[]).forEach(rb=>(rb.matieres||[]).forEach(m=>{ const S=Array.isArray(m.sujets)?m.sujets.map((x,k)=>({k,t:x[0],n:x[1]})):Array.from({length:m.nsuj||0},(x,k)=>({k,t:'',n:0})); if(S.some(s=>s.n>0||!s.t)) L.push({rub:prettyRub(rb.nom), id:m.id, nom:m.court||m.nom, titres:Array.isArray(m.sujets), sujets:S, doc:m.accueil?(m.rev||('DOCUMENT DE REVISION '+(m.court||m.nom))):''}); }));
     CP_CAT[b]={ok:true, L}; }catch(e){ CP_CAT[b]={ok:false, L:[], err:'catalogue.json illisible sur '+b}; }
   return CP_CAT[b]; }
 async function chargerCompos(){ if(MODE!=='supabase'||!SB){ CPS=null; return; } try{ const {data,error}=await SB.rpc('compo_lister'); if(error) throw error; CPS=data||[]; CP_ERR=''; }catch(e){ CPS=[]; CP_ERR=/function|PGRST|404/.test(String(e&&e.message||e))?'Lancez d’abord supabase/compos/1_compos.sql dans Supabase (SQL Editor → Run).':frErr(e); } }
@@ -2892,10 +2892,13 @@ function cpOptions(m,f){ const L=m.sujets.filter(s=>s.n>0||!s.t), opt=(s,t)=>`<o
   return [...G].map(([g,xs])=>`<optgroup label="${esc(g)}">${xs.sort((a,b)=>a[1].localeCompare(b[1],'fr')).map(([s,t])=>opt(s,t)).join('')}</optgroup>`).join(''); }
 VIEWS.compos = ()=>{
   const cat = CP_CAT[cpBase()], site = UI.cpSite||'eleves', f = UI.cpF||{};
-  const m = cat&&cat.L.find(x=>x.id===f.mid) || (cat&&cat.L[0]);
+  const DOCS = cat&&cat.ok ? cat.L.filter(x=>x.doc) : [];
+  if(!f.mid && DOCS.length){ f.mid = 'doc|'+DOCS[0].id; UI.cpF = f; }
+  const fid = String(f.mid||'').replace(/^doc\|/,'');
+  const m = cat&&cat.L.find(x=>x.id===fid) || (cat&&cat.L[0]);
   const form = !cat ? '<p class="sub">Chargement de la liste des sujets…</p>' : !cat.ok ? `<div class="msg bad">${esc(cat.err)}</div>` : `
     <div class="codeform">
-      <div style="flex:1 1 230px"><label class="lbl" for="cpmid">Cours</label><select class="field" id="cpmid">${[...new Set(cat.L.map(x=>x.rub))].map(r=>`<optgroup label="${esc(r)}">${cat.L.filter(x=>x.rub===r).map(x=>`<option value="${esc(x.id)}" ${m&&m.id===x.id?'selected':''}>${esc(x.nom)}</option>`).join('')}</optgroup>`).join('')}</select></div>
+      <div style="flex:1 1 230px"><label class="lbl" for="cpmid">Cours</label><select class="field" id="cpmid">${DOCS.length?`<optgroup label="📝 DOCUMENT DE REVISION INFAS">${DOCS.map(x=>`<option value="doc|${esc(x.id)}" ${f.mid==='doc|'+x.id?'selected':''}>${esc(x.doc)}</option>`).join('')}</optgroup>`:''}${[...new Set(cat.L.map(x=>x.rub))].map(r=>`<optgroup label="${esc(r)}">${cat.L.filter(x=>x.rub===r).map(x=>`<option value="${esc(x.id)}" ${f.mid===x.id?'selected':''}>${esc(x.nom)}</option>`).join('')}</optgroup>`).join('')}</select></div>
       <div style="flex:2 1 320px"><label class="lbl" for="cpk">Sujet</label><select class="field" id="cpk">${m?cpOptions(m,f):''}</select></div>
     </div>
     ${m&&!m.titres?`<div class="msg warn">Les titres des sujets de ce site arriveront avec la prochaine publication de l’appli ; en attendant, le sujet est repéré par son numéro.</div>`:''}
@@ -2936,7 +2939,7 @@ AFTER.compos = ()=>{
   document.querySelectorAll('[data-cpmode]').forEach(b=>b.onclick=()=>{ lire(); f.mode=b.dataset.cpmode; render(); });
   if($('#cpmid')) $('#cpmid').onchange=()=>{ lire(); f.k=0; render(); };
   if($('#cpreload')) $('#cpreload').onclick=async()=>{ CP_COPIES={}; await chargerCompos(); render(); toast('Compositions à jour.'); };
-  if($('#cpgo')) $('#cpgo').onclick=async()=>{ lire(); const cat=CP_CAT[cpBase()], m=cat&&cat.L.find(x=>x.id===f.mid)||(cat&&cat.L[0]); if(!m){ toast('Choisissez un cours.'); return; }
+  if($('#cpgo')) $('#cpgo').onclick=async()=>{ lire(); const cat=CP_CAT[cpBase()], m=cat&&cat.L.find(x=>x.id===String(f.mid||'').replace(/^doc\|/,''))||(cat&&cat.L[0]); if(!m){ toast('Choisissez un cours.'); return; }
     const k=+f.k||0, s=m.sujets.find(x=>x.k===k)||{}, chrono=f.chrono?Math.round(+f.chrono):null;
     if(chrono!=null&&!(chrono>=1&&chrono<=600)){ toast('Chronomètre : entre 1 et 600 minutes.'); return; }
     const dl=f.dl?new Date(f.dl):null; if(dl&&!(dl>new Date())){ toast('La date limite doit être dans le futur.'); return; }
