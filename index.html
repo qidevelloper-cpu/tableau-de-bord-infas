@@ -629,7 +629,7 @@ const MAP = [
 const VIRTUAL = [
   {t:'access_rules', id:'cle', rows:db=>Object.entries(db.access.regles).map(([cle,v])=>({cle, acces:v.acces, quota_gratuit:v.quotaGratuit==null?null:v.quotaGratuit}))},
   {t:'app_settings', id:'cle', noDelete:true, rows:db=>[
-    {cle:'public.access', valeur:Object.assign({defaut:db.access.defaut, version:db.access.version, misAJour:db.access.misAJour, questions:db.access.questions||{}, plusapp:db.access.plusapp||{}}, db.access.promo?{promo:db.access.promo}:{}, db.access.fincorr&&Object.keys(db.access.fincorr).length?{fincorr:db.access.fincorr}:{}, db.access.nosig&&Object.keys(db.access.nosig).length?{nosig:db.access.nosig}:{}, db.access.offres&&typeof db.access.offres==='object'?{offres:db.access.offres}:{})},
+    {cle:'public.access', valeur:Object.assign({defaut:db.access.defaut, version:db.access.version, misAJour:db.access.misAJour, questions:db.access.questions||{}, plusapp:db.access.plusapp||{}}, db.access.promo?{promo:db.access.promo}:{}, db.access.fincorr&&Object.keys(db.access.fincorr).length?{fincorr:db.access.fincorr}:{}, db.access.nosig&&Object.keys(db.access.nosig).length?{nosig:db.access.nosig}:{}, db.access.offres&&typeof db.access.offres==='object'?{offres:db.access.offres}:{}, db.access.contact&&typeof db.access.contact==='object'?{contact:db.access.contact}:{})},
     {cle:'goals', valeur:db.goals},
     {cle:'demo_stats', valeur:db.stats},
     {cle:'meta', valeur:{demo:!!db.meta.demo}},
@@ -674,7 +674,7 @@ const SupabaseSource = {
     const rawRules = await fetchAll('access_rules'), rawSettings = await fetchAll('app_settings');
     rawRules.forEach(r=>{ db.access.regles[r.cle] = r.quota_gratuit==null ? {acces:r.acces} : {acces:r.acces, quotaGratuit:r.quota_gratuit}; });
     rawSettings.forEach(r=>{
-      if(r.cle==='public.access'){ if(r.valeur.promo && typeof r.valeur.promo==='object') db.access.promo = r.valeur.promo; db.access.fincorr = (r.valeur.fincorr && typeof r.valeur.fincorr==='object') ? r.valeur.fincorr : {}; db.access.nosig = (r.valeur.nosig && typeof r.valeur.nosig==='object') ? r.valeur.nosig : {}; db.access.offres = (r.valeur.offres && typeof r.valeur.offres==='object') ? r.valeur.offres : null; db.access.defaut = r.valeur.defaut||'gratuit'; db.access.version = r.valeur.version||1; db.access.misAJour = r.valeur.misAJour||db.access.misAJour; db.access.questions = (r.valeur.questions&&typeof r.valeur.questions==='object')?r.valeur.questions:{}; db.access.plusapp = (r.valeur.plusapp&&typeof r.valeur.plusapp==='object')?r.valeur.plusapp:{}; }
+      if(r.cle==='public.access'){ if(r.valeur.promo && typeof r.valeur.promo==='object') db.access.promo = r.valeur.promo; db.access.fincorr = (r.valeur.fincorr && typeof r.valeur.fincorr==='object') ? r.valeur.fincorr : {}; db.access.nosig = (r.valeur.nosig && typeof r.valeur.nosig==='object') ? r.valeur.nosig : {}; db.access.offres = (r.valeur.offres && typeof r.valeur.offres==='object') ? r.valeur.offres : null; db.access.contact = (r.valeur.contact && typeof r.valeur.contact==='object') ? r.valeur.contact : null; db.access.defaut = r.valeur.defaut||'gratuit'; db.access.version = r.valeur.version||1; db.access.misAJour = r.valeur.misAJour||db.access.misAJour; db.access.questions = (r.valeur.questions&&typeof r.valeur.questions==='object')?r.valeur.questions:{}; db.access.plusapp = (r.valeur.plusapp&&typeof r.valeur.plusapp==='object')?r.valeur.plusapp:{}; }
       if(r.cle==='goals' && Array.isArray(r.valeur)) db.goals = r.valeur;
       if(r.cle==='demo_stats' && r.valeur && r.valeur.daily) db.stats = r.valeur;
       if(r.cle==='meta' && r.valeur) db.meta.demo = !!r.valeur.demo;
@@ -1787,15 +1787,19 @@ function promoCard(){
       <label class="row" style="gap:8px;align-items:center;flex:0 0 auto"><input type="checkbox" id="prOn" ${p.actif?'checked':''} style="width:22px;height:22px"> <b>Activer</b></label>
       <div><label class="lbl" for="prDu">Du</label><input class="field" id="prDu" type="datetime-local" value="${esc(dtLocal(p.du||new Date()))}"></div>
       <div><label class="lbl" for="prAu">Au</label><input class="field" id="prAu" type="datetime-local" value="${esc(dtLocal(p.au||new Date(Date.now()+7*DAY)))}"></div>
-      <div style="flex:1 1 220px"><label class="lbl" for="prT">Titre du bandeau</label><input class="field" id="prT" maxlength="80" value="${esc(p.titre||'🎁 Semaine gratuite')}"></div>
+      <div style="flex:1 1 220px"><label class="lbl" for="prT">Titre du bandeau</label><input class="field" id="prT" maxlength="150" value="${esc(p.titre||'🎁 Semaine gratuite')}"></div>
     </div>
+    <label class="lbl" for="prX" style="margin-top:10px">Message du bandeau <span class="muted small">(jusqu’à 1 500 caractères ; vide = message habituel ; {date} = date de fin)</span></label>
+    <textarea class="field" id="prX" rows="5" maxlength="1500" placeholder="Tous les sujets, toutes les questions, les réponses et les corrections sont gratuits jusqu’au {date}. Profites-en !">${esc(p.texte||'')}</textarea>
+    <div class="muted small" id="prXn" style="text-align:right">${(p.texte||'').length} / 1 500</div>
     <div style="margin-top:12px"><button class="btn pri" id="prGo">Enregistrer</button> <span class="muted small">Les élèves le voient à la prochaine ouverture de l’appli (au plus 5 minutes).</span></div></div>`;
 }
 function bindPromo(){
   if(!$('#prGo')) return;
+  if($('#prX')) $('#prX').oninput = ()=>{ $('#prXn').textContent = $('#prX').value.length+' / 1 500'; };
   $('#prGo').onclick=()=>{ const du=new Date($('#prDu').value), au=new Date($('#prAu').value), on=$('#prOn').checked;
     if(on && !(au>du)){ toast('La date de fin doit être après la date de début.'); return; }
-    DB.access.promo = {actif:on, du:isNaN(du)?null:du.toISOString(), au:isNaN(au)?null:au.toISOString(), titre:($('#prT').value||'').trim().slice(0,80)};
+    DB.access.promo = {actif:on, du:isNaN(du)?null:du.toISOString(), au:isNaN(au)?null:au.toISOString(), titre:($('#prT').value||'').trim().slice(0,150), texte:($('#prX').value||'').trim().slice(0,1500)};
     DB.access.version++; DB.access.misAJour=new Date().toISOString(); persist();
     audit(on?'Semaine gratuite activée':'Semaine gratuite désactivée', on?`du ${dfr(du)} au ${dfr(au)}`:''); render(); toast(on?'Semaine gratuite enregistrée.':'Semaine gratuite désactivée.'); };
 }
@@ -1957,7 +1961,7 @@ function orphans(){ return Object.keys(DB.access.regles).filter(k=>!NODES[k]); }
 
 /* ---------- Annuler : chaque changement de la page « Cours gratuits et Premium » peut être défait ---------- */
 const UNDO_ACC = []; let UNDO_GEN = 0;
-function accSnap(){ const A = DB.access; return JSON.stringify({regles:A.regles||{}, questions:A.questions||{}, plusapp:A.plusapp||{}, fincorr:A.fincorr||{}, promo:A.promo||null, defaut:A.defaut}); }
+function accSnap(){ const A = DB.access; return JSON.stringify({regles:A.regles||{}, questions:A.questions||{}, plusapp:A.plusapp||{}, fincorr:A.fincorr||{}, promo:A.promo||null, contact:A.contact||null, defaut:A.defaut}); }
 function undoBar(){ const n = UNDO_ACC.length;
   return `<div id="undoacc" class="undobar" role="region" aria-label="Annuler" style="position:sticky;top:8px;z-index:30;display:${n?'flex':'none'};align-items:center;gap:10px;flex-wrap:wrap;background:var(--ink,#1d1b2e);color:#fff;border-radius:14px;padding:10px 14px;margin:0 0 14px;box-shadow:0 6px 20px rgba(0,0,0,.18)">
     <span style="flex:1;min-width:160px">↶ <b>${n}</b> modification${n>1?'s':''} sur cette page. Vous pouvez revenir en arrière.</span>
@@ -2212,9 +2216,43 @@ function cibleUn(x){ x = String(x||'').trim();
   if(x.startsWith('app:')){ const g = nomDe(x.slice(4)) || DB.profiles.find(q=>(q.appareils||[]).some(v=>String(v).includes(x.slice(4)))); return g ? (g.virtuel ? g.prenom : fullName(g)) : 'Un élève'; }
   return x.replace('-',' · '); }
 const cibleLabel = c => { const L = String(c||'tous').split(',').filter(Boolean); return L.length>3 ? L.slice(0,3).map(cibleUn).join(', ')+' et '+(L.length-3)+' autre'+(L.length>4?'s':'') : L.map(cibleUn).join(', '); };
+/* ---------- « Contacter l'administrateur » : carte en haut de l'accueil de l'appli, ouvre WhatsApp avec un message prêt ---------- */
+const CONTACT_DEF = ()=>({actif:false, titre:'📞 Contacter l’administrateur', texte:'Une question, un souci ? Écris-moi directement sur WhatsApp.', numero:'', nom:true,
+  messages:[{b:'💬 Je veux être en contact avec toi', m:'Bonjour, je veux être en contact avec toi.'},{b:'👥 Je veux être dans un groupe WhatsApp', m:'Bonjour, je veux être ajouté(e) dans un groupe WhatsApp.'},{b:'❓ J’ai une question sur l’appli', m:'Bonjour, j’ai une question sur l’application Révision INFAS.'}]});
+function contactCfg(){ const d = CONTACT_DEF(), c = Object.assign(d, DB.access.contact||{}); c.messages = [0,1,2].map(i=>Object.assign({b:'',m:''}, d.messages[i], ((DB.access.contact||{}).messages||[])[i]||{})); return c; }
+const waNum = n=>{ let d = String(n||'').replace(/\D/g,''); if(d.length===10) d = '225'+d; return d; };
+function contactApercu(c){ return `<div style="font-size:17px;font-weight:800">${esc(c.titre||'📞 Contacter l’administrateur')}</div>${c.texte?`<div class="muted" style="margin:4px 0 8px;white-space:pre-line">${esc(c.texte)}</div>`:''}${c.messages.filter(x=>x.b&&x.m).map(x=>`<div style="margin:6px 0 0;padding:10px 12px;border-radius:12px;background:#25d366;color:#fff;font-weight:700" title="${esc(x.m)}">${esc(x.b)}</div>`).join('')}`; }
+function contactCard(){
+  const c = contactCfg(), num = waNum(c.numero);
+  return `<div class="card" id="ctcard" style="margin-bottom:18px;border:2px solid ${c.actif?'#16a34a':'var(--line)'}"><div class="cardhead"><div class="grow"><h3>📞 Contacter l’administrateur <span class="pill ${c.actif?'ok':'hid'}">${c.actif?'Affiché':'Masqué'}</span></h3>
+    <p class="sub">Carte en haut de l’accueil de l’appli, avec les annonces. Chaque bouton ouvre <b>WhatsApp</b> avec le message prêt, l’élève n’a qu’à l’envoyer.</p></div></div>
+    <label class="row" style="gap:8px;align-items:center"><input type="checkbox" id="ctOn" ${c.actif?'checked':''} style="width:22px;height:22px"> <b>Afficher sur l’accueil des élèves</b></label>
+    <div class="row wrap" style="gap:10px;margin-top:10px">
+      <div style="flex:1 1 220px"><label class="lbl" for="ctNum">Numéro WhatsApp</label><input class="field" id="ctNum" inputmode="tel" placeholder="07 00 00 00 00" value="${esc(c.numero||'')}"></div>
+      <div style="flex:2 1 260px"><label class="lbl" for="ctT">Titre</label><input class="field" id="ctT" maxlength="120" value="${esc(c.titre)}"></div></div>
+    <label class="lbl" for="ctX">Texte</label><textarea class="field" id="ctX" rows="2" maxlength="600">${esc(c.texte)}</textarea>
+    <div class="lbl" style="margin-top:10px">Les 3 messages proposés</div>
+    ${c.messages.map((x,i)=>`<div class="row wrap" style="gap:8px;margin:6px 0;padding:8px;border:1px solid var(--line);border-radius:12px"><div style="flex:1 1 200px"><label class="lbl" for="ctB${i}">Bouton ${i+1}</label><input class="field" id="ctB${i}" maxlength="60" value="${esc(x.b)}"></div><div style="flex:2 1 280px"><label class="lbl" for="ctM${i}">Message envoyé sur WhatsApp</label><textarea class="field" id="ctM${i}" rows="2" maxlength="1000">${esc(x.m)}</textarea></div></div>`).join('')}
+    <label class="row" style="gap:8px;align-items:center;margin-top:6px"><input type="checkbox" id="ctNom" ${c.nom?'checked':''} style="width:18px;height:18px"> Ajouter le nom de l’élève à la fin du message</label>
+    <div class="lbl" style="margin-top:12px">Aperçu (ce que verront les élèves une fois affichée)</div>
+    <div id="ctPrev" style="max-width:380px;border:2px solid #25d366;border-radius:16px;padding:12px 14px;background:var(--card,#fff)">${contactApercu(c)}</div>
+    <div style="margin-top:12px" class="row wrap"><button class="btn pri" id="ctGo">Enregistrer</button>${num?`<a class="btn" target="_blank" rel="noopener" href="https://wa.me/${num}?text=${encodeURIComponent(c.messages[0].m)}">Essayer le 1er bouton</a>`:''}<span class="muted small">Les élèves le voient à la prochaine ouverture de l’appli (au plus 5 minutes).</span></div></div>`;
+}
+function bindContact(){
+  if(!$('#ctGo')) return;
+  const maj = ()=>{ const p = $('#ctPrev'); if(!p) return; p.innerHTML = contactApercu({titre:$('#ctT').value.trim(), texte:$('#ctX').value.trim(), messages:[0,1,2].map(i=>({b:$('#ctB'+i).value.trim(), m:$('#ctM'+i).value.trim()}))}); };
+  ['ctT','ctX','ctB0','ctB1','ctB2','ctM0','ctM1','ctM2'].forEach(id=>{ const x = $('#'+id); if(x) x.oninput = maj; });
+  $('#ctGo').onclick = ()=>{ const on = $('#ctOn').checked, num = waNum($('#ctNum').value);
+    if(on && !/^\d{8,15}$/.test(num)){ toast('Écris le numéro WhatsApp (10 chiffres, ou l’indicatif + le numéro).'); return; }
+    const M = [0,1,2].map(i=>({b:($('#ctB'+i).value||'').trim().slice(0,60), m:($('#ctM'+i).value||'').trim().slice(0,1000)}));
+    if(on && !M.some(x=>x.b&&x.m)){ toast('Remplis au moins un bouton et son message.'); return; }
+    DB.access.contact = {actif:on, numero:($('#ctNum').value||'').trim(), titre:($('#ctT').value||'').trim().slice(0,120), texte:($('#ctX').value||'').trim().slice(0,600), nom:$('#ctNom').checked, messages:M};
+    DB.access.version++; DB.access.misAJour = new Date().toISOString(); persist();
+    audit(on?'Carte « Contacter l’administrateur » affichée':'Carte « Contacter l’administrateur » masquée', 'Accueil'); render(); toast(on?'Carte de contact enregistrée.':'Carte de contact masquée.'); };
+}
 VIEWS.annonces = ()=>{
   const L = [...DB.announcements].sort((a,b)=>b.du.localeCompare(a.du));
-  return headHTML('Annonces', 'Bannières affichées en haut de l’appli des élèves.', `<button class="btn pri" id="newann">${ic('plus')}Nouvelle annonce</button>`) + `
+  return headHTML('Annonces', 'Bannières affichées en haut de l’appli des élèves.', `<button class="btn pri" id="newann">${ic('plus')}Nouvelle annonce</button>`) + contactCard() + `
   <div class="card">${L.map(a=>{ const live=annonceLive(a); return `<div class="annonce">
     <div style="flex:1;min-width:0"><div class="banner" style="background:${esc(a.couleur)}"><b>${esc(a.titre)}</b> — ${esc(a.texte)}</div>
       <div class="row wrap" style="margin-top:8px;font-size:13px"><span class="pill ${live?'ok':'hid'}">${live?'En ligne':a.actif?'Programmée ou terminée':'Désactivée'}</span><span class="muted">${cibleLabel(a.cible)} · du ${dfr(a.du)} au ${dfr(a.au)}</span></div></div>
@@ -2222,6 +2260,7 @@ VIEWS.annonces = ()=>{
   </div>`; }).join('') || '<div class="empty">Aucune annonce. Créez-en une pour informer vos élèves.</div>'}</div>`;
 };
 AFTER.annonces = ()=>{
+  bindContact();
   $('#newann').onclick = ()=>annonceModal();
   document.querySelectorAll('[data-ann-toggle]').forEach(b=>b.onclick=()=>{ const a=api.get('announcements',b.dataset.annToggle); api.update('announcements',a.id,{actif:!a.actif}); audit(a.actif?'Annonce activée':'Annonce désactivée', a.titre); render(); });
   document.querySelectorAll('[data-ann-edit]').forEach(b=>b.onclick=()=>annonceModal(api.get('announcements',b.dataset.annEdit)));
@@ -2347,6 +2386,15 @@ function editeurUrl(){ return String(getCfg().editeur || EDITEUR_DEFAUT).trim().
 const EDITEUR_DEFAUT = 'https://qidevelloper-cpu.github.io/revision-infas-editeur/';
 /* images d'explication : copiées du stockage privé des signalements vers le stockage PUBLIC « explications » (lisible par les élèves) */
 const xiOk = u => typeof u==='string' && /^https:\/\/[a-z0-9-]+\.supabase\.co\/storage\/v1\/object\/public\/explications\/[A-Za-z0-9._\/-]+$/.test(u);
+/* image choisie sur l'appareil : réduite (1600 px, JPEG) avant l'envoi */
+function xiReduire(f){ return new Promise((ok,ko)=>{ const u = URL.createObjectURL(f), im = new Image(); im.onload = ()=>{ const k = Math.min(1, 1600/Math.max(im.width, im.height)), c = document.createElement('canvas'); c.width = Math.round(im.width*k); c.height = Math.round(im.height*k);
+  const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0,0,c.width,c.height); g.drawImage(im,0,0,c.width,c.height); URL.revokeObjectURL(u); c.toBlob(b=>b?ok(b):ko(new Error('image')), 'image/jpeg', .85); }; im.onerror = ()=>{ URL.revokeObjectURL(u); ko(new Error('image')); }; im.src = u; }); }
+async function xiEnvoyer(blob, qid){
+  const dest = String(qid).replace(/[^A-Za-z0-9._-]/g,'_') + '/' + Date.now() + '-' + Math.random().toString(36).slice(2,8) + '.jpg';
+  const up = await SB.storage.from('explications').upload(dest, blob, {contentType:'image/jpeg', upsert:false, cacheControl:'31536000'});
+  if(up.error) throw (/bucket|not found|policy|row-level|security/i.test(String(up.error.message||up.error)) ? new Error('Stockage des images pas encore installé : collez supabase/outils/2_images_explications.sql dans Supabase (SQL Editor).') : up.error);
+  const u = SB.storage.from('explications').getPublicUrl(dest).data.publicUrl; if(!xiOk(u)) throw new Error('Adresse d’image inattendue.'); return u;
+}
 async function xiCopier(path, qid){
   const manque = e => /bucket|not found|policy|row-level|security/i.test(String((e&&e.message)||e)) ? new Error('Stockage des images pas encore installé : collez supabase/outils/2_images_explications.sql dans Supabase (SQL Editor).') : e;
   const d = await SB.storage.from('signalements').download(path); if(d.error || !d.data) throw new Error('Photo introuvable : '+((d.error&&d.error.message)||path));
@@ -2393,6 +2441,43 @@ AFTER.signalements = ()=>{
    ===================================================================== */
 const QX = {etat:'', W:null, mid:'', q:'', suspects:null, corr:null, err:'', lim:40};
 const QL = 'ABCDEFGH';
+/* ---------- 🧭 Questions à vérifier : identiques aux réponses différentes, similaires aux questions corrigées (calculé dans l'appli lue) ---------- */
+function qxConflits(){ return qxEval(`(()=>{if(typeof riDoublons!=='function')return null;const n=x=>String(x==null?'':x).toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').replace(/[^a-z0-9]+/g,' ').trim();
+  const cle=y=>y.t==='vf'?'v'+(y.v?1:0):y.t==='qcm'?(Array.isArray(y.am)&&y.am.length?y.am:[y.a]).map(i=>n((y.o||[])[i])).sort().join('|'):n(y.r);
+  const vu={},R=[];for(const id in QI){if(vu[id])continue;const d=riDoublons(id);if(!d.length)continue;d.forEach(x=>vu[x]=1);const G=[id].concat(d);if(new Set(G.map(x=>cle(QI[x]))).size>1)R.push(G)}return R})()`); }
+function qxRepTxt(q){ if(!q) return ''; if(q.t==='vf') return q.v?'Vrai':'Faux'; if(q.t==='qcm') return (Array.isArray(q.am)&&q.am.length?q.am:[q.a]).map(i=>QL[i]+'. '+((q.o||[])[i]||'')).join(' ; '); return q.r||''; }
+function qxLigneV(id, extra){ const q = qxQ(id); if(!q) return '';
+  return `<div class="row wrap" style="gap:10px;padding:8px 0;border-top:1px solid var(--line);align-items:flex-start"><div style="flex:1;min-width:220px"><b>${esc(matName(q.m))}</b> <span class="muted" style="font-size:12.5px">· ${esc(id)}${q.__corr?' · ✅ corrigée':''}</span><div style="font-size:14px;margin-top:2px">${esc(String(q.q||'').slice(0,180))}</div><div class="muted" style="font-size:13px;margin-top:2px">✔ ${esc(qxRepTxt(q))}</div>${extra||''}</div><div class="row" style="gap:6px"><button class="btn sm" data-qedit="${esc(id)}">✏️ Corriger</button><button class="btn sm" data-qshare="${esc(id)}">📤 Partager</button></div></div>`; }
+/* ---------- 📤 partager une question : lien qui ouvre l'appli des élèves directement sur la question, à cocher ---------- */
+function qxLienQ(qid){ const u = new URL(qxSite(), location.href); u.searchParams.set('q', qid); return u.href; }
+function qxPartager(qid, part){
+  const q = qxQ(qid); if(!q) return; const lien = qxLienQ(qid);
+  const def = `📌 Question à revoir (${matName(q.m)})\n${part?`Beaucoup d’entre vous se trompent sur cette question (${part} % ont choisi une autre réponse). `:''}Reprends-la et coche ta réponse : l’explication s’affiche après.\n\n« ${String(q.q||'').slice(0,160)}${String(q.q||'').length>160?'…':''} »`;
+  openModal(`<h2 style="margin:0 0 6px;font-family:var(--display)">📤 Partager la question</h2><p class="muted" style="margin:0 0 8px">L’élève qui touche le lien arrive <b>directement sur la question</b> dans l’appli et peut la cocher.</p>
+    <label class="lbl" for="qsM">Message (ajoute ton explication ou un rappel de la notion)</label><textarea class="field" id="qsM" rows="7" maxlength="2000">${esc(def)}</textarea>
+    <label class="lbl" for="qsL">Lien</label><input class="field" id="qsL" readonly value="${esc(lien)}" onclick="this.select()">
+    <div class="row wrap" style="gap:8px;margin-top:14px;justify-content:flex-end"><button class="btn" id="mno">Fermer</button><button class="btn" id="qsC">📋 Copier</button>${navigator.share?'<button class="btn" id="qsS">📤 Autres applis</button>':''}<button class="btn pri" id="qsW" style="background:#25d366;border-color:#25d366">💬 WhatsApp</button></div>`);
+  const txt = ()=>($('#qsM').value.trim()+'\n👉 '+lien);
+  $('#mno').onclick = closeModal;
+  $('#qsW').onclick = ()=>{ window.open('https://wa.me/?text='+encodeURIComponent(txt()), '_blank', 'noopener'); audit('Question partagée', matName(q.m)+' · '+qid); };
+  $('#qsC').onclick = async ()=>{ try{ await navigator.clipboard.writeText(txt()); toast('Message et lien copiés.'); }catch(e){ $('#qsL').select(); toast('Copie impossible : sélectionne le lien.'); } };
+  const sh = $('#qsS'); if(sh) sh.onclick = ()=>navigator.share({title:'Question à revoir', text:txt()}).catch(()=>{});
+}
+function qxVerifHTML(){
+  if(qxEval('typeof riDoublons')!=='function') return `<div class="card" style="margin-bottom:16px"><h3 style="margin:0 0 4px">🧭 Questions à vérifier</h3><p class="muted" style="margin:0">Disponible quand l’appli lue (${UI.qSite==='test'?'site test':'site élèves'}) est à jour.</p></div>`;
+  const C = (QX.corr||[]).filter(c=>c.actif).slice(0,30), O = QX.simOuv||{};
+  const cf = QX.conf;
+  return `<div class="card" style="margin-bottom:16px"><h3 style="margin:0 0 4px">🧭 Questions à vérifier</h3>
+    <p class="muted" style="margin:0 0 8px;font-size:13.5px">Quand tu corriges une question, la même question dans les autres sujets (même énoncé, mêmes propositions) est corrigée en même temps.</p>
+    <button class="btn" id="qxconf">${QX.confOuv?'▲ Masquer':'⚠️ Questions identiques avec des réponses différentes'}${cf?' · '+cf.length:''}</button>
+    ${QX.confOuv&&cf?(cf.length?`<p class="muted" style="margin:8px 0 0;font-size:13.5px">Même énoncé et mêmes propositions, mais pas la même bonne réponse : l’une est sûrement fausse. Corrige la bonne réponse, les autres suivront.</p>`+cf.slice(0,40).map(G=>`<div style="border:1.5px solid #fcd34d;background:#fffbeb;border-radius:12px;padding:0 10px;margin:8px 0">${G.map(id=>qxLigneV(id)).join('')}</div>`).join('')+(cf.length>40?`<p class="muted">… et ${cf.length-40} autre(s).</p>`:''):'<p class="muted">✅ Aucune : toutes les questions identiques ont la même réponse.</p>'):''}
+    <h4 style="margin:14px 0 4px">🔎 Questions similaires aux questions corrigées</h4>
+    ${C.length?C.map(c=>{ const D = qxEval('riDoublons('+JSON.stringify(c.qid)+')')||[], ouv = O[c.qid], S = ouv ? (qxEval('riSimilaires('+JSON.stringify(c.qid)+',10,.5)')||[]) : null;
+      return `<div style="border:1px solid var(--line);border-radius:12px;padding:0 10px 8px;margin:8px 0">${qxLigneV(c.qid, D.length?`<div style="font-size:13px;margin-top:4px">🔁 <b>${D.length}</b> question${D.length>1?'s':''} identique${D.length>1?'s':''} dans d’autres sujets, corrigée${D.length>1?'s':''} aussi</div>`:'')}
+        <button class="btn sm" data-qxsim="${esc(c.qid)}">${ouv?'▲ Masquer':'🔎 Questions similaires à vérifier'}</button>
+        ${S?(S.length?`<p class="muted" style="margin:6px 0 0;font-size:13px">Elles se ressemblent sans être identiques : vérifie si la même correction s’applique.</p>`+S.map(x=>qxLigneV(x.id, `<div class="muted" style="font-size:12.5px">ressemblance ${x.score} %</div>`)).join(''):'<p class="muted" style="margin:6px 0 0">Aucune question similaire trouvée.</p>'):''}</div>`; }).join('') : '<p class="muted" style="margin:0">Aucune correction publiée pour l’instant.</p>'}
+  </div>`;
+}
 function qxSite(){ if(window.__QSITE) return window.__QSITE; const t = UI.qSite || (/revision-infas-test/.test(location.href) ? 'test' : 'eleves'); return t==='test' ? CP_TEST : portailUrl(); }
 function qxCharger(force){
   if(QX.etat==='charge' && !force) return; if(QX.etat==='ok' && !force) return;
@@ -2437,11 +2522,11 @@ VIEWS.questions = ()=>{
       return `<div class="row wrap" style="gap:12px;padding:10px 0;border-top:1px solid var(--line);align-items:flex-start"><div style="flex:1;min-width:240px"><b>${esc(matName(z.q.m))}</b> <span class="muted" style="font-size:12.5px">· ${esc(z.qid)}</span><div style="font-size:14px;margin-top:2px">${esc(String(z.q.q).slice(0,180))}</div>
         <div style="margin-top:6px;font-size:13.5px"><b style="color:var(--danger,#c62828)">${Math.round(z.part*100)} % ont choisi ${esc(qxCleTxt(z.top))}</b> alors que le corrigé dit <b>${esc(qxCleTxt(z.cle))}</b> · ${fmt(tot)} réponses</div>
         <div style="display:flex;gap:4px;margin-top:6px;flex-wrap:wrap">${ks.map(k=>`<span class="pill" style="font-weight:700;${k===z.cle?'background:#e9f9ef;color:#166534':''}">${esc(qxCleTxt(k))} · ${Math.round(dist[k]/tot*100)} %</span>`).join('')}</div></div>
-        <button class="btn pri" data-qedit="${esc(z.qid)}">✏️ Corriger</button></div>`; }).join('') : '<p class="muted" style="margin:6px 0 0">Aucun corrigé suspect pour l’instant (il faut au moins 10 réponses à une question). Les réponses arrivent avec la nouvelle version de l’appli.</p>'}</div>`;
+        <div class="row" style="gap:6px;flex-wrap:wrap"><button class="btn pri" data-qedit="${esc(z.qid)}">✏️ Corriger</button><button class="btn" data-qshare="${esc(z.qid)}" data-qpart="${Math.round(z.part*100)}">📤 Partager</button></div></div>`; }).join('') : '<p class="muted" style="margin:6px 0 0">Aucun corrigé suspect pour l’instant (il faut au moins 10 réponses à une question). Les réponses arrivent avec la nouvelle version de l’appli.</p>'}</div>`;
   const C = (QX.corr||[]);
   const corr = C.length ? `<div class="card" style="margin-bottom:16px"><h3 style="margin:0 0 6px">✅ Corrections publiées · ${C.filter(c=>c.actif).length}</h3>${C.slice(0,30).map(c=>`<div class="row wrap" style="gap:10px;padding:8px 0;border-top:1px solid var(--line)"><span style="flex:1;min-width:200px"><b>${esc(matName(String(c.qid).split('.')[0]))}</b> · ${esc(c.qid)} <span class="muted">· ${dhfr(c.t)}${c.note?' · '+esc(c.note):''}</span></span>${c.actif?`<span class="pill ok">En ligne</span><button class="btn sm" data-qedit="${esc(c.qid)}">Modifier</button><button class="btn sm" data-qann="${esc(c.qid)}">Annuler</button>`:'<span class="pill">Annulée</span>'}</div>`).join('')}</div>` : '';
   const qq = nrmTxt((QX.q||'').trim()), L = qxListe(QX.mid).filter(x=>!qq || nrmTxt(x.q+' '+x.s+' '+x.id).includes(qq));
-  return head + susp + corr + `<div class="card">
+  return head + susp + corr + qxVerifHTML() + `<div class="card">
     <h3 style="margin:0 0 10px">📚 Toutes les questions</h3>
     <div class="row wrap" style="gap:10px;margin-bottom:10px"><select class="field" id="qxmid" style="max-width:340px" aria-label="Matière">${mats.map(m=>`<option value="${esc(m.id)}" ${m.id===QX.mid?'selected':''}>${esc(m.nom)} · ${m.n}</option>`).join('')}</select>
       <input class="field" id="qxq" placeholder="Chercher des mots de la question ou son numéro…" value="${esc(QX.q||'')}" style="flex:1;min-width:220px" aria-label="Chercher une question"></div>
@@ -2451,12 +2536,15 @@ VIEWS.questions = ()=>{
   </div>`;
 };
 AFTER.questions = ()=>{
+  const vc = $('#qxconf'); if(vc) vc.onclick = ()=>{ QX.confOuv = !QX.confOuv; if(QX.confOuv && !QX.conf){ vc.textContent = '⏳ Recherche…'; setTimeout(()=>{ QX.conf = qxConflits(); render(); }, 30); return; } render(); };
+  document.querySelectorAll('[data-qxsim]').forEach(b=>b.onclick=()=>{ const k = b.dataset.qxsim; QX.simOuv = QX.simOuv||{}; QX.simOuv[k] = !QX.simOuv[k]; render(); });
   document.querySelectorAll('[data-qsite]').forEach(b=>b.onclick=()=>{ UI.qSite = b.dataset.qsite; QX.etat=''; QX.mid=''; render(); });
   const re = $('#qxre'); if(re) re.onclick = ()=>{ QX.etat=''; render(); };
   const m = $('#qxmid'); if(m) m.onchange = ()=>{ QX.mid = m.value; QX.lim = 40; render(); };
   const q = $('#qxq'); if(q) q.oninput = ()=>{ const pos = q.selectionStart; QX.q = q.value; clearTimeout(q.t); q.t = setTimeout(()=>{ render(); const n = $('#qxq'); if(n){ n.focus(); try{ n.setSelectionRange(pos,pos); }catch(e){} } }, 250); };
   const pl = $('#qxplus'); if(pl) pl.onclick = ()=>{ QX.lim += 60; render(); };
   bindQedit();
+  document.querySelectorAll('[data-qshare]').forEach(b=>b.onclick=()=>qxPartager(b.dataset.qshare, b.dataset.qpart));
   document.querySelectorAll('[data-qann]').forEach(b=>b.onclick=()=>confirmModal('Annuler la correction ?', 'La question revient à sa version d’origine sur les téléphones, à leur prochaine ouverture.', 'Oui, annuler', async ()=>{
     try{ const {data,error} = await SB.rpc('annuler_correction', {p_qid:b.dataset.qann}); if(error) throw error; closeModal(); audit('Correction annulée', b.dataset.qann); toast('Correction annulée.'); QX.etat=''; await qxSuspects(true); render(); }
     catch(e){ toast('Annulation impossible : '+(typeof frErr==='function'?frErr(e):e.message)); } }));
@@ -2604,16 +2692,19 @@ function qxEditer(qid, reps){
   const R = (reps || DB.reports.filter(r=>r.qid===qid && !r.reponse && r.appareil));
   /* images de l'explication : photos jointes aux signalements de cette question (Oui / Non pour chacune) + images déjà intégrées */
   const PH = DB.reports.filter(r=>r.qid===qid && r.photo).map(r=>r.photo).filter((p,i,a)=>a.indexOf(p)===i);
-  const XI0 = Array.isArray(q0.xi) ? q0.xi.filter(xiOk) : [], KEEP = XI0.map(()=>true), ADD = PH.map(()=>false);
+  const XI0 = Array.isArray(q0.xi) ? q0.xi.filter(xiOk) : [], KEEP = XI0.map(()=>true), ADD = PH.map(()=>false), NEW = [];
   const drawImg = ()=>{
     const z = $('#qximg'); if(!z) return;
-    if(!PH.length && !XI0.length){ z.innerHTML = ''; return; }
     const bt = (attr,i,on,v,l)=>`<button type="button" class="btn sm" ${attr}="${i}" data-v="${v}" aria-pressed="${on}" style="min-width:84px;border:2px solid ${on?(v?'#16a34a':'#dc2626'):'var(--line)'};background:${on?(v?'#effbf2':'#fef2f2'):'transparent'};font-weight:800">${on?'✓ ':''}${l}</button>`;
     z.innerHTML = `<div class="lbl" style="margin-top:12px">🖼️ Images de l’explication</div>`
       + XI0.map((u,i)=>`<div class="row" style="gap:10px;align-items:center;margin:6px 0;padding:8px;border:1.5px solid var(--line);border-radius:12px;${KEEP[i]?'':'opacity:.55'}"><a href="${esc(u)}" target="_blank" rel="noopener"><img src="${esc(u)}" alt="Image de l’explication" style="width:84px;height:84px;object-fit:cover;border-radius:8px"></a><div style="flex:1"><b>Image déjà dans l’explication</b><div class="row" style="gap:8px;margin-top:6px">${bt('data-xikeep',i,KEEP[i],1,'Garder')}${bt('data-xikeep',i,!KEEP[i],0,'Retirer')}</div></div></div>`).join('')
+      + NEW.map((x,i)=>`<div class="row" style="gap:10px;align-items:center;margin:6px 0;padding:8px;border:1.5px solid #16a34a;border-radius:12px"><img src="${x.u}" alt="Nouvelle image" style="width:84px;height:84px;object-fit:cover;border-radius:8px"><div style="flex:1"><b>Nouvelle image</b><div class="cnote">✅ Sera ajoutée sous l’explication à la publication (${Math.round(x.b.size/1024)} Ko).</div><button type="button" class="btn sm" data-xinew="${i}" style="margin-top:6px">✕ Retirer</button></div></div>`).join('')
+      + `<label class="btn sm" style="margin:6px 0;display:inline-flex;gap:6px;align-items:center;cursor:pointer">➕ Ajouter une image ou une photo<input type="file" id="qxfile" accept="image/*" multiple style="display:none"></label>`
       + PH.map((p,i)=>`<div class="row" style="gap:10px;align-items:center;margin:6px 0;padding:8px;border:1.5px solid ${ADD[i]?'#16a34a':'var(--line)'};border-radius:12px"><div data-xiph="${esc(p)}" style="width:84px;height:84px;display:flex;align-items:center;justify-content:center;background:var(--soft,#f4f2fb);border-radius:8px;font-size:12px">📷…</div><div style="flex:1"><b>Photo envoyée par l’élève : l’intégrer à l’explication de la réponse ?</b><div class="row" style="gap:8px;margin-top:6px">${bt('data-xiadd',i,ADD[i],1,'Oui')}${bt('data-xiadd',i,!ADD[i],0,'Non')}</div><div class="cnote" style="margin-top:4px">${ADD[i]?'✅ Sera visible par tous les élèves sous l’explication.':'Reste privée (visible seulement ici).'}</div></div></div>`).join('');
     z.querySelectorAll('[data-xikeep]').forEach(x=>x.onclick=()=>{ KEEP[+x.dataset.xikeep] = x.dataset.v==='1'; drawImg(); });
     z.querySelectorAll('[data-xiadd]').forEach(x=>x.onclick=()=>{ ADD[+x.dataset.xiadd] = x.dataset.v==='1'; drawImg(); });
+    z.querySelectorAll('[data-xinew]').forEach(x=>x.onclick=()=>{ const r = NEW.splice(+x.dataset.xinew,1)[0]; try{ URL.revokeObjectURL(r.u); }catch(e){} drawImg(); });
+    const fi = $('#qxfile'); if(fi) fi.onchange = async ()=>{ for(const f of [...fi.files]){ if(!/^image\//.test(f.type)){ toast('Ce fichier n’est pas une image.'); continue; } try{ const b = await xiReduire(f); NEW.push({b, u:URL.createObjectURL(b)}); }catch(e){ toast('Image illisible : '+f.name); } } drawImg(); };
     z.querySelectorAll('[data-xiph]').forEach(async el=>{ const u = await photoUrl(el.dataset.xiph); el.innerHTML = u ? `<a href="${esc(u)}" target="_blank" rel="noopener"><img src="${esc(u)}" alt="Photo envoyée par l’élève" style="width:84px;height:84px;object-fit:cover;border-radius:8px"></a>` : '📷 Photo'; });
   };
   const draw = ()=>{
@@ -2652,12 +2743,12 @@ function qxEditer(qid, reps){
     else if(T==='vf'){ if(VV==null){ toast('Touchez « Vrai » ou « Faux ».'); return; } n.v = VV; n.o = null; n.a = null; n.am = null; if(q0.r!=null) n.r = null; if(q0.acc!=null) n.acc = null; }
     else { const L = $('#qxr').value.split('\n').map(x=>x.trim()).filter(Boolean); if(!L.length){ toast('Écrivez la réponse attendue.'); return; } n.r = L[0]; n.acc = L.slice(1); n.o = null; n.a = null; n.am = null; n.v = null; }
     const champs = {}; Object.keys(n).forEach(k=>{ const a = n[k]==null||n[k]===''?null:n[k], b = q0[k]==null||q0[k]===''?null:q0[k]; if(JSON.stringify(a)!==JSON.stringify(b)) champs[k] = n[k]===''?null:n[k]; });
-    const xiAjout = PH.filter((p,i)=>ADD[i]), xiGarde = XI0.filter((u,i)=>KEEP[i]), xiChange = xiAjout.length>0 || xiGarde.length!==XI0.length;
+    const xiAjout = PH.filter((p,i)=>ADD[i]), xiGarde = XI0.filter((u,i)=>KEEP[i]), xiChange = xiAjout.length>0 || NEW.length>0 || xiGarde.length!==XI0.length;
     if(!Object.keys(champs).length && !xiChange){ toast('Rien n’a changé.'); return; }
-    if(xiAjout.length && (MODE!=='supabase' || !SB)){ toast('Connectez-vous au compte administrateur pour intégrer une photo.'); return; }
+    if((xiAjout.length || NEW.length) && (MODE!=='supabase' || !SB)){ toast('Connectez-vous au compte administrateur pour ajouter une image.'); return; }
     const b = $('#mok'); b.disabled = true; b.textContent = 'Publication…';
     try{
-      if(xiChange){ const U = xiGarde.slice(); for(const p of xiAjout){ b.textContent = '📷 Envoi de l’image…'; U.push(await xiCopier(p, qid)); } champs.xi = U.length ? U : null; b.textContent = 'Publication…'; }
+      if(xiChange){ const U = xiGarde.slice(); for(const p of xiAjout){ b.textContent = '📷 Envoi de l’image…'; U.push(await xiCopier(p, qid)); } for(const x of NEW){ b.textContent = '📷 Envoi de l’image…'; U.push(await xiEnvoyer(x.b, qid)); } champs.xi = U.length ? U : null; b.textContent = 'Publication…'; }
       /* une question déjà corrigée : on GARDE les champs de la correction précédente (énoncé, réponse…) et on y ajoute les nouveaux,
          sinon la nouvelle correction remplaçait l'ancienne (ex. énoncé corrigé puis réponse corrigée : l'énoncé était perdu) */
       if(MODE==='supabase' && SB){ try{ const {data,error} = await SB.rpc('corrections_liste'); if(!error && Array.isArray(data)) QX.corr = data; }catch(e){} }
