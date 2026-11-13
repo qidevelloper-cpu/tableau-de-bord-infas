@@ -1077,6 +1077,7 @@ const PAGES = [
   {id:'signalements', nom:'Signalements', icon:'flag', grp:2, count:()=>sigGroupes(DB.reports.filter(r=>r.statut!=='corrige')).length},
   {id:'questions', nom:'Questions', icon:'quiz', grp:2, count:()=>(QX.suspects||[]).length},
   {id:'compos', nom:'Compositions', icon:'quiz', grp:2},
+  {id:'contrib', nom:'Contributeurs', icon:'star', grp:2},
   {id:'reglages', nom:'Réglages', icon:'gear', grp:3},
 ];
 const VIEWS = {}, AFTER = {};
@@ -2312,35 +2313,82 @@ function annonceModal(a){
    ========================================================= */
 function sigCarte(r){ const p=api.get('profiles',r.user_id), pn = r.appareil && nomDe(r.appareil); const qui = p?esc(fullName(p)):pn?esc(pn.prenom)+' · inscrit avec le nom':r.eleve?esc(String(r.eleve).replace(' (sans compte)',' · inscrit avec le nom')):r.appareil?'Élève ('+esc(String(r.appareil).slice(4,10))+')':'Élève';
     return `<article class="sigcard st-${esc(r.statut)}">
-    <div class="sighead"><b>${esc(matName(r.mat))}</b><span class="cnote">👤 ${qui} · ${dfr(r.date)} à ${hfr(r.date)}</span></div>
-    <div class="sigq"><span class="lab">Question${r.qid?' n° '+esc(r.qid):''}</span>${esc(r.question)}</div>
+    <div class="sighead"><b>${esc(matName(r.mat))}</b><span class="cnote">👤 ${qui} · ${dfr(r.date)} à ${hfr(r.date)}</span>${sigBilanTxt(r)}</div>
+    <div class="sigq"><span class="lab">Question${sigNumHTML(r)}</span>${esc(r.question)}</div>
     <div class="sigmsg"><span class="lab">💬 Message de l’élève</span>${esc(r.message).replace(/\n/g,'<br>')}</div>
     ${r.photo?`<div class="sigph" data-photo="${esc(r.photo)}"><span class="cnote">📷 Chargement de la photo…</span></div>`:''}
     ${r.note?`<div class="cnote" style="margin-top:6px">📝 Note : ${esc(r.note)}</div>`:''}
     ${r.reponse?`<div class="sigrep" style="margin-top:10px;padding:10px 12px;border-radius:12px;background:${r.reponse_type==='corrigee'?'#e9f9ef':'#eef2ff'}"><b>${r.reponse_type==='corrigee'?'✅ Réponse corrigée':'💡 Éclaircissement'}</b> <span class="cnote">· envoyé${r.reponse_at?' le '+dfr(r.reponse_at)+' à '+hfr(r.reponse_at):''} sur le téléphone de l’élève</span><div style="margin-top:4px;white-space:pre-wrap">${esc(r.reponse)}</div></div>`:''}
     <div class="row wrap" style="margin-top:12px">
       ${r.appareil?`<button class="btn" data-rrep="${r.id}" style="border-color:var(--violet);color:var(--violet);font-weight:700">✉️ ${r.reponse?'Modifier la réponse':'Répondre à l’élève'}</button>`:''}
-      ${r.qid?`<button class="btn pri" data-qedit="${esc(r.qid)}">✏️ Corriger ici</button><a class="btn" href="${esc(editeurUrl()+'?q='+encodeURIComponent(r.qid))}" target="_blank" rel="noopener" data-edopen="${r.id}">✏️ Corriger dans l’éditeur</a><button class="btn" data-nosig="${esc(r.qid)}">${nosigOn(r.qid)?'⚑ Réactiver le signalement':'🚫 Désactiver le signalement'}</button>`:''}
+      ${sq(r)?`<button class="btn pri" data-qedit="${esc(sq(r))}">✏️ Corriger ici</button><a class="btn" href="${esc(editeurUrl()+'?q='+encodeURIComponent(sq(r)))}" target="_blank" rel="noopener" data-edopen="${r.id}">✏️ Corriger dans l’éditeur</a><button class="btn" data-nosig="${esc(r.qid)}">${nosigOn(r.qid)?'⚑ Réactiver le signalement':'🚫 Désactiver le signalement'}</button>`:''}
       ${r.statut!=='en-cours'&&r.statut!=='corrige'?`<button class="btn" data-rs="${r.id}" data-to="en-cours">Prendre en charge</button>`:''}
       ${r.statut!=='corrige'?`<button class="btn" data-rs="${r.id}" data-to="corrige">✅ Marquer corrigé</button>`:`<button class="btn" data-rs="${r.id}" data-to="nouveau">Rouvrir</button>`}
     </div>
   </article>`; }
 /* signalements regroupés par question : une carte « N signalements », une seule correction et une seule réponse pour tous */
-function sigCle(r){ return r.qid ? 'q:'+r.qid : 'm:'+r.mat+'|'+nrmTxt(String(r.question||'').slice(0,120)); }
+function sigCle(r){ return sq(r) ? 'q:'+sq(r) : 'm:'+r.mat+'|'+nrmTxt(String(r.question||'').slice(0,120)); }
 function sigGroupes(L){ const G = new Map(); L.forEach(r=>{ const k = sigCle(r); if(!G.has(k)) G.set(k, {k, L:[]}); G.get(k).L.push(r); });
   return [...G.values()].map(g=>(g.L.sort((a,b)=>new Date(b.date)-new Date(a.date)), g)).sort((a,b)=>new Date(b.L[0].date)-new Date(a.L[0].date)); }
 function sigQui(r){ const p = api.get('profiles',r.user_id), pn = r.appareil && nomDe(r.appareil); return p?esc(fullName(p)):pn?esc(pn.prenom)+' · inscrit avec le nom':r.eleve?esc(String(r.eleve).replace(' (sans compte)',' · inscrit avec le nom')):'Élève'; }
 function sigGroupeCarte(g){ const r = g.L[0], ids = g.L.map(x=>x.id).join(','), sans = g.L.filter(x=>x.appareil && !x.reponse).length;
   return `<article class="sigcard st-${esc(r.statut)}">
     <div class="sighead"><b>${esc(matName(r.mat))}</b><span class="pill" style="background:var(--danger,#c62828);color:#fff;font-weight:800">🚩 ${g.L.length} signalements</span><span class="cnote">dernier le ${dfr(r.date)} à ${hfr(r.date)}</span></div>
-    <div class="sigq"><span class="lab">Question${r.qid?' n° '+esc(r.qid):''}</span>${esc(r.question)}</div>
-    <div class="sigmsg"><span class="lab">💬 Messages des élèves</span>${g.L.map(x=>`<div style="padding:6px 0;border-top:1px solid var(--line)"><b>${sigQui(x)}</b> <span class="cnote">· ${dfr(x.date)} à ${hfr(x.date)}${x.photo?' · 📷 photo':''}${x.reponse?' · ✉️ répondu':''}</span><div>${esc(x.message).replace(/\n/g,'<br>')}</div></div>`).join('')}</div>
+    <div class="sigq"><span class="lab">Question${sigNumHTML(r)}</span>${esc(r.question)}</div>
+    <div class="sigmsg"><span class="lab">💬 Messages des élèves</span>${g.L.map(x=>`<div style="padding:6px 0;border-top:1px solid var(--line)"><b>${sigQui(x)}</b>${sigBilanTxt(x)} <span class="cnote">· ${dfr(x.date)} à ${hfr(x.date)}${x.photo?' · 📷 photo':''}${x.reponse?' · ✉️ répondu':''}</span><div>${esc(x.message).replace(/\n/g,'<br>')}</div></div>`).join('')}</div>
     <div class="row wrap" style="margin-top:12px">
       ${sans?`<button class="btn" data-rrep="${esc(g.L.filter(x=>x.appareil && !x.reponse).map(x=>x.id).join(','))}" style="border-color:var(--violet);color:var(--violet);font-weight:700">✉️ Répondre aux ${sans} élève${sans>1?'s':''}</button>`:''}
-      ${r.qid?`<button class="btn pri" data-qedit="${esc(r.qid)}">✏️ Corriger ici</button><a class="btn" href="${esc(editeurUrl()+'?q='+encodeURIComponent(r.qid))}" target="_blank" rel="noopener" data-edopen="${esc(ids)}">Corriger dans l’éditeur</a><button class="btn" data-nosig="${esc(r.qid)}">${nosigOn(r.qid)?'⚑ Réactiver le signalement':'🚫 Désactiver le signalement'}</button>`:''}
+      ${sq(r)?`<button class="btn pri" data-qedit="${esc(sq(r))}">✏️ Corriger ici</button><a class="btn" href="${esc(editeurUrl()+'?q='+encodeURIComponent(sq(r)))}" target="_blank" rel="noopener" data-edopen="${esc(ids)}">Corriger dans l’éditeur</a><button class="btn" data-nosig="${esc(r.qid)}">${nosigOn(r.qid)?'⚑ Réactiver le signalement':'🚫 Désactiver le signalement'}</button>`:''}
       ${r.statut!=='en-cours'&&r.statut!=='corrige'?`<button class="btn" data-rs="${esc(ids)}" data-to="en-cours">Prendre en charge</button>`:''}
       ${r.statut!=='corrige'?`<button class="btn" data-rs="${esc(ids)}" data-to="corrige">✅ Marquer corrigé (${g.L.length})</button>`:`<button class="btn" data-rs="${esc(ids)}" data-to="nouveau">Rouvrir</button>`}
     </div></article>`; }
+/* ======================= SIGNALEMENTS : la vraie question et le bilan par élève =======================
+   Un téléphone resté sur une ancienne version de l'appli peut envoyer un numéro de question qui, dans la version
+   actuelle, désigne une autre question. On retrouve la question par le texte envoyé (situation + énoncé) dans l'appli
+   lue (page Questions) ; sinon on garde le numéro envoyé. Rien n'est réécrit dans Supabase. */
+const sq = r => (r && r.qidv) || (r && r.qid) || null;
+function sigTrouver(L){ /* exécuté DANS l'appli lue (iframe) */
+  const nz = s=>String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,' ').trim();
+  const txt = q=>nz(String((q.s?q.s+' — ':'')+q.q).slice(0,2000));
+  return (async()=>{ try{ const M = [...new Set(L.map(x=>x[2]))]; let ch = false;
+      for(const m of M) for(const k of [m,'plus-'+m,'plusnat-'+m]){ try{ if(typeof needX==='function' && needX(k)){ await ensureX(k); ch = true; } }catch(e){} }
+      if(ch) try{ applyContent(); }catch(e){} }catch(e){}
+    let IX = null; const out = {};
+    L.forEach(([id,qid,mat,t])=>{ const T = nz(t), q = QI[qid]; if(!T){ out[id] = ''; return; } if(q && txt(q)===T){ out[id] = ''; return; }
+      if(!IX){ IX = {}; Object.keys(QI).forEach(k=>{ const x = QI[k]; if(!x || !x.q) return; const s = txt(x); (IX[s] = IX[s] || []).push(k); }); }
+      const c = IX[T] || []; out[id] = c.find(k=>QI[k].m===mat) || c[0] || (q ? '?' : ''); });
+    return out; })();
+}
+let SIGR = false;
+async function sigResoudre(){
+  if(SIGR || QX.etat!=='ok' || !QX.W) return 0; const L = DB.reports.filter(r=>r.qid && r.question && r.qidv===undefined); if(!L.length) return 0;
+  SIGR = true; let n = 0;
+  try{ const out = await QX.W.eval('('+sigTrouver.toString()+')('+JSON.stringify(L.map(r=>[r.id, r.qid, r.mat, r.question]))+')') || {};
+    L.forEach(r=>{ const v = out[r.id]; if(v && v!=='?' && v!==r.qid){ r.qidv = v; n++; } else { r.qidv = null; if(v==='?') r.qidTxt = true; } }); }
+  catch(e){} finally{ SIGR = false; }
+  return n;
+}
+function sigAttendre(){ /* charge l'appli lue puis retrouve les vraies questions, sans bloquer la page */
+  if(!DB.reports.some(r=>r.qid && r.qidv===undefined)) return;
+  if(QX.etat!=='ok'){ if(QX.etat!=='charge') qxCharger(); const t0 = Date.now(); const w = ()=>{ if(QX.etat==='ok') sigAttendre(); else if(QX.etat!=='err' && Date.now()-t0<90e3) setTimeout(w, 800); }; setTimeout(w, 800); return; }
+  sigResoudre().then(n=>{ if(n && ['signalements','contrib'].includes(page)) render(); });
+}
+function sigNumHTML(r){ if(!r.qid) return ''; if(r.qidv) return ` n° ${esc(r.qidv)} <span class="pill" style="background:#fff7e0;color:#8a5a00;font-weight:700" title="Le téléphone avait une ancienne version de l’appli">⚠️ retrouvée par son texte · n° envoyé ${esc(r.qid)}</span>`;
+  return ' n° '+esc(r.qid)+(r.qidTxt?' <span class="cnote">· texte modifié depuis (déjà corrigée ?)</span>':''); }
+/* bilan par élève : signalements, photos, signalements justes (question corrigée ou réponse « ✅ Réponse corrigée ») */
+const sigJuste = r => r.statut==='corrige' || r.reponse_type==='corrigee';
+const sigCleEleve = r => r.appareil || r.user_id || null;
+function sigBilan(){ const G = new Map(); DB.reports.forEach(r=>{ const k = sigCleEleve(r); if(!k) return; let g = G.get(k);
+    if(!g){ g = {k, nom:'', sig:0, ph:0, ok:0, qs:new Set()}; G.set(k, g); } g.sig++; if(r.photo) g.ph++; if(sigJuste(r)) g.ok++; if(sq(r)) g.qs.add(sq(r));
+    if(!g.nom){ const p = api.get('profiles', r.user_id), pn = r.appareil && nomDe(r.appareil); g.nom = p ? fullName(p) : pn ? pn.prenom : r.eleve ? String(r.eleve).replace(/\s*\(sans compte\)\s*/,'').trim() : ''; } });
+  return G; }
+function sigBilanTxt(r){ const g = sigBilan().get(sigCleEleve(r)); if(!g) return ''; return ` <span class="cnote" title="Tous ses signalements">· ${g.sig} signalement${g.sig>1?'s':''} · 📷 ${g.ph} · ✅ ${g.ok} juste${g.ok>1?'s':''}</span>`; }
+function sigBilanCarte(){ const L = [...sigBilan().values()].sort((a,b)=>(b.ok-a.ok)||(b.ph-a.ph)||(b.sig-a.sig)); if(!L.length) return '';
+  const lig = g=>`<tr><td style="padding:6px 8px"><b>${esc(g.nom||'(sans nom)')}</b></td><td style="text-align:center">${g.sig}</td><td style="text-align:center">${g.ph}</td><td style="text-align:center"><b>${g.ok}</b></td><td style="text-align:center">${g.sig?Math.round(g.ok/g.sig*100)+' %':''}</td></tr>`;
+  return `<details class="card" style="margin-bottom:14px" ${UI.sigBil?'open':''} id="sigbil"><summary style="cursor:pointer;font-weight:800">📊 Signalements par élève · ${L.length} élève${L.length>1?'s':''} <span class="cnote">(signalements, photos fournies, signalements justes)</span></summary>
+    <div style="overflow-x:auto;margin-top:8px"><table style="width:100%;border-collapse:collapse;font-size:14px"><thead><tr style="text-align:left;border-bottom:1.5px solid var(--line)"><th style="padding:6px 8px">Élève</th><th>Signalements</th><th>📷 Photos</th><th>✅ Justes</th><th>Taux juste</th></tr></thead>
+    <tbody>${L.slice(0, UI.sigBilN||20).map(lig).join('')}</tbody></table></div>${L.length>(UI.sigBilN||20)?'<button class="btn sm" id="sigbilplus" style="margin-top:8px">Voir tous les élèves</button>':''}
+    <div class="cnote" style="margin-top:6px">« Juste » = la question a été corrigée (✅ Marquer corrigé, ou correction publiée avec « Prévenir l’élève »). Médailles : page <a href="#" id="sigbilct">Contributeurs</a>.</div></details>`; }
 VIEWS.signalements = ()=>{
   const st = UI.sig, cnt = s=>sigGroupes(DB.reports.filter(r=>r.statut===s)).length;
   const L = DB.reports.filter(r=>r.statut===st).sort((a,b)=>new Date(b.date)-new Date(a.date));
@@ -2355,6 +2403,7 @@ VIEWS.signalements = ()=>{
     ${MODE==='supabase'&&notif==='denied'?`<span class="cnote">Notifications bloquées par le navigateur (cadenas de la barre d’adresse).</span>`:''}
   </div>
   ${waDestCard()}
+  ${sigBilanCarte()}
   <div class="chips" style="margin-bottom:14px">${tabs.map(([v,l])=>`<button class="chip ${st===v?'on':''}" data-sig="${v}">${l} · ${cnt(v)}</button>`).join('')}</div>
   <div class="siglist">${sigGroupes(L).map(g=>g.L.length>1?sigGroupeCarte(g):sigCarte(g.L[0])).join('') || `<div class="cempty">${st==='corrige'?'Aucun signalement corrigé pour l’instant.':'Rien à traiter ici. Les nouveaux signalements des élèves apparaîtront dans cette liste.'}</div>`}</div>`;
 };
@@ -2412,7 +2461,9 @@ async function photoUrl(path){
   PHOTOS[path] = {u:data.signedUrl, t:Date.now()}; return data.signedUrl;
 }
 AFTER.signalements = ()=>{
-  waDestCharger();
+  waDestCharger(); sigAttendre();
+  const sb = $('#sigbil'); if(sb) sb.ontoggle = ()=>{ UI.sigBil = sb.open; }; const sbp = $('#sigbilplus'); if(sbp) sbp.onclick = ()=>{ UI.sigBil = true; UI.sigBilN = 100000; render(); };
+  const sbc = $('#sigbilct'); if(sbc) sbc.onclick = e=>{ e.preventDefault(); go('contrib'); };
   if($('#wadok')) $('#wadok').onclick = ()=>waDestEnregistrer($('#wadn').value);
   if($('#wadn')) $('#wadn').onkeydown = e=>{ if(e.key==='Enter') waDestEnregistrer($('#wadn').value); };
   if($('#wadx')) $('#wadx').onclick = ()=>waDestEnregistrer('');
@@ -2496,7 +2547,7 @@ function qxCharger(force){
 const qxEval = js => { try{ return QX.W ? QX.W.eval(js) : null; }catch(e){ return null; } };
 function qxQ(qid){ const q = qxEval('QI['+JSON.stringify(qid)+']'); return q ? JSON.parse(JSON.stringify(q)) : null; }
 function qxMats(){ return qxEval('MAT.map(m=>({id:m.id,nom:m.title||m.short||m.id,n:(QBM[m.id]||[]).length}))') || []; }
-function qxListe(mid){ return qxEval('(QBM['+JSON.stringify(mid)+']||[]).map(q=>({id:q.id,t:q.t,q:String(q.q||""),s:String(q.s||""),c:!!q.__corr}))') || []; }
+function qxListe(mid){ return qxEval('(QBM['+JSON.stringify(mid)+']||[]).map(q=>({id:q.id,t:q.t,q:String(q.q||""),s:String(q.s||""),c:!!q.__corr,off:!!q.off}))') || []; }
 function qxCle(q){ if(!q) return ''; if(q.t==='vf') return q.v==null?'':q.v?'V':'F'; if(q.t!=='qcm') return ''; const a = Array.isArray(q.am)&&q.am.length ? q.am : [q.a]; return a.filter(i=>i!=null&&i>=0).map(i=>QL[i]).sort().join(''); }
 const qxCleTxt = k => k==='V'?'Vrai':k==='F'?'Faux':(k||'—').split('').join(', ');
 async function qxSuspects(force){
@@ -2524,14 +2575,14 @@ VIEWS.questions = ()=>{
         <div style="display:flex;gap:4px;margin-top:6px;flex-wrap:wrap">${ks.map(k=>`<span class="pill" style="font-weight:700;${k===z.cle?'background:#e9f9ef;color:#166534':''}">${esc(qxCleTxt(k))} · ${Math.round(dist[k]/tot*100)} %</span>`).join('')}</div></div>
         <div class="row" style="gap:6px;flex-wrap:wrap"><button class="btn pri" data-qedit="${esc(z.qid)}">✏️ Corriger</button><button class="btn" data-qshare="${esc(z.qid)}" data-qpart="${Math.round(z.part*100)}">📤 Partager</button></div></div>`; }).join('') : '<p class="muted" style="margin:6px 0 0">Aucun corrigé suspect pour l’instant (il faut au moins 10 réponses à une question). Les réponses arrivent avec la nouvelle version de l’appli.</p>'}</div>`;
   const C = (QX.corr||[]);
-  const corr = C.length ? `<div class="card" style="margin-bottom:16px"><h3 style="margin:0 0 6px">✅ Corrections publiées · ${C.filter(c=>c.actif).length}</h3>${C.slice(0,30).map(c=>`<div class="row wrap" style="gap:10px;padding:8px 0;border-top:1px solid var(--line)"><span style="flex:1;min-width:200px"><b>${esc(matName(String(c.qid).split('.')[0]))}</b> · ${esc(c.qid)} <span class="muted">· ${dhfr(c.t)}${c.note?' · '+esc(c.note):''}</span></span>${c.actif?`<span class="pill ok">En ligne</span><button class="btn sm" data-qedit="${esc(c.qid)}">Modifier</button><button class="btn sm" data-qann="${esc(c.qid)}">Annuler</button>`:'<span class="pill">Annulée</span>'}</div>`).join('')}</div>` : '';
+  const corr = C.length ? `<div class="card" style="margin-bottom:16px"><h3 style="margin:0 0 6px">✅ Corrections publiées · ${C.filter(c=>c.actif).length}</h3>${C.slice(0,30).map(c=>`<div class="row wrap" style="gap:10px;padding:8px 0;border-top:1px solid var(--line)"><span style="flex:1;min-width:200px">${/^suj:/.test(c.qid)?`<b>📝 Titre de sujet</b> · « ${esc(c.c&&c.c.titre||'')} »`:`<b>${esc(matName(String(c.qid).split('.')[0]))}</b> · ${esc(c.qid)}`} <span class="muted">· ${dhfr(c.t)}${c.note?' · '+esc(c.note):''}</span></span>${c.actif?`<span class="pill ok">En ligne</span>${/^suj:/.test(c.qid)?'':`<button class="btn sm" data-qedit="${esc(c.qid)}">Modifier</button>`}<button class="btn sm" data-qann="${esc(c.qid)}">Annuler</button>`:'<span class="pill">Annulée</span>'}</div>`).join('')}</div>` : '';
   const qq = nrmTxt((QX.q||'').trim()), L = qxListe(QX.mid).filter(x=>!qq || nrmTxt(x.q+' '+x.s+' '+x.id).includes(qq));
-  return head + susp + corr + qxVerifHTML() + `<div class="card">
+  return head + susp + qxSujCarte() + corr + qxVerifHTML() + `<div class="card">
     <h3 style="margin:0 0 10px">📚 Toutes les questions</h3>
     <div class="row wrap" style="gap:10px;margin-bottom:10px"><select class="field" id="qxmid" style="max-width:340px" aria-label="Matière">${mats.map(m=>`<option value="${esc(m.id)}" ${m.id===QX.mid?'selected':''}>${esc(m.nom)} · ${m.n}</option>`).join('')}</select>
       <input class="field" id="qxq" placeholder="Chercher des mots de la question ou son numéro…" value="${esc(QX.q||'')}" style="flex:1;min-width:220px" aria-label="Chercher une question"></div>
     <div class="muted" style="font-size:13px;margin-bottom:6px">${fmt(L.length)} question${L.length>1?'s':''}</div>
-    ${L.slice(0,QX.lim).map(x=>`<div class="row" style="gap:10px;padding:8px 0;border-top:1px solid var(--line)"><span class="pill" style="min-width:58px;justify-content:center">${x.t==='vf'?'QCD':x.t==='open'?'Ouverte':'QCM'}</span><span style="flex:1;font-size:14px">${esc(x.q.slice(0,160))}${x.c?' <span class="pill ok">corrigée</span>':''}${nosigOn(x.id)?' <span class="pill">🚫 signalement désactivé</span>':''}<br><span class="muted" style="font-size:12px">${esc(x.id)}</span></span><button class="btn sm" data-nosig="${esc(x.id)}" title="${nosigOn(x.id)?'Réactiver':'Désactiver'} « Signaler une erreur »">${nosigOn(x.id)?'⚑ Réactiver':'🚫'}</button><button class="btn sm" data-qedit="${esc(x.id)}">✏️ Corriger</button></div>`).join('')}
+    ${L.slice(0,QX.lim).map(x=>`<div class="row" style="gap:10px;padding:8px 0;border-top:1px solid var(--line)"><span class="pill" style="min-width:58px;justify-content:center">${x.t==='vf'?'QCD':x.t==='open'?'Ouverte':'QCM'}</span><span style="flex:1;font-size:14px">${esc(x.q.slice(0,160))}${x.c?' <span class="pill ok">corrigée</span>':''}${nosigOn(x.id)?' <span class="pill">🚫 signalement désactivé</span>':''}${x.off?' <span class="pill" style="background:#fdecec;color:#b42318;font-weight:700">🙈 question désactivée</span>':''}<br><span class="muted" style="font-size:12px">${esc(x.id)}</span></span><button class="btn sm" data-nosig="${esc(x.id)}" title="${nosigOn(x.id)?'Réactiver':'Désactiver'} « Signaler une erreur »">${nosigOn(x.id)?'⚑ Réactiver':'🚫'}</button><button class="btn sm" data-qoff="${esc(x.id)}" data-v="${x.off?0:1}" title="${x.off?'Remettre la question chez les élèves':'Retirer la question chez les élèves'}">${x.off?'👁️ Réactiver':'🙈 Désactiver'}</button><button class="btn sm" data-qedit="${esc(x.id)}">✏️ Corriger</button></div>`).join('')}
     ${L.length>QX.lim?`<button class="btn sm" id="qxplus" style="margin-top:8px">Voir plus</button>`:''}
   </div>`;
 };
@@ -2543,11 +2594,182 @@ AFTER.questions = ()=>{
   const m = $('#qxmid'); if(m) m.onchange = ()=>{ QX.mid = m.value; QX.lim = 40; render(); };
   const q = $('#qxq'); if(q) q.oninput = ()=>{ const pos = q.selectionStart; QX.q = q.value; clearTimeout(q.t); q.t = setTimeout(()=>{ render(); const n = $('#qxq'); if(n){ n.focus(); try{ n.setSelectionRange(pos,pos); }catch(e){} } }, 250); };
   const pl = $('#qxplus'); if(pl) pl.onclick = ()=>{ QX.lim += 60; render(); };
-  bindQedit();
+  bindQedit(); qxSujBind();
+  document.querySelectorAll('[data-qoff]').forEach(b=>b.onclick=()=>qxOff(b.dataset.qoff, b.dataset.v==='1'));
   document.querySelectorAll('[data-qshare]').forEach(b=>b.onclick=()=>qxPartager(b.dataset.qshare, b.dataset.qpart));
   document.querySelectorAll('[data-qann]').forEach(b=>b.onclick=()=>confirmModal('Annuler la correction ?', 'La question revient à sa version d’origine sur les téléphones, à leur prochaine ouverture.', 'Oui, annuler', async ()=>{
     try{ const {data,error} = await SB.rpc('annuler_correction', {p_qid:b.dataset.qann}); if(error) throw error; closeModal(); audit('Correction annulée', b.dataset.qann); toast('Correction annulée.'); QX.etat=''; await qxSuspects(true); render(); }
     catch(e){ toast('Annulation impossible : '+(typeof frErr==='function'?frErr(e):e.message)); } }));
+};
+/* ======================= MISE EN FORME DU TEXTE (explications) =======================
+   Balises lues par l'appli (riX) : [b] gras, [i] italique, [u] souligné, [p] petit, [g] grand, [tg] très grand. */
+function rixHTML(s){ let h = esc(s==null?'':String(s)); const T = {b:['<b>','</b>'],i:['<i>','</i>'],u:['<u>','</u>'],p:['<span style="font-size:.85em">','</span>'],g:['<span style="font-size:1.2em">','</span>'],tg:['<span style="font-size:1.45em">','</span>']};
+  for(let n=0;n<8;n++){ const h2 = h.replace(/\[(b|i|u|g|tg|p)\]([\s\S]*?)\[\/\1\]/g,(m,t,x)=>T[t][0]+x+T[t][1]); if(h2===h) break; h = h2; } return h.replace(/\[\/?(?:b|i|u|g|tg|p)\]/g,'').replace(/\n/g,'<br>'); }
+function rixBarre(id){ return `<div class="row wrap rixbar" data-rix="${id}" style="gap:4px;margin:4px 0">${[['b','<b>G</b>','Gras'],['i','<i>I</i>','Italique'],['u','<u>S</u>','Souligné'],['p','<span style="font-size:11px">A</span>','Petit'],['g','<span style="font-size:16px">A</span>','Grand'],['tg','<span style="font-size:20px;line-height:1">A</span>','Très grand'],['x','⌫','Enlever la mise en forme de la sélection']].map(([t,l,ti])=>`<button type="button" class="btn sm" data-rixt="${t}" title="${ti}" aria-label="${ti}" style="min-width:38px">${l}</button>`).join('')}<span class="cnote" style="align-self:center">Sélectionnez un passage puis touchez un bouton</span></div>`; }
+function rixBind(root){ (root||document).querySelectorAll('.rixbar').forEach(bar=>bar.querySelectorAll('[data-rixt]').forEach(b=>{ b.onmousedown = e=>e.preventDefault(); b.onclick = ()=>{
+  const ta = document.getElementById(bar.dataset.rix); if(!ta) return; const t = b.dataset.rixt, a = ta.selectionStart, z = ta.selectionEnd, v = ta.value, sel = v.slice(a,z);
+  let rep; if(t==='x') rep = sel.replace(/\[\/?(?:b|i|u|g|tg|p)\]/g,''); else { if(!sel){ toast('Sélectionnez d’abord le passage à mettre en forme.'); return; } rep = '['+t+']'+sel+'[/'+t+']'; }
+  ta.value = v.slice(0,a)+rep+v.slice(z); ta.focus(); ta.setSelectionRange(a, a+rep.length); ta.dispatchEvent(new Event('input')); }; })); }
+function rixApercu(ta, out){ if(!ta || !out) return; const f = ()=>{ out.innerHTML = ta.value.trim() ? '👁️ <span class="cnote">Aperçu :</span> '+rixHTML(ta.value) : ''; }; ta.addEventListener('input', f); f(); }
+
+/* ======================= DÉSACTIVER UNE QUESTION =======================
+   Correction « off: 1 » : la question disparaît chez les élèves (site élèves, site test) à leur prochaine ouverture ;
+   elle reste dans l'éditeur et ici, pour la réactiver (« off: null »). Les autres corrections de la question sont gardées. */
+async function qxOff(qid, on, silencieux){
+  if(MODE!=='supabase' || !SB){ toast('Connectez-vous au compte administrateur pour publier.'); return false; }
+  const go = async ()=>{
+    try{ const {data,error} = await SB.rpc('corrections_liste'); if(!error && Array.isArray(data)) QX.corr = data; }catch(e){}
+    const avant = (QX.corr||[]).find(c=>c.qid===qid && c.actif), ch = Object.assign({}, avant && avant.c && typeof avant.c==='object' ? avant.c : {}, {off: on ? 1 : null});
+    try{ const {data,error} = await SB.rpc('publier_correction', {p_qid:qid, p_champs:ch, p_note:on?'Question désactivée':'Question réactivée'}); if(error || !data || !data.ok) throw error||new Error('refusée');
+      try{ const X = QX.W.eval('QI['+JSON.stringify(qid)+']'); if(on) X.off = 1; else delete X.off; X.__corr = 1; }catch(e){}
+      const L = QX.corr = (QX.corr||[]).filter(c=>c.qid!==qid); L.unshift({id:data.id, qid, c:ch, note:on?'Question désactivée':'Question réactivée', actif:true, t:data.t});
+      audit(on?'Question désactivée':'Question réactivée', qid); if(!silencieux){ toast(on?'🙈 Question désactivée : les élèves ne la verront plus à leur prochaine ouverture.':'👁️ Question réactivée.', 4500); render(); } return true; }
+    catch(e){ toast('Impossible : '+(typeof frErr==='function'?frErr(e):e.message), 6000); return false; } };
+  if(!on || silencieux) return go();
+  confirmModal('Désactiver cette question ?', 'Elle disparaîtra des sujets, quiz et listes des élèves (site élèves et site test) à leur prochaine ouverture. Vous pourrez la réactiver ici à tout moment.', '🙈 Désactiver', async ()=>{ closeModal(); await go(); });
+}
+/* ======================= MODIFIER UN SUJET ENTIER (titre, énoncés, propositions, explications) =======================
+   Titre : correction « suj:<1re question du sujet> » {titre} ; questions : publier_correction comme « Corriger ». */
+function qxSujets(mid){ return qxEval('(()=>{const m='+JSON.stringify(mid)+';return sujets(m).map((L,k)=>({k,n:L.length,first:L[0]||"",t:String(sujTitre(m,k)||"")}))})()') || []; }
+function qxTitreCorr(first){ const c = (QX.corr||[]).find(x=>x.actif && x.qid==='suj:'+first); return c && c.c && c.c.titre ? String(c.c.titre) : ''; }
+function qxSujCarte(){ const mats = qxMats(); if(!mats.length) return '';
+  const mid = QX.sjm && mats.some(m=>m.id===QX.sjm) ? QX.sjm : (QX.mid || mats[0].id), L = qxSujets(mid);
+  return `<div class="card" style="margin-bottom:16px"><h3 style="margin:0 0 4px">📝 Modifier un sujet entier</h3><p class="muted" style="margin:0 0 10px;font-size:13px">Titre, énoncés, propositions et explications d’un sujet, avec <b>gras</b>, <i>italique</i>, <u>souligné</u> et taille du texte. S’applique au site élèves, au site test et à l’éditeur.</p>
+    <div class="row wrap" style="gap:10px"><select class="field" id="sjm" style="max-width:340px" aria-label="Cours">${mats.map(m=>`<option value="${esc(m.id)}" ${m.id===mid?'selected':''}>${esc(m.nom)}</option>`).join('')}</select>
+    <select class="field" id="sjk" style="flex:1;min-width:220px" aria-label="Sujet">${L.map(s=>`<option value="${s.k}">${esc(qxTitreCorr(s.first)||s.t)} · ${s.n} question${s.n>1?'s':''}</option>`).join('')}</select>
+    <button class="btn pri" id="sjgo" ${L.length?'':'disabled'}>✏️ Modifier ce sujet</button></div></div>`; }
+function qxSujBind(){ const m = $('#sjm'); if(m) m.onchange = ()=>{ QX.sjm = m.value; render(); }; const g = $('#sjgo'); if(g) g.onclick = ()=>qxSujEditer($('#sjm').value, +$('#sjk').value); }
+function qxSujEditer(mid, k){
+  const S0 = qxSujets(mid)[k]; if(!S0){ toast('Sujet introuvable.'); return; }
+  const ids = qxEval('sujets('+JSON.stringify(mid)+')['+k+']') || [], Q = ids.map(id=>qxQ(id)).filter(Boolean);
+  const titre0 = qxTitreCorr(S0.first) || S0.t;
+  openModal(`<button class="iconbtn x" id="mx" aria-label="Fermer">${ic('x')}</button><h2 style="margin:0 0 4px;font-family:var(--display)">📝 Modifier le sujet</h2>
+    <p class="muted" style="margin:0 0 10px;font-size:13px">${esc(matName(mid))} · ${Q.length} questions · seules les parties modifiées sont publiées. Pour changer une <b>bonne réponse</b>, touchez « Réponse… » sur la question.</p>
+    <label class="lbl" for="sjt">Titre du sujet</label><input class="field" id="sjt" maxlength="160" value="${esc(titre0)}">
+    ${Q.map((q,i)=>`<div class="card" style="margin:12px 0 0;padding:12px;border:1.5px solid var(--line)"><div class="row" style="gap:8px;align-items:center"><b>Question ${i+1}</b><span class="pill">${q.t==='vf'?'QCD':q.t==='open'?'Ouverte':'QCM'}</span><span class="muted" style="font-size:12px;flex:1">${esc(q.id)}${q.__corr?' · corrigée':''}</span><label class="cnote" style="display:flex;gap:4px;align-items:center;cursor:pointer"><input type="checkbox" id="sjoff${i}" ${q.off?'checked':''}> 🙈 Désactivée</label><button type="button" class="btn sm" data-sjrep="${esc(q.id)}">Réponse…</button></div>
+      ${q.s?`<label class="lbl" for="sjs${i}">Situation clinique</label><textarea class="field" id="sjs${i}" rows="2">${esc(q.s)}</textarea>`:''}
+      <label class="lbl" for="sjq${i}">Énoncé</label><textarea class="field" id="sjq${i}" rows="2">${esc(q.q||'')}</textarea>
+      ${q.t==='qcm'&&Array.isArray(q.o)?q.o.map((o,j)=>{ const ok = (Array.isArray(q.am)&&q.am.length?q.am:[q.a]).includes(j); return `<div class="row" style="gap:6px;margin-top:4px;align-items:center"><b style="min-width:20px;${ok?'color:#16a34a':''}">${QL[j]}${ok?'✓':''}</b><input class="field" id="sjo${i}_${j}" value="${esc(o)}" style="flex:1"></div>`; }).join(''):q.t==='vf'?`<div class="cnote">Bonne réponse : <b>${q.v?'Vrai':'Faux'}</b></div>`:`<div class="cnote">Réponse attendue : <b>${esc(q.r||'')}</b></div>`}
+      <label class="lbl" for="sjx${i}" style="margin-top:8px">Explication</label>${rixBarre('sjx'+i)}<textarea class="field" id="sjx${i}" rows="3">${esc(q.x||'')}</textarea><div id="sjxa${i}" style="font-size:14px;margin-top:4px"></div></div>`).join('')}
+    <label class="lbl" for="sjn" style="margin-top:12px">Ce qui a été modifié (pour vous, facultatif)</label><input class="field" id="sjn" maxlength="200">
+    <div class="row" style="justify-content:flex-end;margin-top:16px;position:sticky;bottom:0;background:var(--card,#fff);padding:8px 0"><button class="btn" id="mno">Annuler</button><button class="btn pri" id="mok">Publier les modifications</button></div>`);
+  $('#modal').style.width = 'min(860px,calc(100% - 28px))';
+  rixBind($('#modal')); Q.forEach((q,i)=>rixApercu($('#sjx'+i), $('#sjxa'+i)));
+  const fermer = ()=>{ $('#modal').style.width = ''; closeModal(); };
+  $('#mx').onclick = $('#mno').onclick = fermer;
+  document.querySelectorAll('[data-sjrep]').forEach(b=>b.onclick=()=>{ fermer(); qxEditer(b.dataset.sjrep); });
+  $('#mok').onclick = async ()=>{
+    if(MODE!=='supabase' || !SB){ toast('Connectez-vous au compte administrateur pour publier.'); return; }
+    const note = $('#sjn').value.trim() || null, W = [];
+    Q.forEach((q,i)=>{ const n = {q:$('#sjq'+i).value.trim(), x:$('#sjx'+i).value.trim(), off:$('#sjoff'+i).checked?1:null}; if($('#sjs'+i)) n.s = $('#sjs'+i).value.trim();
+      if(q.t==='qcm' && Array.isArray(q.o)) n.o = q.o.map((o,j)=>{ const e = $('#sjo'+i+'_'+j); return e ? e.value.trim() : o; });
+      if(!n.q) return; if(n.o && n.o.some(x=>!x)) return;
+      const ch = {}; Object.keys(n).forEach(f=>{ const a = n[f]===''?null:n[f], b = q[f]==null||q[f]===''?null:q[f]; if(JSON.stringify(a)!==JSON.stringify(b)) ch[f] = a; }); if(Object.keys(ch).length) W.push([q, ch]); });
+    if(Q.some((q,i)=>!$('#sjq'+i).value.trim())){ toast('Un énoncé ne peut pas être vide.'); return; }
+    const t = $('#sjt').value.trim(), tChange = t !== titre0;
+    if(!W.length && !tChange){ toast('Rien n’a changé.'); return; }
+    const b = $('#mok'); b.disabled = true; let n = 0, err = 0;
+    try{ const {data,error} = await SB.rpc('corrections_liste'); if(!error && Array.isArray(data)) QX.corr = data; }catch(e){}
+    try{
+      if(tChange){ b.textContent = 'Titre…'; const qid = 'suj:'+S0.first;
+        if(t && t!==S0.t){ const {data,error} = await SB.rpc('publier_correction', {p_qid:qid, p_champs:{titre:t}, p_note:note}); if(error || !data || !data.ok) err++; else n++; }
+        else if((QX.corr||[]).some(c=>c.qid===qid && c.actif)){ const {error} = await SB.rpc('annuler_correction', {p_qid:qid}); if(error) err++; else n++; } }
+      for(const [q, ch] of W){ b.textContent = 'Publication '+(n+1)+'/'+(W.length+(tChange?1:0))+'…';
+        const avant = (QX.corr||[]).find(c=>c.qid===q.id && c.actif); if(avant && avant.c && typeof avant.c==='object') Object.keys(avant.c).forEach(f=>{ if(!(f in ch)) ch[f] = avant.c[f]; });
+        try{ const {data,error} = await SB.rpc('publier_correction', {p_qid:q.id, p_champs:ch, p_note:note}); if(error || !data || !data.ok){ err++; continue; } n++;
+          try{ const X = QX.W.eval('QI['+JSON.stringify(q.id)+']'); Object.keys(ch).forEach(f=>{ if(ch[f]===null) delete X[f]; else X[f] = JSON.parse(JSON.stringify(ch[f])); }); X.__corr = 1; }catch(e){} }catch(e){ err++; } }
+      try{ const {data,error} = await SB.rpc('corrections_liste'); if(!error && Array.isArray(data)) QX.corr = data; }catch(e){}
+      audit('Sujet modifié depuis le tableau de bord', matName(mid)+' · '+(t||S0.t)+' · '+n+' modification(s)'); fermer();
+      toast(err ? '⚠️ '+n+' modification(s) publiée(s), '+err+' refusée(s).' : '✅ '+n+' modification(s) publiée(s) : les téléphones les recevront à leur prochaine ouverture.', 5000); render();
+    }catch(e){ b.disabled = false; b.textContent = 'Publier les modifications'; toast('Publication impossible : '+(typeof frErr==='function'?frErr(e):e.message), 6000); }
+  };
+}
+
+/* ======================= CONTRIBUTEURS & MÉDAILLES =======================
+   SQL : supabase/contributeurs/1_contributeurs.sql. L'élève reçoit la demande sur son téléphone (Oui / Non) ;
+   son nom n'apparaît (tableau d'honneur, « Sources photos fournies par … ») qu'après son Oui. */
+const CT = { etat:'', L:[], credits:[], reg:{actif:true, tableau:true, credits:true}, q:'' };
+const CT_MED = {or:'🥇 Or', argent:'🥈 Argent', bronze:'🥉 Bronze', merci:'🎖️ Mérite'};
+async function ctCharger(){ if(MODE!=='supabase' || !SB){ CT.etat = 'local'; return; } CT.etat = 'charge';
+  try{ const {data,error} = await SB.rpc('contrib_liste'); if(error) throw error; CT.L = data.contributeurs||[]; CT.credits = data.credits||[]; CT.reg = Object.assign({actif:true, tableau:true, credits:true}, data.reglages||{}); CT.etat = 'ok'; }
+  catch(e){ CT.etat = /contrib_liste|function|schema cache/i.test(String(e.message||e)) ? 'sql' : 'err'; }
+  if(page==='contrib') render(); }
+function ctCandidats(){ const G = {};
+  DB.reports.filter(r=>r.appareil).forEach(r=>{ const g = G[r.appareil] = G[r.appareil] || {a:r.appareil, nom:'', sig:0, ph:0, cor:0, qs:new Set()}; g.sig++; if(r.photo) g.ph++; if(sigJuste(r)) g.cor++; if(sq(r)) g.qs.add(sq(r));
+    if(!g.nom){ const p = api.get('profiles', r.user_id), pn = nomDe(r.appareil); g.nom = p ? fullName(p) : pn ? pn.prenom : r.eleve ? String(r.eleve).replace(/\s*\(sans compte\)\s*/,'').trim() : ''; } });
+  nomsEleves().forEach(x=>{ if(!G[x.a]) G[x.a] = {a:x.a, nom:x.prenom, sig:0, ph:0, cor:0, qs:new Set()}; });
+  CT.L.forEach(c=>{ if(!G[c.appareil]) G[c.appareil] = {a:c.appareil, nom:c.nom, sig:0, ph:0, cor:0, qs:new Set()}; });
+  return Object.values(G).map(g=>Object.assign(g, {c:CT.L.find(c=>c.appareil===g.a)||null, nq:g.qs.size})).sort((x,y)=>(!!y.c-!!x.c)||(y.ph-x.ph)||(y.sig-x.sig)||String(x.nom).localeCompare(String(y.nom))); }
+const ctStat = c => !c ? '' : c.statut==='accepte' ? '<span class="pill ok">✅ A dit Oui</span>' : c.statut==='refuse' ? '<span class="pill" style="background:#fdecec;color:#b42318">❌ A dit Non</span>' : '<span class="pill" style="background:#fff7e0;color:#8a5a00">⏳ Demande envoyée</span>';
+VIEWS.contrib = ()=>{
+  if(!CT.etat) ctCharger();
+  const head = headHTML('Contributeurs', 'Félicitez les étudiants qui apportent des sources, des questions ou des corrections : médailles visibles par tous et « Sources photos fournies par … » sous les questions. Leur nom n’apparaît qu’après leur accord (Oui sur leur téléphone).');
+  if(CT.etat==='local') return head + '<div class="card"><p class="muted" style="margin:0">Connectez-vous au compte administrateur (Supabase) pour gérer les contributeurs.</p></div>';
+  if(CT.etat==='sql') return head + '<div class="card"><b>Une étape dans Supabase :</b><p class="muted">Collez le fichier <b>supabase/contributeurs/1_contributeurs.sql</b> dans Supabase (SQL Editor → New query → coller → Run), puis rechargez cette page.</p></div>';
+  if(CT.etat!=='ok') return head + `<div class="card"><p class="muted" style="margin:0">${CT.etat==='err'?'Chargement impossible : vérifiez la connexion. <button class="btn sm" id="ctre">Réessayer</button>':'⏳ Chargement…'}</p></div>`;
+  const R = CT.reg, sw = (k,l,d)=>`<label class="row" style="gap:10px;padding:8px 0;cursor:pointer;align-items:flex-start"><input type="checkbox" data-ctreg="${k}" ${R[k]!==false?'checked':''} style="width:20px;height:20px;margin-top:2px"><span><b>${l}</b><br><span class="cnote">${d}</span></span></label>`;
+  const qq = nrmTxt(CT.q||''), C = ctCandidats().filter(g=>!qq || nrmTxt(g.nom+' '+g.a).includes(qq));
+  const lig = g=>{ const c = g.c; return `<div class="row wrap" style="gap:10px;padding:10px 0;border-top:1px solid var(--line);align-items:center"><div style="flex:1;min-width:220px"><b>${esc(g.nom||'(sans nom)')}</b> ${ctStat(c)} ${c&&c.medaille?`<span class="pill">${CT_MED[c.medaille]||''}</span>`:''}${c&&!c.visible?' <span class="pill">masqué</span>':''}
+      <div class="cnote">${g.sig} signalement${g.sig>1?'s':''} · ${g.ph} photo${g.ph>1?'s':''} · ${g.cor} juste${g.cor>1?'s':''}${c?` · crédité sur ${+c.nb_credits||0} question${(+c.nb_credits||0)>1?'s':''}`:''}${c&&c.felicitation&&!c.felicitation_vue?' · 🎉 félicitations pas encore lues':''}</div></div>
+      <div class="row" style="gap:6px;flex-wrap:wrap"><button class="btn sm" data-ctdem="${esc(g.a)}">🤝 ${c?'Redemander':'Demander son accord'}</button><button class="btn sm pri" data-ctmed="${esc(g.a)}">🏅 Médaille / félicitations</button>${c?`<button class="btn sm" data-ctcred="${esc(g.a)}">📷 Créditer</button><button class="btn sm" data-ctdel="${esc(g.a)}" aria-label="Retirer">🗑️</button>`:''}</div></div>`; };
+  const cred = CT.credits.length ? `<div class="card" style="margin-top:16px"><h3 style="margin:0 0 6px">📷 Sources créditées · ${CT.credits.length}</h3>${CT.credits.slice(0,60).map(s=>{ const c = CT.L.find(x=>x.appareil===s.appareil); return `<div class="row" style="gap:10px;padding:6px 0;border-top:1px solid var(--line)"><span style="flex:1;font-size:14px"><b>${esc(c?c.nom:'?')}</b> ${c&&c.statut!=='accepte'?'<span class="cnote">(pas affiché : pas encore Oui)</span>':''} · <span class="muted">${esc(s.qid)}</span></span><button class="btn sm" data-ctrm="${esc(s.qid)}|${esc(s.appareil)}">Retirer</button></div>`; }).join('')}</div>` : '';
+  return head + `<div class="card" style="margin-bottom:16px"><h3 style="margin:0 0 4px">⚙️ Réglages</h3>${sw('actif','Activer les contributeurs','Demandes d’accord, félicitations et médailles sur les téléphones.')}${sw('tableau','Tableau d’honneur sur l’accueil','Tous les contributeurs qui ont dit Oui (avec leur médaille s’ils en ont une), visibles par tous les élèves.')}${sw('credits','« 📷 Sources photos fournies par … » sous les questions','Le nom de l’élève sous l’explication quand sa photo a servi de source.')}</div>
+    <div class="card"><h3 style="margin:0 0 8px">👩‍🎓 Élèves</h3><input class="field" id="ctq" placeholder="Chercher un nom…" value="${esc(CT.q||'')}" style="margin-bottom:6px" aria-label="Chercher un élève">
+    <div class="cnote">Élèves qui ont envoyé des signalements ou donné leur nom. Quand vous ajoutez à une explication la photo d’un élève (Questions › Corriger), il est crédité automatiquement.</div>
+    ${C.slice(0,CT.lim||60).map(lig).join('') || '<p class="muted">Aucun élève pour l’instant.</p>'}${C.length>(CT.lim||60)?'<button class="btn sm" id="ctplus" style="margin-top:8px">Voir plus</button>':''}</div>` + cred;
+};
+AFTER.contrib = ()=>{
+  sigAttendre();
+  const re = $('#ctre'); if(re) re.onclick = ()=>{ CT.etat=''; render(); };
+  const q = $('#ctq'); if(q) q.oninput = ()=>{ const p = q.selectionStart; CT.q = q.value; clearTimeout(q.t); q.t = setTimeout(()=>{ render(); const n = $('#ctq'); if(n){ n.focus(); try{ n.setSelectionRange(p,p); }catch(e){} } }, 250); };
+  const pl = $('#ctplus'); if(pl) pl.onclick = ()=>{ CT.lim = (CT.lim||60)+100; render(); };
+  document.querySelectorAll('[data-ctreg]').forEach(x=>x.onchange = async ()=>{ const v = Object.assign({}, CT.reg, {[x.dataset.ctreg]: x.checked});
+    try{ const {data,error} = await SB.rpc('contrib_reglages_maj', {p_valeur:v}); if(error || !data || !data.ok) throw error||new Error('refusé'); CT.reg = v; audit('Contributeurs : réglage', x.dataset.ctreg+' = '+(x.checked?'oui':'non')); toast('✅ Réglage enregistré : les téléphones le recevront à leur prochaine ouverture.'); }
+    catch(e){ x.checked = !x.checked; toast('Enregistrement impossible : '+(typeof frErr==='function'?frErr(e):e.message)); } });
+  const G = a => ctCandidats().find(g=>g.a===a);
+  document.querySelectorAll('[data-ctdem]').forEach(b=>b.onclick=()=>{ const g = G(b.dataset.ctdem); if(!g) return; const prenom = String(g.nom||'').split(' ')[0];
+    openModal(`<button class="iconbtn x" id="mx" aria-label="Fermer">${ic('x')}</button><h2 style="margin:0 0 6px;font-family:var(--display)">🤝 Demander son accord</h2>
+      <p class="muted" style="margin:0 0 10px;font-size:13px">Le message s’ouvre sur le téléphone de l’élève avec deux boutons : « ✅ Oui, j’accepte » et « Non merci ».</p>
+      <label class="lbl" for="ctn">Nom affiché dans l’appli</label><input class="field" id="ctn" maxlength="80" value="${esc(g.nom||'')}">
+      <label class="lbl" for="ctm">Message</label><textarea class="field" id="ctm" rows="5">${esc('Bonjour '+(prenom||'')+' 👋\nMerci pour tes signalements et tes photos : ils rendent Révision INFAS meilleure pour tous les étudiants ! 🙏\nAcceptes-tu que ton nom apparaisse dans l’appli (« Sources photos fournies par … » sous les questions et tableau d’honneur) ?')}</textarea>
+      <div class="row" style="justify-content:flex-end;margin-top:14px"><button class="btn" id="mno">Annuler</button><button class="btn pri" id="mok">Envoyer la demande</button></div>`);
+    $('#mx').onclick = $('#mno').onclick = closeModal;
+    $('#mok').onclick = async ()=>{ const nom = $('#ctn').value.trim(); if(!nom){ toast('Écrivez le nom à afficher.'); return; }
+      try{ const {data,error} = await SB.rpc('contrib_demander', {p_appareil:g.a, p_nom:nom, p_message:$('#ctm').value.trim()}); if(error || !data || !data.ok) throw error||new Error('refusé');
+        closeModal(); audit('Contributeur : demande d’accord', nom); toast('✅ Demande envoyée : elle s’ouvrira sur son téléphone.'); await ctCharger(); }
+      catch(e){ toast('Envoi impossible : '+(typeof frErr==='function'?frErr(e):e.message)); } }; });
+  document.querySelectorAll('[data-ctmed]').forEach(b=>b.onclick=()=>{ const g = G(b.dataset.ctmed); if(!g) return; const c = g.c || {};
+    const deja = !!(c.appareil && (c.medaille || +c.nb_questions || +c.nb_sources || +c.nb_corrections)), nq = deja ? c.nb_questions : g.nq, ns = deja ? c.nb_sources : g.ph, nc = deja ? c.nb_corrections : g.cor;
+    openModal(`<button class="iconbtn x" id="mx" aria-label="Fermer">${ic('x')}</button><h2 style="margin:0 0 6px;font-family:var(--display)">🏅 Médaille et félicitations</h2>
+      ${c.statut==='accepte'?'':'<p class="cnote" style="margin:0 0 8px;padding:8px 10px;border-radius:10px;background:#fff7e0">⚠️ Son nom et sa médaille ne seront visibles des autres élèves qu’après son « Oui ». Les félicitations s’affichent sur son téléphone dans tous les cas.</p>'}
+      <label class="lbl" for="ctn">Nom</label><input class="field" id="ctn" maxlength="80" value="${esc(c.nom||g.nom||'')}">
+      <label class="lbl">Médaille</label><div class="row wrap" style="gap:6px">${[['','Aucune']].concat(Object.entries(CT_MED)).map(([v,l])=>`<label class="btn sm" style="cursor:pointer"><input type="radio" name="ctme" value="${v}" ${(c.medaille||'')===v?'checked':''}> ${l}</label>`).join('')}</div>
+      <label class="lbl" for="ctmt">Pour quoi ? (visible sous la médaille)</label><input class="field" id="ctmt" maxlength="300" value="${esc(c.medaille_texte||'')}" placeholder="Ex. Meilleur contributeur du mois de novembre">
+      <div class="row wrap" style="gap:10px"><div style="flex:1;min-width:120px"><label class="lbl" for="ctnq">Questions apportées</label><input class="field" type="number" min="0" id="ctnq" value="${+nq||0}"></div><div style="flex:1;min-width:120px"><label class="lbl" for="ctns">Sources apportées</label><input class="field" type="number" min="0" id="ctns" value="${+ns||0}"></div><div style="flex:1;min-width:120px"><label class="lbl" for="ctnc">Corrections apportées</label><input class="field" type="number" min="0" id="ctnc" value="${+nc||0}"></div></div>
+      <div class="cnote">Proposé d’après ses signalements : ${g.nq} question${g.nq>1?'s':''} signalée${g.nq>1?'s':''}, ${g.ph} photo${g.ph>1?'s':''}, ${g.cor} signalement${g.cor>1?'s':''} juste${g.cor>1?'s':''}.</div>
+      <label class="lbl" for="ctf">Message de félicitations (s’ouvre sur son téléphone ; vide = aucun)</label><textarea class="field" id="ctf" rows="3" placeholder="Bravo ${esc(String(c.nom||g.nom||'').split(' ')[0])} ! Merci pour ton aide précieuse 🎉">${esc(c.felicitation||'')}</textarea>
+      <label class="row" style="gap:8px;margin-top:10px;cursor:pointer"><input type="checkbox" id="ctv" ${c.visible===false?'':'checked'} style="width:18px;height:18px"><span>Afficher son nom au tableau d’honneur des élèves (dès son Oui, avec ou sans médaille)</span></label>
+      <div class="row" style="justify-content:flex-end;margin-top:14px"><button class="btn" id="mno">Annuler</button><button class="btn pri" id="mok">Enregistrer</button></div>`);
+    $('#mx').onclick = $('#mno').onclick = closeModal;
+    $('#mok').onclick = async ()=>{ const nom = $('#ctn').value.trim(); if(!nom){ toast('Écrivez le nom.'); return; } const me = (document.querySelector('[name=ctme]:checked')||{}).value||'';
+      const ch = {nom, medaille:me, medaille_texte:$('#ctmt').value.trim(), nb_questions:+$('#ctnq').value||0, nb_sources:+$('#ctns').value||0, nb_corrections:+$('#ctnc').value||0, visible:$('#ctv').checked};
+      const f = $('#ctf').value.trim(); if(f !== (c.felicitation||'')) ch.felicitation = f;
+      try{ const {data,error} = await SB.rpc('contrib_maj', {p_appareil:g.a, p_champs:ch}); if(error || !data || !data.ok) throw error||new Error('refusé');
+        closeModal(); audit('Contributeur : médaille / félicitations', nom+(me?' · '+CT_MED[me]:'')); toast('✅ Enregistré'+(f && f!==(c.felicitation||'')?' : les félicitations s’ouvriront sur son téléphone.':'.')); await ctCharger(); }
+      catch(e){ toast('Enregistrement impossible : '+(typeof frErr==='function'?frErr(e):e.message)); } }; });
+  document.querySelectorAll('[data-ctcred]').forEach(b=>b.onclick=()=>{ const g = G(b.dataset.ctcred); if(!g) return;
+    openModal(`<button class="iconbtn x" id="mx" aria-label="Fermer">${ic('x')}</button><h2 style="margin:0 0 6px;font-family:var(--display)">📷 Créditer une source</h2>
+      <p class="muted" style="margin:0 0 10px;font-size:13px">« Sources photos fournies par ${esc(g.c.nom)} » apparaîtra sous l’explication de ces questions${g.c.statut==='accepte'?'':' (après son Oui)'}.</p>
+      <label class="lbl" for="ctqi">Numéros des questions (un par ligne)</label><textarea class="field" id="ctqi" rows="4" placeholder="xpedexo.749">${esc([...g.qs].join('\n'))}</textarea>
+      <div class="row" style="justify-content:flex-end;margin-top:14px"><button class="btn" id="mno">Annuler</button><button class="btn pri" id="mok">Créditer</button></div>`);
+    $('#mx').onclick = $('#mno').onclick = closeModal;
+    $('#mok').onclick = async ()=>{ const L = $('#ctqi').value.split(/[\s,;]+/).map(x=>x.trim()).filter(Boolean); if(!L.length){ toast('Écrivez au moins un numéro.'); return; } let n = 0;
+      for(const qid of L){ try{ const {data} = await SB.rpc('contrib_crediter', {p_qid:qid, p_appareils:[g.a]}); if(data && data.ok) n++; }catch(e){} }
+      closeModal(); audit('Contributeur : sources créditées', g.c.nom+' · '+n); toast('✅ '+n+' question(s) créditée(s).'); await ctCharger(); }; });
+  document.querySelectorAll('[data-ctdel]').forEach(b=>b.onclick=()=>{ const g = G(b.dataset.ctdel); if(!g||!g.c) return; confirmModal('Retirer ce contributeur ?', 'Sa médaille et ses crédits de sources disparaîtront de l’appli.', 'Oui, retirer', async ()=>{
+    try{ const {error} = await SB.rpc('contrib_supprimer', {p_appareil:g.a}); if(error) throw error; closeModal(); audit('Contributeur retiré', g.c.nom); toast('Contributeur retiré.'); await ctCharger(); }catch(e){ toast('Impossible : '+(typeof frErr==='function'?frErr(e):e.message)); } }); });
+  document.querySelectorAll('[data-ctrm]').forEach(b=>b.onclick=async ()=>{ const [qid, a] = b.dataset.ctrm.split('|');
+    try{ const {error} = await SB.rpc('contrib_retirer_credit', {p_qid:qid, p_appareil:a}); if(error) throw error; toast('Crédit retiré.'); await ctCharger(); }catch(e){ toast('Impossible : '+(typeof frErr==='function'?frErr(e):e.message)); } });
 };
 /* « Signaler une erreur » désactivé pour certaines questions (déjà vérifiées) : réglage public.access.nosig, lu par l’appli */
 const nosigOn = qid => !!((DB.access.nosig||{})[qid]);
@@ -2689,9 +2911,9 @@ function qxEditer(qid, reps){
   let T = q0.t || 'qcm', OP = (q0.o||[]).map((t,i)=>({t:String(t), ok:(Array.isArray(q0.am)&&q0.am.length?q0.am:[q0.a]).includes(i)}));
   if(OP.length<2) OP = OP.concat([{t:'',ok:false},{t:'',ok:false}]).slice(0, Math.max(2, OP.length));
   let VV = q0.v==null ? null : (q0.v?1:0);
-  const R = (reps || DB.reports.filter(r=>r.qid===qid && !r.reponse && r.appareil));
+  const R = (reps || DB.reports.filter(r=>sq(r)===qid && !r.reponse && r.appareil));
   /* images de l'explication : photos jointes aux signalements de cette question (Oui / Non pour chacune) + images déjà intégrées */
-  const PH = DB.reports.filter(r=>r.qid===qid && r.photo).map(r=>r.photo).filter((p,i,a)=>a.indexOf(p)===i);
+  const PH = DB.reports.filter(r=>sq(r)===qid && r.photo).map(r=>r.photo).filter((p,i,a)=>a.indexOf(p)===i);
   const XI0 = Array.isArray(q0.xi) ? q0.xi.filter(xiOk) : [], KEEP = XI0.map(()=>true), ADD = PH.map(()=>false), NEW = [];
   const drawImg = ()=>{
     const z = $('#qximg'); if(!z) return;
@@ -2725,18 +2947,19 @@ function qxEditer(qid, reps){
     <label class="lbl" for="qxs">Situation clinique (cas clinique seulement)</label><textarea class="field" id="qxs" rows="2">${esc(q0.s||'')}</textarea>
     <label class="lbl" for="qxe">Énoncé</label><textarea class="field" id="qxe" rows="3">${esc(q0.q||'')}</textarea>
     <div id="qxrep" style="margin-top:8px"></div>
-    <label class="lbl" for="qxx">Explication</label><textarea class="field" id="qxx" rows="3">${esc(q0.x||'')}</textarea><div id="qximg"></div>
+    <label class="lbl" for="qxx">Explication</label>${rixBarre('qxx')}<textarea class="field" id="qxx" rows="3">${esc(q0.x||'')}</textarea><div id="qxxa" style="font-size:14px;margin-top:4px"></div><div id="qximg"></div>
     <label class="row" style="gap:8px;margin-top:12px;cursor:pointer;padding:10px 12px;border-radius:12px;background:var(--soft,#f4f2fb)"><input type="checkbox" id="qxns" ${nosigOn(qid)?'checked':''} style="width:18px;height:18px"><span>🚫 <b>Désactiver « Signaler une erreur »</b> pour cette question (question vérifiée : les élèves ne verront plus le bouton) <span class="cnote">· enregistré tout de suite</span></span></label>
+    <label class="row" style="gap:8px;margin-top:8px;cursor:pointer;padding:10px 12px;border-radius:12px;background:#fdf2f2"><input type="checkbox" id="qxoff" ${q0.off?'checked':''} style="width:18px;height:18px"><span>🙈 <b>Désactiver cette question</b> : elle disparaît chez les élèves (site élèves et site test), elle reste dans l’éditeur et ici</span></label>
     <label class="lbl" for="qxn">Ce qui a été corrigé (pour vous, facultatif)</label><input class="field" id="qxn" maxlength="200" placeholder="Ex. bonne réponse C au lieu de B">
     ${R.length?`<label class="row" style="gap:8px;margin-top:10px;cursor:pointer"><input type="checkbox" id="qxpre" checked style="width:18px;height:18px"><span>✉️ Prévenir ${R.length>1?`les <b>${R.length}</b> élèves qui ont signalé`:'l’élève qui a signalé'} cette question (« ✅ Réponse corrigée »)</span></label>`:''}
     <div class="row" style="justify-content:flex-end;margin-top:16px"><button class="btn" id="mno">Annuler</button><button class="btn pri" id="mok">Publier la correction</button></div>`);
   $('#modal').style.width = 'min(760px,calc(100% - 28px))';
   $('#qxns').onchange = e=>nosigSet(qid, e.target.checked);
-  draw(); drawImg(); $('#qxt').onchange = e=>{ T = e.target.value; if(T==='qcm' && OP.length<2) OP = [{t:'',ok:false},{t:'',ok:false}]; draw(); };
+  draw(); drawImg(); rixBind($('#modal')); rixApercu($('#qxx'), $('#qxxa')); $('#qxt').onchange = e=>{ T = e.target.value; if(T==='qcm' && OP.length<2) OP = [{t:'',ok:false},{t:'',ok:false}]; draw(); };
   const fermer = ()=>{ $('#modal').style.width = ''; closeModal(); };
   $('#mx').onclick = $('#mno').onclick = fermer;
   $('#mok').onclick = async ()=>{
-    const n = {t:T, q:$('#qxe').value.trim(), s:$('#qxs').value.trim(), x:$('#qxx').value.trim()};
+    const n = {t:T, q:$('#qxe').value.trim(), s:$('#qxs').value.trim(), x:$('#qxx').value.trim(), off:$('#qxoff').checked?1:null};
     if(!n.q){ toast('L’énoncé ne peut pas être vide.'); return; }
     if(T==='qcm'){ const F = OP.filter(x=>x.t.trim()); if(F.length<2){ toast('Écrivez au moins 2 propositions.'); return; } const ls = F.map((x,i)=>x.ok?i:-1).filter(i=>i>=0); if(!ls.length){ toast('Cochez la ou les bonnes réponses.'); return; }
       n.o = F.map(x=>x.t.trim()); n.a = ls[0]; n.am = ls.length>1 ? ls : null; n.v = null; if(q0.r!=null) n.r = null; if(q0.acc!=null) n.acc = null; }
@@ -2755,7 +2978,9 @@ function qxEditer(qid, reps){
       const avant = (QX.corr||[]).find(c=>c.qid===qid && c.actif);
       if(avant && avant.c && typeof avant.c==='object') Object.keys(avant.c).forEach(k=>{ if(!(k in champs)) champs[k] = avant.c[k]; });
       if(MODE==='supabase' && SB){ const {data,error} = await SB.rpc('publier_correction', {p_qid:qid, p_champs:champs, p_note:$('#qxn').value.trim()||null}); if(error) throw error; if(!data || !data.ok) throw new Error('Correction refusée.');
-        const L = QX.corr = (QX.corr||[]).filter(c=>c.qid!==qid); L.unshift({id:data.id, qid, c:JSON.parse(JSON.stringify(champs)), note:$('#qxn').value.trim()||null, actif:true, t:data.t}); }
+        const L = QX.corr = (QX.corr||[]).filter(c=>c.qid!==qid); L.unshift({id:data.id, qid, c:JSON.parse(JSON.stringify(champs)), note:$('#qxn').value.trim()||null, actif:true, t:data.t});
+        /* photo d'un élève ajoutée à l'explication : il est crédité (« Sources photos fournies par … », affiché seulement après son Oui) */
+        if(xiAjout.length){ const A = [...new Set(DB.reports.filter(r=>sq(r)===qid && r.photo && r.appareil && xiAjout.includes(r.photo)).map(r=>r.appareil))]; if(A.length) try{ await SB.rpc('contrib_crediter', {p_qid:qid, p_appareils:A}); CT.etat = ''; }catch(e){} } }
       try{ const W = QX.W, Q = W.eval('QI['+JSON.stringify(qid)+']'); Object.keys(champs).forEach(k=>{ if(champs[k]===null) delete Q[k]; else Q[k] = JSON.parse(JSON.stringify(champs[k])); }); Q.__corr = 1; }catch(e){}
       let nr = 0;
       if($('#qxpre') && $('#qxpre').checked && MODE==='supabase' && SB){ const txt = 'Merci pour ton signalement ! La question a été corrigée'+(T==='qcm'?' : la bonne réponse est maintenant '+OP.filter(x=>x.t.trim()).map((x,i)=>x.ok?QL[i]:'').filter(Boolean).join(', ')+'.':T==='vf'?' : la bonne réponse est « '+(VV?'Vrai':'Faux')+' ».':'.');
