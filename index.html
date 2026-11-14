@@ -1259,9 +1259,12 @@ function liveHTML(){
   const D = presDetail(); let el, ligne;
   if(D){ const mail = D.filter(x=>x.type==='mail'), nom = D.filter(x=>x.type==='nom'), autre = D.filter(x=>x.type==='autre');
     ligne = `${fmt(mail.length)} inscrit${mail.length>1?'s':''} par e-mail · ${fmt(nom.length)} inscrit${nom.length>1?'s':''} avec le nom${autre.length?` · ${fmt(autre.length)} sur une ancienne version de l’appli`:''} · ${fmt(X.aujourdhui||0)} appareils aujourd’hui`;
-    const zero = x=>{ const A = x.type==='mail' ? activiteCompte(x.p) : nomDe(x.a); return !A || !((A.quiz||[]).length || +A.nq); }, Z = mail.concat(nom).filter(zero);
-    UI.liveZ = Z.map(x=>({a:x.a, m:x.type==='mail'?fullName(x.p):x.m})).filter(x=>x.a);
-    el = mail.concat(nom).filter(x=>!UI.liveF || zero(x)).map(x=>`<button class="live-who" ${x.type==='mail'?`data-user="${esc(x.p.id)}"`:`data-pnom="${esc(x.a)}"`} title="${x.type==='mail'?'Inscrit par e-mail':'Inscrit avec le nom'}"><span class="av" style="background:${avColor(x.type==='mail'?x.p.id:'nom:'+x.a)}">${initials(x.type==='mail'?x.p:{prenom:x.m,nom:''})}</span><span><b style="font-weight:700">${esc(x.type==='mail'?fullName(x.p):x.m)}</b><small class="muted" style="display:block;font-size:11.5px;line-height:1.2">${x.type==='mail'?'📧 inscrit par e-mail':'✍️ inscrit avec le nom'}${x.f||x.n?' · '+esc([x.f,x.n].filter(Boolean).join(' ')):''}${(()=>{ const o = x.type==='mail' ? originePremium(x.p) : null; return o && !o.promo ? ` · <b style="color:var(--violet)">⭐ ${esc(o.court)}</b>` : ''; })()}</small></span></button>`).join('')
+    const zero = x=>{ const A = x.type==='mail' ? activiteCompte(x.p) : nomDe(x.a); return !A || !((A.quiz||[]).length || +A.nq); };
+    const gx = x=>grpDe(x.f, x.n), okF = x=>{ const g = gx(x); return (!UI.liveFil || UI.liveFil==='tous' || g.fil===UI.liveFil) && (!UI.liveNiv || UI.liveNiv==='tous' || g.niv===UI.liveNiv); };
+    const TOUS = mail.concat(nom), Z = TOUS.filter(zero).filter(okF);
+    UI.liveZ = Z.flatMap(x=>{ const g = gx(x), m = x.type==='mail'?fullName(x.p):x.m, A = x.a ? [x.a] : x.type==='mail' ? appareilsDe(x.p) : []; return A.map(a=>({a, m, fil:g.fil, niv:g.niv})); });
+    UI.liveG = grpListe(TOUS.filter(zero).map(x=>({a:x.a||(x.p&&x.p.id), fil:gx(x).fil, niv:gx(x).niv})));
+    el = TOUS.filter(x=>(!UI.liveF || zero(x)) && okF(x)).map(x=>`<button class="live-who" ${x.type==='mail'?`data-user="${esc(x.p.id)}"`:`data-pnom="${esc(x.a)}"`} title="${x.type==='mail'?'Inscrit par e-mail':'Inscrit avec le nom'}"><span class="av" style="background:${avColor(x.type==='mail'?x.p.id:'nom:'+x.a)}">${initials(x.type==='mail'?x.p:{prenom:x.m,nom:''})}</span><span><b style="font-weight:700">${esc(x.type==='mail'?fullName(x.p):x.m)}</b><small class="muted" style="display:block;font-size:11.5px;line-height:1.2">${x.type==='mail'?'📧 inscrit par e-mail':'✍️ inscrit avec le nom'}${x.f||x.n?' · '+esc([x.f,x.n].filter(Boolean).join(' ')):''}${(()=>{ const o = x.type==='mail' ? originePremium(x.p) : null; return o && !o.promo ? ` · <b style="color:var(--violet)">⭐ ${esc(o.court)}</b>` : ''; })()}</small></span></button>`).join('')
       + autre.map(x=>`<span class="live-who" style="opacity:.75;cursor:default" title="Appli pas encore mise à jour"><span class="av" style="background:#9aa3ad">?</span><span>Élève${x.f||x.n?' · '+esc([x.f,x.n].filter(Boolean).join(' ')):''}</span></span>`).join(''); }
   else { ligne = `${fmt(X.comptes||0)} inscrit${(X.comptes||0)>1?'s':''} par e-mail · ${fmt(X.anonymes||0)} inscrit${(X.anonymes||0)>1?'s':''} avec le nom · ${fmt(X.aujourdhui||0)} appareils aujourd’hui${PRESD&&PRESD.err==='sql'?' · <b>colle supabase/eleves/2_en_ce_moment.sql pour voir les noms</b>':''}`;
     el = (X.eleves||[]).slice(0,12).map(p=>`<button class="live-who" data-user="${esc(p.id)}"><span class="av" style="background:${avColor(p.id)}">${initials(p)}</span>${esc(((p.prenom||'')+' '+(p.nom||'')).trim()||'Élève')}</button>`).join(''); }
@@ -1270,7 +1273,11 @@ function liveHTML(){
     ${promoEnCours()?`<div class="cnote" style="margin:8px 0 0">⭐ <b>Semaine gratuite en cours</b> : tous les élèves sont Premium jusqu’au ${dfr(promoEnCours().au)}.</div>`:''}
     <div class="live-main"><div class="big num">${fmt(X.total||0)}</div><div><b>${(X.total||0)>1?'élèves dans l’appli':'élève dans l’appli'}</b><div class="muted">${ligne}</div></div></div>
     ${niv?`<div class="chips" style="margin-top:12px">${niv}</div>`:''}
-    ${D&&D.length?`<div class="row wrap" style="gap:8px;margin-top:12px;align-items:center"><button class="chip ${UI.liveF?'':'on'}" data-livef="0">Tous</button><button class="chip ${UI.liveF?'on':''}" data-livef="1">0 sujet terminé · ${fmt((UI.liveZ||[]).length)}</button><span style="flex:1"></span>${(UI.liveZ||[]).length?`<button class="btn sm pri" id="livesug">📣 Proposer un sujet aux ${fmt(UI.liveZ.length)} sans sujet</button>`:''}</div>`:''}
+    ${D&&D.length?`<div class="row wrap" style="gap:8px;margin-top:12px;align-items:center"><button class="chip ${UI.liveF?'':'on'}" data-livef="0">Tous</button><button class="chip ${UI.liveF?'on':''}" data-livef="1">0 sujet terminé</button>
+      <select class="field" style="width:auto" id="livefil" aria-label="Filière">${[['tous','Toutes filières'],['IDE','Infirmier'],['SF','Sage-femme']].map(([v,l])=>`<option value="${v}" ${(UI.liveFil||'tous')===v?'selected':''}>${l}</option>`).join('')}</select>
+      <select class="field" style="width:auto" id="liveniv" aria-label="Licence">${[['tous','Toutes licences'],['L1','Licence 1'],['L2','Licence 2'],['L3','Licence 3']].map(([v,l])=>`<option value="${v}" ${(UI.liveNiv||'tous')===v?'selected':''}>${l}</option>`).join('')}</select>
+      <span style="flex:1"></span>${(UI.liveZ||[]).length?`<button class="btn sm pri" id="livesug">📣 Proposer un sujet aux ${fmt(UI.liveZ.length)} sans sujet</button>`:''}</div>
+      ${(UI.liveG||[]).length?`<div class="row wrap" style="gap:6px;margin-top:8px;align-items:center"><span class="cnote">Sans sujet, par filière et licence :</span>${UI.liveG.map(g=>`<button class="chip" data-livegrp="${esc(g.fil)}|${esc(g.niv)}" title="Ne montrer que ce groupe">${esc(g.lab)} · <b>${g.L.length}</b></button>`).join('')}</div>`:''}`:''}
     ${el?`<div class="live-list">${el}</div>`:''}
   </div>`;
 }
@@ -1284,8 +1291,11 @@ function presDetail(){ // qui est dans l'appli : rattaché à un compte e-mail, 
 }
 function bindLive(){
   const r = document.getElementById('liveR'); if(r) r.onclick = ()=>loadPresence();
-  document.querySelectorAll('#live [data-livef]').forEach(b=>b.onclick=()=>{ UI.liveF = b.dataset.livef==='1'; const el = document.getElementById('live'); if(el){ el.innerHTML = liveHTML(); bindLive(); } });
-  const ls = document.getElementById('livesug'); if(ls) ls.onclick = ()=>suggModal({appareils:(UI.liveZ||[]).map(x=>x.a), noms:(UI.liveZ||[]).map(x=>x.m)});
+  const re = ()=>{ const el = document.getElementById('live'); if(el){ el.innerHTML = liveHTML(); bindLive(); } };
+  document.querySelectorAll('#live [data-livef]').forEach(b=>b.onclick=()=>{ UI.liveF = b.dataset.livef==='1'; re(); });
+  const lf = document.getElementById('livefil'); if(lf) lf.onchange = ()=>{ UI.liveFil = lf.value; re(); }; const ln = document.getElementById('liveniv'); if(ln) ln.onchange = ()=>{ UI.liveNiv = ln.value; re(); };
+  document.querySelectorAll('#live [data-livegrp]').forEach(b=>b.onclick=()=>{ const [f,n] = b.dataset.livegrp.split('|'); UI.liveF = true; UI.liveFil = f||'tous'; UI.liveNiv = n||'tous'; re(); });
+  const ls = document.getElementById('livesug'); if(ls) ls.onclick = ()=>suggModal({eleves:(UI.liveZ||[]).slice()});
   document.querySelectorAll('#live [data-user]').forEach(b=>b.onclick=()=>openUser(b.dataset.user));
   document.querySelectorAll('#live [data-pnom]').forEach(b=>b.onclick=()=>openNom(b.dataset.pnom));
 }
@@ -1382,9 +1392,11 @@ function openNom(a){
     <div class="row" style="gap:14px;margin-top:4px"><div class="av" style="width:52px;height:52px;font-size:17px;background:${avColor(p.id)}">${initials(p)}</div><div><h2 style="margin:0;font-family:var(--display);font-size:22px">${esc(p.prenom)}</h2><div class="muted" style="font-size:13.5px">${esc([p.filiere||p.fil0,p.annee].filter(Boolean).join(' · ')||'Filière pas encore choisie')}</div></div></div>
     <div style="margin-top:12px">${promoEnCours()?'<span class="pill prem">✍️ Inscrit avec le nom · ⭐ Premium (semaine gratuite)</span>':'<span class="pill free">✍️ Inscrit avec le nom · Gratuit</span>'}</div>
     <div class="kv"><span>Filière</span><b>${esc(p.fil0||'—')}</b><span>Licence</span><b>${esc(p.annee||'—')}</b><span>Inscrit le</span><b>${p.created_at?dhfr(p.created_at):'—'}</b><span>Dernière connexion</span><b>${p.last_seen?dhfr(p.last_seen):'—'}</b></div>
+    <div class="row wrap" style="margin-top:12px"><button class="btn pri" id="dsugn">📣 Proposer un sujet</button></div>
     ${blocActivite({quiz:p.quiz, tps:p.tps, cx:p.cx, nbc:p.nbc, act:p.act, rep:p.rep, nrep:p.nrep, nsuj:p.nsuj})}
     ${(()=>{ const R = DB.reports.filter(r=>r.appareil===p.a); return R.length?`<div class="sect">Signalements envoyés · ${R.length}</div>${R.map(r=>`<div style="padding:6px 0;font-size:14px">${esc(matName(r.mat))} — <span class="muted">${esc(r.message)}</span>${r.reponse?' · <b>répondu</b>':''}</div>`).join('')}`:''; })()}`;
   d.classList.add('on'); $('#scrim').classList.add('on'); $('#dclose').onclick = closeDrawer;
+  $('#dsugn').onclick = ()=>{ closeDrawer(); const G = grpDe(p.filiere||p.fil0, p.annee); suggModal({eleves:[{a:p.a, m:p.prenom, fil:G.fil, niv:G.niv}]}); };
 }
 function sansCompteCard(){
   const L0 = nomsEleves();
@@ -1516,7 +1528,7 @@ function bindScFiltres(){
   const S0 = UI.scSel = UI.scSel || new Set();
   document.querySelectorAll('[data-scsel]').forEach(cb=>{ cb.onclick = e=>e.stopPropagation(); cb.onchange = ()=>{ cb.checked ? S0.add(cb.dataset.scsel) : S0.delete(cb.dataset.scsel); render(); }; });
   const all = $('#scselall'); if(all) all.onclick = ()=>{ const L = scFiltrer(nomsEleves()); if(L.length && L.every(g=>S0.has(g.a))) L.forEach(g=>S0.delete(g.a)); else L.forEach(g=>S0.add(g.a)); render(); };
-  const sg = $('#scsug'); if(sg) sg.onclick = ()=>{ const A = [...S0], N = A.map(a=>{ const g = nomDe(a); return g ? g.prenom : a; }); suggModal({appareils:A, noms:N}); };
+  const sg = $('#scsug'); if(sg) sg.onclick = ()=>suggModal({eleves:[...S0].map(a=>{ const g = nomDe(a), G = grpDe(g&&(g.filiere||g.fil0), g&&g.annee); return {a, m:g?g.prenom:a, fil:G.fil, niv:G.niv}; })});
 }
 
 /* ======================= SUJETS PROPOSÉS (page + fenêtre de création) ======================= */
@@ -1525,7 +1537,39 @@ async function sgCharger(){ if(MODE!=='supabase'||!SB){ SG = []; SG_ERR = 'local
   try{ const {data,error} = await SB.rpc('suggestions_liste'); if(error) throw error; SG = data||[]; SG_ERR = ''; }
   catch(e){ SG = []; SG_ERR = /suggestions_liste|function|PGRST|404/.test(String(e&&e.message||e)) ? 'sql' : frErr(e); }
   if(page==='sugg') render(); }
-const sgCible = c=>{ c = c||{}; if(Array.isArray(c.appareils) && c.appareils.length) return `👤 ${c.appareils.length} élève${c.appareils.length>1?'s':''} choisi${c.appareils.length>1?'s':''}${Array.isArray(c.noms)&&c.noms.length?' : '+c.noms.slice(0,6).join(', ')+(c.noms.length>6?'…':''):''}`;
+/* plusieurs filières / licences parmi les élèves choisis : un sujet par groupe */
+async function suggModalGroupes(G){
+  if(MODE!=='supabase' || !SB){ toast('Connectez-vous au compte administrateur pour proposer un sujet.'); return; }
+  openModal('<p class="muted">⏳ Chargement de la liste des sujets…</p>');
+  const cat = await cpCatalogue(); if(!cat.ok){ openModal(`<button class="iconbtn x" id="mx" aria-label="Fermer">${ic('x')}</button><div class="msg bad">${esc(cat.err)}</div>`); $('#mx').onclick = closeModal; return; }
+  const DOCS = cat.L.filter(x=>x.doc), def = (UI.sgF&&UI.sgF.mid) || (DOCS.length?DOCS[0].id:cat.L[0].id);
+  const coursSel = (i,mid)=>`<select class="field" data-ggmid="${i}" aria-label="Cours">${DOCS.length?`<optgroup label="📝 DOCUMENT DE REVISION INFAS">${DOCS.map(x=>`<option value="${esc(x.id)}" ${mid===x.id?'selected':''}>${esc(x.doc)}</option>`).join('')}</optgroup>`:''}${[...new Set(cat.L.map(x=>x.rub))].map(r=>`<optgroup label="${esc(r)}">${cat.L.filter(x=>x.rub===r&&!x.doc).map(x=>`<option value="${esc(x.id)}" ${mid===x.id?'selected':''}>${esc(x.nom)}</option>`).join('')}</optgroup>`).join('')}</select>`;
+  const sujOpts = mid=>{ const m = cat.L.find(x=>x.id===mid); return `<option value="">La liste des sujets du cours (l’élève choisit)</option>${m?cpOptions(m,{k:-1}):''}`; };
+  openModal(`<button class="iconbtn x" id="mx" aria-label="Fermer">${ic('x')}</button><h2 style="margin:0 0 6px;font-family:var(--display)">📣 Proposer un sujet par groupe</h2>
+    <p class="muted" style="margin:0 0 10px;font-size:13px">Ces élèves sont de <b>${G.length} groupes</b> (filière et licence différentes) : choisissez le sujet de chaque groupe. Chaque élève ne reçoit que le sujet de son groupe.</p>
+    ${G.map((g,i)=>`<div class="card" style="margin:0 0 10px;padding:12px;border:1.5px solid var(--line)"><label class="row" style="gap:8px;cursor:pointer;align-items:flex-start"><input type="checkbox" data-gguse="${i}" checked style="margin-top:3px"><span><b>${esc(g.lab)}</b> · ${g.L.length} élève${g.L.length>1?'s':''}<span class="cnote" style="display:block">${esc(g.L.map(e=>e.m||e.a).slice(0,8).join(', '))}${g.L.length>8?'…':''}</span></span></label>
+      <div class="row wrap" style="gap:8px;margin-top:8px"><div style="flex:1 1 220px">${coursSel(i,def)}</div><div style="flex:2 1 280px"><select class="field" data-ggk="${i}" aria-label="Sujet">${sujOpts(def)}</select></div></div></div>`).join('')}
+    <label class="lbl" for="sgm">Message commun (facultatif)</label><textarea class="field" id="sgm" rows="2" placeholder="Ex. Entraîne-toi sur ce sujet de ta licence 💪"></textarea>
+    <div class="row wrap" style="gap:10px;margin-top:10px"><label class="row" style="gap:6px;cursor:pointer"><input type="checkbox" id="sgn" checked> 🔔 Envoyer aussi en notification</label><span style="flex:1"></span>
+      <label class="row" style="gap:6px">Pendant <select class="field" id="sgd" style="width:auto">${[[3,'3 jours'],[7,'7 jours'],[14,'14 jours'],[30,'30 jours']].map(([v,l])=>`<option value="${v}" ${v===7?'selected':''}>${l}</option>`).join('')}</select></label></div>
+    <div class="row" style="justify-content:flex-end;margin-top:14px"><button class="btn" id="mno">Annuler</button><button class="btn pri" id="mok">📣 Proposer à chaque groupe</button></div>`);
+  $('#modal').style.width = 'min(820px,calc(100% - 28px))';
+  const fermer = ()=>{ $('#modal').style.width = ''; closeModal(); };
+  document.querySelectorAll('[data-ggmid]').forEach(s=>s.onchange = ()=>{ document.querySelector(`[data-ggk="${s.dataset.ggmid}"]`).innerHTML = sujOpts(s.value); });
+  $('#mx').onclick = $('#mno').onclick = fermer;
+  $('#mok').onclick = async ()=>{
+    const j = +$('#sgd').value||7, au = new Date(Date.now()+j*864e5).toISOString(), msg = $('#sgm').value.trim(), nf = $('#sgn').checked; let n = 0, err = 0;
+    const W = G.map((g,i)=>({g,i})).filter(x=>document.querySelector(`[data-gguse="${x.i}"]`).checked); if(!W.length){ toast('Cochez au moins un groupe.'); return; }
+    $('#mok').disabled = true;
+    for(const {g,i} of W){ const mid = document.querySelector(`[data-ggmid="${i}"]`).value, ks = document.querySelector(`[data-ggk="${i}"]`), o = ks.selectedOptions[0], m = cat.L.find(x=>x.id===mid);
+      const suj = ks.value==='' ? '' : o.textContent.replace(/ · \d+ q\.$/,'');
+      const p = {titre:((m?(m.doc||m.nom):'')+(suj?' · '+suj:'')).slice(0,140), message:msg, mat:mid, k:ks.value===''?null:+ks.value, sujet:suj, cible:{appareils:g.L.map(e=>e.a), noms:g.L.map(e=>e.m||e.a).slice(0,200), groupe:g.lab}, notif:nf, au};
+      try{ const {data,error} = await SB.rpc('suggestion_publier', {p}); if(error || !data || !data.ok) throw error||new Error('refusé'); n++; audit('Sujet proposé', p.titre+' · '+g.lab+' · '+g.L.length+' élève(s)'); }catch(e){ err++; } }
+    fermer(); toast(err ? '⚠️ '+n+' groupe(s) envoyé(s), '+err+' refusé(s).' : '📣 Sujet proposé à '+n+' groupe'+(n>1?'s':'')+' : chaque élève reçoit le sujet de sa licence.', 6000);
+    if(UI.scSel) UI.scSel.clear(); SG = null; render();
+  };
+}
+const sgCible = c=>{ c = c||{}; if(Array.isArray(c.appareils) && c.appareils.length) return `👤 ${c.groupe?c.groupe+' · ':''}${c.appareils.length} élève${c.appareils.length>1?'s':''} choisi${c.appareils.length>1?'s':''}${Array.isArray(c.noms)&&c.noms.length?' : '+c.noms.slice(0,6).join(', ')+(c.noms.length>6?'…':''):''}`;
   const f = (c.fil||[]).map(x=>x==='SF'?'Sage-femme':'Infirmier').join(' + '), n = (c.niv||[]).join(' + '); return f||n ? '🎯 '+[f||'Toutes filières', n||'toutes licences'].join(' · ') : '🌍 Tous les élèves'; };
 function sgEtat(s){ if(!s.actif) return ['Retiré','bad']; if(s.au && new Date(s.au)<new Date()) return ['Terminé','bad']; return ['En cours','ok']; }
 VIEWS.sugg = ()=>{
@@ -1545,7 +1589,26 @@ AFTER.sugg = ()=>{
   document.querySelectorAll('[data-sgoff]').forEach(b=>b.onclick=()=>confirmModal('Retirer ce sujet proposé ?', 'Il disparaîtra des téléphones à leur prochaine ouverture.', 'Retirer', async ()=>{
     try{ const {error} = await SB.rpc('suggestion_retirer', {p_id:+b.dataset.sgoff}); if(error) throw error; audit('Sujet proposé retiré', b.dataset.sgoff); toast('Retiré.'); await sgCharger(); }catch(e){ toast('Impossible : '+frErr(e)); } }));
 };
+/* téléphones d'un élève inscrit par e-mail : sa fiche, la présence, les statistiques et les connexions (par son compte) */
+function appareilsDe(p){ const A = new Set(); if(!p) return [];
+  (p.appareils||[]).forEach(v=>{ const m = String(v).match(/dev-[0-9A-Za-z-]{6,}/); if(m) A.add(m[0]); });
+  if(p.auth_id){ ((PRESD&&PRESD.L)||[]).forEach(x=>{ if(x.u===p.auth_id && x.a) A.add(x.a); }); ((SCX&&SCX.L)||[]).forEach(g=>{ if(g.c===p.auth_id && g.a) A.add(g.a); }); ((CNX&&CNX.L)||[]).forEach(x=>{ if((x.c===p.auth_id || x.pid===p.id) && x.a) A.add(x.a); }); }
+  return [...A]; }
+function elevesDeProfils(ids){ const E = [], sans = []; ids.forEach(id=>{ const p = api.get('profiles', id); if(!p) return; const A = appareilsDe(p); if(!A.length){ sans.push(fullName(p)); return; }
+    A.forEach(a=>E.push({a, m:fullName(p), fil:p.filiere, niv:p.annee})); }); return {E, sans}; }
+function proposerProfils(ids){ const {E, sans} = elevesDeProfils(ids);
+  if(!E.length){ toast(sans.length ? 'Téléphone inconnu pour '+sans.slice(0,3).join(', ')+(sans.length>3?'…':'')+' : il doit ouvrir l’appli à jour une fois, connecté à son compte.' : 'Aucun élève choisi.', 6000); return; }
+  if(sans.length) toast('⚠️ '+sans.length+' élève(s) sans téléphone connu ne recevront pas le sujet : '+sans.slice(0,3).join(', ')+(sans.length>3?'…':''), 6000);
+  suggModal({eleves:E}); }
+/* filière et licence d'un élève, et groupes « Infirmier · L2 » */
+function grpDe(f, n){ const fil = filNorm(f), F = fil==='IDE'||fil==='SF' ? fil : '', N = (String(n||'').toUpperCase().match(/L[1-3]/)||[''])[0];
+  return {fil:F, niv:N, k:F+'|'+N, lab:(F==='SF'?'Sage-femme':F==='IDE'?'Infirmier':'Filière ?')+' · '+(N||'licence ?')}; }
+function grpListe(E){ const M = new Map(); (E||[]).forEach(e=>{ const g = grpDe(e.fil, e.niv); if(!M.has(g.k)) M.set(g.k, Object.assign(g, {L:[]})); M.get(g.k).L.push(e); });
+  return [...M.values()].sort((a,b)=>a.lab.localeCompare(b.lab,'fr')); }
 async function suggModal(choisis){
+  if(choisis && Array.isArray(choisis.eleves)){ const E = choisis.eleves.filter(e=>e && e.a);
+    choisis = {appareils:E.map(e=>e.a), noms:E.map(e=>e.m||e.a), eleves:E};
+    if(grpListe(E).length>1) return suggModalGroupes(grpListe(E)); }
   if(MODE!=='supabase' || !SB){ toast('Connectez-vous au compte administrateur pour proposer un sujet.'); return; }
   openModal('<p class="muted">⏳ Chargement de la liste des sujets…</p>');
   const cat = await cpCatalogue(); if(!cat.ok){ openModal(`<button class="iconbtn x" id="mx" aria-label="Fermer">${ic('x')}</button><div class="msg bad">${esc(cat.err)}</div>`); $('#mx').onclick = closeModal; return; }
@@ -1610,7 +1673,7 @@ VIEWS.eleves = ()=>{
       ${sel('type',s.type,[['tous','Comptes et tests'],['compte','Vrais comptes'],['test','Élèves de test']])}
       ${sel('tri',s.tri||'recent',[['recent','↓ Dernière connexion'],['temps','↓ Temps passé'],['quiz','↓ Quiz terminés'],['reponses','↓ Questions répondues'],['inscrit','↓ Inscription récente'],['nom','Nom (A → Z)']])}
     </div>
-    ${s.sel.size?`<div class="row wrap" style="background:var(--soft);border-radius:12px;padding:8px 12px;margin-bottom:10px"><b>${s.sel.size} sélectionné${s.sel.size>1?'s':''}</b><div class="grow" style="flex:1"></div><button class="btn sm pri" id="bulkgift">${ic('gift')}Offrir un pass</button><button class="btn sm" id="bulkclear">Désélectionner</button></div>`:''}
+    ${s.sel.size?`<div class="row wrap" style="background:var(--soft);border-radius:12px;padding:8px 12px;margin-bottom:10px"><b>${s.sel.size} sélectionné${s.sel.size>1?'s':''}</b><div class="grow" style="flex:1"></div><button class="btn sm pri" id="bulkgift">${ic('gift')}Offrir un pass</button><button class="btn sm pri" id="bulksug">📣 Proposer un sujet</button><button class="btn sm" id="bulkclear">Désélectionner</button></div>`:''}
     <div class="tablewrap"><table class="t"><thead><tr><th style="width:30px"><input type="checkbox" id="selall" aria-label="Tout sélectionner" ${rows.length && rows.every(p=>s.sel.has(p.id))?'checked':''}></th><th>Élève</th><th>Niveau</th><th>Accès</th><th>Dernière connexion</th><th>Quiz</th><th>Appareils</th></tr></thead><tbody>
     ${rows.map(p=>`<tr class="click" data-user="${p.id}"><td><input type="checkbox" data-sel="${p.id}" ${s.sel.has(p.id)?'checked':''} aria-label="Sélectionner ${esc(fullName(p))}"></td>
       <td><div class="who"><div class="av" style="background:${avColor(p.id)}">${initials(p)}</div><div><b>${esc(fullName(p))}${p.auth_id?' <span class="pill ok" style="font-size:11px">Compte</span>':''}</b><small>${esc(p.email||p.telephone)}</small></div></div></td>
@@ -1635,6 +1698,7 @@ AFTER.eleves = ()=>{
     toast(`${L.length} élèves exportés.`);
   };
   if($('#bulkgift')) $('#bulkgift').onclick = ()=>giftModal([...s.sel]);
+  if($('#bulksug')) $('#bulksug').onclick = ()=>proposerProfils([...s.sel]);
   if($('#bulkclear')) $('#bulkclear').onclick = ()=>{ s.sel.clear(); render(); };
   bindUserRows();
 };
@@ -1665,6 +1729,7 @@ function openUser(id){
     </div>
     <div class="row wrap">
       <button class="btn pri" id="dgift">${ic('gift')}${pass?'Prolonger le pass':'Offrir un pass'}</button>
+      <button class="btn" id="dsug">📣 Proposer un sujet</button>
       ${pass?`<button class="btn" id="drevoke">Retirer le Premium</button>`:''}
       <button class="btn ${p.statut==='bloque'?'':'danger'}" id="dblock">${p.statut==='bloque'?'Débloquer le compte':'Bloquer le compte'}</button>
     </div>
@@ -1679,6 +1744,7 @@ function openUser(id){
   $('#drawer').classList.add('on'); $('#scrim').classList.add('on');
   $('#dclose').onclick = closeDrawer;
   $('#dgift').onclick = ()=>giftModal([id]);
+  $('#dsug').onclick = ()=>{ closeDrawer(); proposerProfils([id]); };
   if($('#drevoke')) $('#drevoke').onclick = ()=>{ const now=new Date().toISOString(); DB.entitlements.filter(e=>e.user_id===id && new Date(e.end)>new Date()).forEach(e=>e.end=now); persist(); audit('Premium retiré', fullName(p)); toast('Premium retiré.'); openUser(id); render(); };
   $('#dblock').onclick = ()=>{ const b = p.statut!=='bloque'; api.update('profiles',id,{statut:b?'bloque':'actif'}); audit(b?'Compte bloqué':'Compte débloqué', fullName(p)); toast(b?'Compte bloqué.':'Compte débloqué.'); openUser(id); render(); };
   document.querySelectorAll('[data-rmdev]').forEach(b=>b.onclick=()=>{ const a=p.appareils.splice(+b.dataset.rmdev,1)[0]; persist(); audit('Appareil retiré ('+a+')', fullName(p)); toast('Appareil retiré.'); openUser(id); render(); });
