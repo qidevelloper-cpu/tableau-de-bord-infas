@@ -1444,6 +1444,12 @@ function filteredUsers(){
     if(s.acc==='gratuit' && pass) return false;
     if(s.acc==='expire' && !(pass && daysLeft(pass)<=7)) return false;
     if(s.acc==='bloque' && p.statut!=='bloque') return false;
+    if((s.per||'tous')!=='tous' || (s.act||'tous')!=='tous'){
+      const A = activiteCompte(p)||{}, nq = Math.max((A.quiz||[]).length, p.quiz|0), age = Date.now()-new Date(p.last_seen||0).getTime(), H = 36e5;
+      if(s.per==='live'){ const on = enLigneSet(), P = presDetail()||[]; if(!(appareilsDe(p).some(a=>on.has(a)) || P.some(x=>x.type==='mail' && x.p.id===p.id))) return false; }
+      else if(s.per==='24h' && age>=24*H) return false; else if(s.per==='7j' && age>=7*24*H) return false; else if(s.per==='30j' && age>=30*24*H) return false; else if(s.per==='inactif' && age<7*24*H) return false;
+      if(s.act==='zero' && nq) return false; if(s.act==='zerorep' && (nq || +A.nrep)) return false; if(s.act==='tempsSans' && !((+A.tps||0)>=1800 && !nq)) return false; if(s.act==='actifs' && !nq) return false;
+    }
     return true;
   }).sort((a,b)=>new Date(b.last_seen)-new Date(a.last_seen));
 }
@@ -1521,14 +1527,14 @@ function scSelBarre(L){
   return `<div class="row wrap" style="gap:8px;align-items:center;background:var(--soft);border-radius:12px;padding:8px 12px;margin-bottom:10px">
     <b>${fmt(L.length)} élève${L.length>1?'s':''} dans ce filtre</b>${n?` · <b>${n} sélectionné${n>1?'s':''}</b>`:''}<span style="flex:1"></span>
     <button class="btn sm" id="scselall">${L.length && L.every(g=>S0.has(g.a))?'Tout désélectionner':'Sélectionner les '+fmt(L.length)}</button>
-    <button class="btn sm pri" id="scsug" ${n?'':'disabled'}>📣 Proposer un sujet${n?' à '+n:''}</button></div>`;
+    <button class="btn sm pri" id="scsug" ${nbSelection()?'':'disabled'}>📣 Proposer un sujet${nbSelection()?' à '+nbSelection():''}</button></div>`;
 }
 function bindScFiltres(){
   document.querySelectorAll('[data-scf]').forEach(el=>el.onchange=()=>{ UI.scF[el.dataset.scf] = el.value; render(); });
   const S0 = UI.scSel = UI.scSel || new Set();
   document.querySelectorAll('[data-scsel]').forEach(cb=>{ cb.onclick = e=>e.stopPropagation(); cb.onchange = ()=>{ cb.checked ? S0.add(cb.dataset.scsel) : S0.delete(cb.dataset.scsel); render(); }; });
   const all = $('#scselall'); if(all) all.onclick = ()=>{ const L = scFiltrer(nomsEleves()); if(L.length && L.every(g=>S0.has(g.a))) L.forEach(g=>S0.delete(g.a)); else L.forEach(g=>S0.add(g.a)); render(); };
-  const sg = $('#scsug'); if(sg) sg.onclick = ()=>suggModal({eleves:[...S0].map(a=>{ const g = nomDe(a), G = grpDe(g&&(g.filiere||g.fil0), g&&g.annee); return {a, m:g?g.prenom:a, fil:G.fil, niv:G.niv}; })});
+  const sg = $('#scsug'); if(sg) sg.onclick = ()=>proposerSelection();
 }
 
 /* ======================= SUJETS PROPOSÉS (page + fenêtre de création) ======================= */
@@ -1566,7 +1572,7 @@ async function suggModalGroupes(G){
       const p = {titre:((m?(m.doc||m.nom):'')+(suj?' · '+suj:'')).slice(0,140), message:msg, mat:mid, k:ks.value===''?null:+ks.value, sujet:suj, cible:{appareils:g.L.map(e=>e.a), noms:g.L.map(e=>e.m||e.a).slice(0,200), groupe:g.lab}, notif:nf, au};
       try{ const {data,error} = await SB.rpc('suggestion_publier', {p}); if(error || !data || !data.ok) throw error||new Error('refusé'); n++; audit('Sujet proposé', p.titre+' · '+g.lab+' · '+g.L.length+' élève(s)'); }catch(e){ err++; } }
     fermer(); toast(err ? '⚠️ '+n+' groupe(s) envoyé(s), '+err+' refusé(s).' : '📣 Sujet proposé à '+n+' groupe'+(n>1?'s':'')+' : chaque élève reçoit le sujet de sa licence.', 6000);
-    if(UI.scSel) UI.scSel.clear(); SG = null; render();
+    if(UI.scSel) UI.scSel.clear(); UI.eleves.sel.clear(); SG = null; render();
   };
 }
 const sgCible = c=>{ c = c||{}; if(Array.isArray(c.appareils) && c.appareils.length) return `👤 ${c.groupe?c.groupe+' · ':''}${c.appareils.length} élève${c.appareils.length>1?'s':''} choisi${c.appareils.length>1?'s':''}${Array.isArray(c.noms)&&c.noms.length?' : '+c.noms.slice(0,6).join(', ')+(c.noms.length>6?'…':''):''}`;
@@ -1596,7 +1602,11 @@ function appareilsDe(p){ const A = new Set(); if(!p) return [];
   return [...A]; }
 function elevesDeProfils(ids){ const E = [], sans = []; ids.forEach(id=>{ const p = api.get('profiles', id); if(!p) return; const A = appareilsDe(p); if(!A.length){ sans.push(fullName(p)); return; }
     A.forEach(a=>E.push({a, m:fullName(p), fil:p.filiere, niv:p.annee})); }); return {E, sans}; }
-function proposerProfils(ids){ const {E, sans} = elevesDeProfils(ids);
+/* « Proposer un sujet » : élèves cochés dans les deux listes (inscrits par e-mail + inscrits avec le nom) */
+function proposerSelection(){ const N = [...(UI.scSel||new Set())].map(a=>{ const g = nomDe(a), G = grpDe(g&&(g.filiere||g.fil0), g&&g.annee); return {a, m:g?g.prenom:a, fil:G.fil, niv:G.niv}; });
+  return proposerProfils([...UI.eleves.sel], N); }
+const nbSelection = ()=>(UI.scSel?UI.scSel.size:0)+UI.eleves.sel.size;
+function proposerProfils(ids, plus){ const {E:E0, sans} = elevesDeProfils(ids), E = E0.concat(plus||[]);
   if(!E.length){ toast(sans.length ? 'Téléphone inconnu pour '+sans.slice(0,3).join(', ')+(sans.length>3?'…':'')+' : il doit ouvrir l’appli à jour une fois, connecté à son compte.' : 'Aucun élève choisi.', 6000); return; }
   if(sans.length) toast('⚠️ '+sans.length+' élève(s) sans téléphone connu ne recevront pas le sujet : '+sans.slice(0,3).join(', ')+(sans.length>3?'…':''), 6000);
   suggModal({eleves:E}); }
@@ -1648,7 +1658,7 @@ async function suggModal(choisis){
     $('#mok').disabled = true;
     try{ const {data,error} = await SB.rpc('suggestion_publier', {p}); if(error || !data || !data.ok) throw error||new Error('refusé');
       closeModal(); audit('Sujet proposé', t+' · '+sgCible(cible)); toast('📣 Sujet proposé : il apparaîtra sur les téléphones à leur prochaine ouverture (dans les 10 minutes s’ils sont dans l’appli).', 6000);
-      if(UI.scSel) UI.scSel.clear(); SG = null; if(page==='sugg') render(); else render(); }
+      if(UI.scSel) UI.scSel.clear(); UI.eleves.sel.clear(); SG = null; if(page==='sugg') render(); else render(); }
     catch(e){ $('#mok').disabled = false; toast(/suggestion_publier|function|PGRST|404/.test(String(e&&e.message||e))?'Collez d’abord supabase/suivi/1_activite_suggestions.sql dans Supabase.':'Envoi impossible : '+frErr(e), 6000); }
   };
 }
@@ -1672,8 +1682,12 @@ VIEWS.eleves = ()=>{
       ${sel('acc',s.acc,[['tous','Tous les accès'],['gratuit','Gratuit'],['premium','Premium'],['expire','Expire sous 7 jours'],['bloque','Bloqués']])}
       ${sel('type',s.type,[['tous','Comptes et tests'],['compte','Vrais comptes'],['test','Élèves de test']])}
       ${sel('tri',s.tri||'recent',[['recent','↓ Dernière connexion'],['temps','↓ Temps passé'],['quiz','↓ Quiz terminés'],['reponses','↓ Questions répondues'],['inscrit','↓ Inscription récente'],['nom','Nom (A → Z)']])}
+      ${sel('per',s.per||'tous',[['tous','Toutes périodes'],['live','🟢 Connectés maintenant'],['24h','Venus ces 24 h'],['7j','Venus cette semaine'],['30j','Venus ce mois'],['inactif','Absents depuis 7 jours']])}
+      ${sel('act',s.act||'tous',[['tous','Toute activité'],['zero','0 sujet terminé'],['zerorep','0 sujet et 0 question'],['tempsSans','30 min ou plus sans sujet terminé'],['actifs','Au moins 1 sujet terminé']])}
     </div>
-    ${s.sel.size?`<div class="row wrap" style="background:var(--soft);border-radius:12px;padding:8px 12px;margin-bottom:10px"><b>${s.sel.size} sélectionné${s.sel.size>1?'s':''}</b><div class="grow" style="flex:1"></div><button class="btn sm pri" id="bulkgift">${ic('gift')}Offrir un pass</button><button class="btn sm pri" id="bulksug">📣 Proposer un sujet</button><button class="btn sm" id="bulkclear">Désélectionner</button></div>`:''}
+    <div class="row wrap" style="gap:8px;align-items:center;background:var(--soft);border-radius:12px;padding:8px 12px;margin-bottom:10px"><b>${fmt(L.length)} élève${L.length>1?'s':''} dans ce filtre</b>${s.sel.size?` · <b>${s.sel.size} sélectionné${s.sel.size>1?'s':''}</b>`:''}<div class="grow" style="flex:1"></div>
+      <button class="btn sm" id="bulkall">${L.length && L.every(p=>s.sel.has(p.id))?'Tout désélectionner':'Sélectionner les '+fmt(L.length)}</button>
+      ${s.sel.size?`<button class="btn sm" id="bulkgift">${ic('gift')}Offrir un pass</button>`:''}<button class="btn sm pri" id="bulksug" ${nbSelection()?'':'disabled'}>📣 Proposer un sujet${nbSelection()?' à '+nbSelection():''}</button>${s.sel.size?`<button class="btn sm" id="bulkclear">Désélectionner</button>`:''}</div>
     <div class="tablewrap"><table class="t"><thead><tr><th style="width:30px"><input type="checkbox" id="selall" aria-label="Tout sélectionner" ${rows.length && rows.every(p=>s.sel.has(p.id))?'checked':''}></th><th>Élève</th><th>Niveau</th><th>Accès</th><th>Dernière connexion</th><th>Quiz</th><th>Appareils</th></tr></thead><tbody>
     ${rows.map(p=>`<tr class="click" data-user="${p.id}"><td><input type="checkbox" data-sel="${p.id}" ${s.sel.has(p.id)?'checked':''} aria-label="Sélectionner ${esc(fullName(p))}"></td>
       <td><div class="who"><div class="av" style="background:${avColor(p.id)}">${initials(p)}</div><div><b>${esc(fullName(p))}${p.auth_id?' <span class="pill ok" style="font-size:11px">Compte</span>':''}</b><small>${esc(p.email||p.telephone)}</small></div></div></td>
@@ -1698,7 +1712,8 @@ AFTER.eleves = ()=>{
     toast(`${L.length} élèves exportés.`);
   };
   if($('#bulkgift')) $('#bulkgift').onclick = ()=>giftModal([...s.sel]);
-  if($('#bulksug')) $('#bulksug').onclick = ()=>proposerProfils([...s.sel]);
+  if($('#bulksug')) $('#bulksug').onclick = ()=>proposerSelection();
+  if($('#bulkall')) $('#bulkall').onclick = ()=>{ const L = usersTries(); if(L.length && L.every(p=>s.sel.has(p.id))) L.forEach(p=>s.sel.delete(p.id)); else L.forEach(p=>s.sel.add(p.id)); render(); };
   if($('#bulkclear')) $('#bulkclear').onclick = ()=>{ s.sel.clear(); render(); };
   bindUserRows();
 };
