@@ -1078,6 +1078,7 @@ const PAGES = [
   {id:'questions', nom:'Questions', icon:'quiz', grp:2, count:()=>(QX.suspects||[]).length},
   {id:'compos', nom:'Compositions', icon:'quiz', grp:2},
   {id:'contrib', nom:'Contributeurs', icon:'star', grp:2},
+  {id:'sugg', nom:'Sujets proposés', icon:'bell', grp:2},
   {id:'reglages', nom:'Réglages', icon:'gear', grp:3},
 ];
 const VIEWS = {}, AFTER = {};
@@ -1258,7 +1259,9 @@ function liveHTML(){
   const D = presDetail(); let el, ligne;
   if(D){ const mail = D.filter(x=>x.type==='mail'), nom = D.filter(x=>x.type==='nom'), autre = D.filter(x=>x.type==='autre');
     ligne = `${fmt(mail.length)} inscrit${mail.length>1?'s':''} par e-mail · ${fmt(nom.length)} inscrit${nom.length>1?'s':''} avec le nom${autre.length?` · ${fmt(autre.length)} sur une ancienne version de l’appli`:''} · ${fmt(X.aujourdhui||0)} appareils aujourd’hui`;
-    el = mail.concat(nom).map(x=>`<button class="live-who" ${x.type==='mail'?`data-user="${esc(x.p.id)}"`:`data-pnom="${esc(x.a)}"`} title="${x.type==='mail'?'Inscrit par e-mail':'Inscrit avec le nom'}"><span class="av" style="background:${avColor(x.type==='mail'?x.p.id:'nom:'+x.a)}">${initials(x.type==='mail'?x.p:{prenom:x.m,nom:''})}</span><span><b style="font-weight:700">${esc(x.type==='mail'?fullName(x.p):x.m)}</b><small class="muted" style="display:block;font-size:11.5px;line-height:1.2">${x.type==='mail'?'📧 inscrit par e-mail':'✍️ inscrit avec le nom'}${x.f||x.n?' · '+esc([x.f,x.n].filter(Boolean).join(' ')):''}${(()=>{ const o = x.type==='mail' ? originePremium(x.p) : null; return o && !o.promo ? ` · <b style="color:var(--violet)">⭐ ${esc(o.court)}</b>` : ''; })()}</small></span></button>`).join('')
+    const zero = x=>{ const A = x.type==='mail' ? activiteCompte(x.p) : nomDe(x.a); return !A || !((A.quiz||[]).length || +A.nq); }, Z = mail.concat(nom).filter(zero);
+    UI.liveZ = Z.map(x=>({a:x.a, m:x.type==='mail'?fullName(x.p):x.m})).filter(x=>x.a);
+    el = mail.concat(nom).filter(x=>!UI.liveF || zero(x)).map(x=>`<button class="live-who" ${x.type==='mail'?`data-user="${esc(x.p.id)}"`:`data-pnom="${esc(x.a)}"`} title="${x.type==='mail'?'Inscrit par e-mail':'Inscrit avec le nom'}"><span class="av" style="background:${avColor(x.type==='mail'?x.p.id:'nom:'+x.a)}">${initials(x.type==='mail'?x.p:{prenom:x.m,nom:''})}</span><span><b style="font-weight:700">${esc(x.type==='mail'?fullName(x.p):x.m)}</b><small class="muted" style="display:block;font-size:11.5px;line-height:1.2">${x.type==='mail'?'📧 inscrit par e-mail':'✍️ inscrit avec le nom'}${x.f||x.n?' · '+esc([x.f,x.n].filter(Boolean).join(' ')):''}${(()=>{ const o = x.type==='mail' ? originePremium(x.p) : null; return o && !o.promo ? ` · <b style="color:var(--violet)">⭐ ${esc(o.court)}</b>` : ''; })()}</small></span></button>`).join('')
       + autre.map(x=>`<span class="live-who" style="opacity:.75;cursor:default" title="Appli pas encore mise à jour"><span class="av" style="background:#9aa3ad">?</span><span>Élève${x.f||x.n?' · '+esc([x.f,x.n].filter(Boolean).join(' ')):''}</span></span>`).join(''); }
   else { ligne = `${fmt(X.comptes||0)} inscrit${(X.comptes||0)>1?'s':''} par e-mail · ${fmt(X.anonymes||0)} inscrit${(X.anonymes||0)>1?'s':''} avec le nom · ${fmt(X.aujourdhui||0)} appareils aujourd’hui${PRESD&&PRESD.err==='sql'?' · <b>colle supabase/eleves/2_en_ce_moment.sql pour voir les noms</b>':''}`;
     el = (X.eleves||[]).slice(0,12).map(p=>`<button class="live-who" data-user="${esc(p.id)}"><span class="av" style="background:${avColor(p.id)}">${initials(p)}</span>${esc(((p.prenom||'')+' '+(p.nom||'')).trim()||'Élève')}</button>`).join(''); }
@@ -1267,6 +1270,7 @@ function liveHTML(){
     ${promoEnCours()?`<div class="cnote" style="margin:8px 0 0">⭐ <b>Semaine gratuite en cours</b> : tous les élèves sont Premium jusqu’au ${dfr(promoEnCours().au)}.</div>`:''}
     <div class="live-main"><div class="big num">${fmt(X.total||0)}</div><div><b>${(X.total||0)>1?'élèves dans l’appli':'élève dans l’appli'}</b><div class="muted">${ligne}</div></div></div>
     ${niv?`<div class="chips" style="margin-top:12px">${niv}</div>`:''}
+    ${D&&D.length?`<div class="row wrap" style="gap:8px;margin-top:12px;align-items:center"><button class="chip ${UI.liveF?'':'on'}" data-livef="0">Tous</button><button class="chip ${UI.liveF?'on':''}" data-livef="1">0 sujet terminé · ${fmt((UI.liveZ||[]).length)}</button><span style="flex:1"></span>${(UI.liveZ||[]).length?`<button class="btn sm pri" id="livesug">📣 Proposer un sujet aux ${fmt(UI.liveZ.length)} sans sujet</button>`:''}</div>`:''}
     ${el?`<div class="live-list">${el}</div>`:''}
   </div>`;
 }
@@ -1280,6 +1284,8 @@ function presDetail(){ // qui est dans l'appli : rattaché à un compte e-mail, 
 }
 function bindLive(){
   const r = document.getElementById('liveR'); if(r) r.onclick = ()=>loadPresence();
+  document.querySelectorAll('#live [data-livef]').forEach(b=>b.onclick=()=>{ UI.liveF = b.dataset.livef==='1'; const el = document.getElementById('live'); if(el){ el.innerHTML = liveHTML(); bindLive(); } });
+  const ls = document.getElementById('livesug'); if(ls) ls.onclick = ()=>suggModal({appareils:(UI.liveZ||[]).map(x=>x.a), noms:(UI.liveZ||[]).map(x=>x.m)});
   document.querySelectorAll('#live [data-user]').forEach(b=>b.onclick=()=>openUser(b.dataset.user));
   document.querySelectorAll('#live [data-pnom]').forEach(b=>b.onclick=()=>openNom(b.dataset.pnom));
 }
@@ -1328,7 +1334,7 @@ function cnxCard(){
 }
 function scLignes(){ // une ligne par appareil sans compte : fonction SQL eleves_sans_compte, sinon les connexions
   const lie = a => DB.profiles.find(p=>(p.appareils||[]).some(x=>String(x).includes(a)));
-  if(SCX && SCX.L) return SCX.L.filter(g=>g.a && !(g.c && DB.profiles.some(p=>p.auth_id===g.c)) && !lie(g.a)).map(g=>({a:g.a, m:g.m||'', f:g.f||'', n:g.n||'', t:g.derniere, nb:+g.nbc||0, nq:+g.nbq||0, quiz:Array.isArray(g.quiz)?g.quiz:[], sql:true, premiere:g.premiere||null, inscrit:g.inscrit||null, tps:+g.tps||0, cx:Array.isArray(g.cx)?g.cx:[]}));
+  if(SCX && SCX.L) return SCX.L.filter(g=>g.a && !(g.c && DB.profiles.some(p=>p.auth_id===g.c)) && !lie(g.a)).map(g=>({a:g.a, m:g.m||'', f:g.f||'', n:g.n||'', t:g.derniere, nb:+g.nbc||0, nq:+g.nbq||0, quiz:Array.isArray(g.quiz)?g.quiz:[], sql:true, premiere:g.premiere||null, inscrit:g.inscrit||null, tps:+g.tps||0, cx:Array.isArray(g.cx)?g.cx:[], nsuj:+g.nsuj||0, act:(g.act&&typeof g.act==='object')?g.act:{}, rep:(g.rep&&typeof g.rep==='object')?g.rep:{}, nrep:+g.nrep||0}));
   const X = cnxData(); if(X.err || X.demo || !X.L) return [];
   const G = {}; X.L.filter(x=>!x.pid && x.a).forEach(x=>{ const g = G[x.a] = G[x.a] || {a:x.a, m:'', f:'', n:'', t:x.t, nb:0, nq:null, quiz:[], tps:null, cx:[], inscrit:null}; g.cx.push(x.t); g.inscrit = x.t; g.nb++; if(!g.m && x.m) g.m = x.m; if(!g.f && x.f){ g.f = x.f; g.n = x.n||''; } });
   return Object.values(G);
@@ -1344,14 +1350,15 @@ function nomsEleves(){ // pseudo-profils, un par téléphone qui a donné un nom
   const k = (SCX && SCX.L ? SCX.L.length : 0)+'|'+(CNX && CNX.L ? CNX.L.length : 0)+'|'+DB.profiles.length;
   if(NM_CACHE && NM_KEY===k) return NM_CACHE;
   NM_KEY = k; return NM_CACHE = scLignes().filter(g=>String(g.m||'').trim()).map(g=>({id:'nom:'+g.a, virtuel:true, a:g.a, prenom:String(g.m).trim(), nom:'', filiere:filNorm(g.f), fil0:g.f||'', annee:g.n||'',
-    created_at:g.inscrit||g.premiere||g.t, last_seen:g.t, nbc:g.nb, nq:g.nq, quiz:g.quiz||[], tps:g.tps, cx:g.cx||[], quizN:g.nq}));
+    created_at:g.inscrit||g.premiere||g.t, last_seen:g.t, nbc:g.nb, nq:g.nq, quiz:g.quiz||[], tps:g.tps, cx:g.cx||[], quizN:g.nq, nsuj:g.nsuj||0, act:g.act||{}, rep:g.rep||{}, nrep:g.nrep||0}));
 }
 const nomDe = a => nomsEleves().find(x=>x.a===a);
 function activiteCompte(p){ // statistiques de l'appli pour un élève inscrit par e-mail : par son compte ou ses téléphones
   if(!(SCX && SCX.L) || !p) return null;
   const R = SCX.L.filter(g=>(g.c && p.auth_id && g.c===p.auth_id) || (g.a && (p.appareils||[]).some(x=>String(x).includes(g.a))));
   if(!R.length) return null;
-  return {quiz:R.flatMap(g=>Array.isArray(g.quiz)?g.quiz:[]).sort((a,b)=>new Date(b.t)-new Date(a.t)), tps:R.reduce((n,g)=>n+(+g.tps||0),0), cx:R.flatMap(g=>Array.isArray(g.cx)?g.cx:[]).sort((a,b)=>new Date(b)-new Date(a)), nbc:R.reduce((n,g)=>n+(+g.nbc||0),0)};
+  const act = {}, rp = {}; R.forEach(g=>{ Object.entries(g.act||{}).forEach(([k,v])=>act[k]=(act[k]||0)+(+v||0)); Object.entries(g.rep||{}).forEach(([k,v])=>{ const x = rp[k] = rp[k]||[0,0]; x[0]+=+(v&&v[0])||0; x[1]+=+(v&&v[1])||0; }); });
+  return {quiz:R.flatMap(g=>Array.isArray(g.quiz)?g.quiz:[]).sort((a,b)=>new Date(b.t)-new Date(a.t)), tps:R.reduce((n,g)=>n+(+g.tps||0),0), cx:R.flatMap(g=>Array.isArray(g.cx)?g.cx:[]).sort((a,b)=>new Date(b)-new Date(a)), nbc:R.reduce((n,g)=>n+(+g.nbc||0),0), act, rep:rp, nrep:R.reduce((n,g)=>n+(+g.nrep||0),0), nsuj:R.reduce((n,g)=>n+(+g.nsuj||0),0)};
 }
 const dureeFr = sec => { sec = Math.round(+sec||0); if(sec<60) return sec ? 'moins d’1 min' : '—'; const h = Math.floor(sec/3600), m = Math.round(sec%3600/60); return h ? `${h} h ${String(m).padStart(2,'0')}` : `${m} min`; };
 const moyQuiz = Q => { const N = (Q||[]).map(scNote).filter(x=>x!=null); return N.length ? Math.round(N.reduce((a,b)=>a+b,0)/N.length*10)/10 : null; };
@@ -1361,8 +1368,9 @@ function blocActivite(A){ // matières composées, notes, temps passé, heures d
   if(!A) return `<div class="sect">Activité dans l’appli</div><p class="muted" style="font-size:13.5px;margin:4px 0">${SCX && SCX.err==='sql' ? 'Colle le fichier SQL des élèves dans Supabase pour voir les quiz, les notes et le temps passé.' : 'Pas encore d’activité reçue pour cet élève.'}</p>`;
   const M = {}; A.quiz.forEach(q=>{ const m = M[q.mat] = M[q.mat] || {mat:q.mat, L:[]}; m.L.push(q); });
   const mats = Object.values(M).sort((a,b)=>b.L.length-a.L.length);
-  return `<div class="kv" style="margin-top:14px"><span>Temps passé</span><b>${A.tps==null?'—':dureeFr(A.tps)}</b><span>Quiz terminés</span><b>${fmt(A.quiz.length)}${moyQuiz(A.quiz)!=null?' · moyenne '+n20(moyQuiz(A.quiz)):''}</b><span>Connexions</span><b>${fmt(A.nbc||A.cx.length)}</b></div>
-    <div class="sect">Matières composées · ${mats.length}</div>
+  return `<div class="kv" style="margin-top:14px"><span>Temps passé</span><b>${A.tps==null?'—':dureeFr(A.tps)}</b><span>Quiz terminés</span><b>${fmt(A.quiz.length)}${moyQuiz(A.quiz)!=null?' · moyenne '+n20(moyQuiz(A.quiz)):''}</b><span>Connexions</span><b>${fmt(A.nbc||A.cx.length)}</b>${A.nsuj!=null?`<span>Sujets différents terminés</span><b>${fmt(+A.nsuj||0)}</b>`:''}${A.nrep!=null?`<span>Questions répondues</span><b>${fmt(+A.nrep||0)}</b>`:''}</div>
+    ${blocCeQuilFait(A)}
+    <div class="sect">Matières composées (sujets terminés) · ${mats.length}</div>
     ${mats.length?`<div class="tablewrap"><table class="t"><thead><tr><th>Matière</th><th>Quiz</th><th>Moyenne</th><th>Meilleure</th></tr></thead><tbody>${mats.map(m=>{ const N = m.L.map(scNote).filter(x=>x!=null); return `<tr><td>${esc(matName(m.mat))}</td><td>${fmt(m.L.length)}</td><td><b>${n20(moyQuiz(m.L))}</b></td><td>${N.length?n20(Math.max(...N)):'—'}</td></tr>`; }).join('')}</tbody></table></div>`:'<p class="muted" style="font-size:13.5px">Aucun quiz terminé pour l’instant.</p>'}
     ${A.quiz.length?`<div class="sect">Notes · ${A.quiz.length}</div><div style="display:grid;gap:4px">${A.quiz.slice(0,40).map(z=>{ const nt = scNote(z); return `<div class="row" style="gap:10px;font-size:13.5px;flex-wrap:wrap;padding:4px 0;border-top:1px solid var(--line)"><span class="muted" style="min-width:150px">${dhfr(z.t)}</span><span style="flex:1;min-width:150px">${esc(scSujet(z))}</span><b>${fmt(+z.ok||0)}/${fmt(+z.n||0)}</b>${nt!=null?`<span class="pill" style="font-weight:700">${n20(nt)}</span>`:''}</div>`; }).join('')}</div>`:''}
     ${A.cx.length?`<div class="sect">Heures de connexion · ${A.cx.length}</div><div style="display:flex;flex-wrap:wrap;gap:6px">${A.cx.slice(0,30).map(t=>`<span class="pill" style="font-weight:600">${dhfr(t)}</span>`).join('')}</div>`:''}`;
@@ -1374,7 +1382,7 @@ function openNom(a){
     <div class="row" style="gap:14px;margin-top:4px"><div class="av" style="width:52px;height:52px;font-size:17px;background:${avColor(p.id)}">${initials(p)}</div><div><h2 style="margin:0;font-family:var(--display);font-size:22px">${esc(p.prenom)}</h2><div class="muted" style="font-size:13.5px">${esc([p.filiere||p.fil0,p.annee].filter(Boolean).join(' · ')||'Filière pas encore choisie')}</div></div></div>
     <div style="margin-top:12px">${promoEnCours()?'<span class="pill prem">✍️ Inscrit avec le nom · ⭐ Premium (semaine gratuite)</span>':'<span class="pill free">✍️ Inscrit avec le nom · Gratuit</span>'}</div>
     <div class="kv"><span>Filière</span><b>${esc(p.fil0||'—')}</b><span>Licence</span><b>${esc(p.annee||'—')}</b><span>Inscrit le</span><b>${p.created_at?dhfr(p.created_at):'—'}</b><span>Dernière connexion</span><b>${p.last_seen?dhfr(p.last_seen):'—'}</b></div>
-    ${blocActivite({quiz:p.quiz, tps:p.tps, cx:p.cx, nbc:p.nbc})}
+    ${blocActivite({quiz:p.quiz, tps:p.tps, cx:p.cx, nbc:p.nbc, act:p.act, rep:p.rep, nrep:p.nrep, nsuj:p.nsuj})}
     ${(()=>{ const R = DB.reports.filter(r=>r.appareil===p.a); return R.length?`<div class="sect">Signalements envoyés · ${R.length}</div>${R.map(r=>`<div style="padding:6px 0;font-size:14px">${esc(matName(r.mat))} — <span class="muted">${esc(r.message)}</span>${r.reponse?' · <b>répondu</b>':''}</div>`).join('')}`:''; })()}`;
   d.classList.add('on'); $('#scrim').classList.add('on'); $('#dclose').onclick = closeDrawer;
 }
@@ -1383,17 +1391,18 @@ function sansCompteCard(){
   if(!L0.length && SCX && SCX.err && SCX.err!=='sql') return `<div class="card" id="sccard" style="margin-top:16px"><h3 style="margin:0 0 6px">✍️ Inscrits avec le nom</h3><p class="muted" style="margin:0">⚠️ La liste n’a pas pu être chargée depuis Supabase (connexion coupée ou calcul trop long). Collez <b>supabase/eleves/3_eleves_rapide.sql</b> dans Supabase, puis touchez « Actualiser ».</p></div>`;
   if(!L0.length && SCX && SCX.L) return `<div class="card" id="sccard" style="margin-top:16px"><h3 style="margin:0 0 6px">✍️ Inscrits avec le nom · 0</h3><p class="muted" style="margin:0">Aucun nom reçu pour l’instant : ils arrivent quand les élèves ouvrent l’appli à jour.</p></div>`;
   if(!L0.length && !(SCX && SCX.err==='sql')) return '';
-  const q = nrmTxt((UI.scq||'').trim()), L = L0.filter(g=>!q || nrmTxt(`${g.prenom} ${g.fil0} ${g.annee}`).includes(q)).sort((a,b)=>new Date(b.last_seen)-new Date(a.last_seen));
+  const L = scFiltrer(L0), S0 = UI.scSel = UI.scSel || new Set(), on = enLigneSet();
   const aff = UI.scAll ? L.length : 20, sql = SCX && SCX.L;
   const ligne = g=>{ const mo = moyQuiz(g.quiz);
-    return `<tr class="click" data-nom="${esc(g.a)}"><td><div class="who"><div class="av" style="background:${avColor(g.id)}">${initials(g)}</div><b>${esc(g.prenom)}</b></div></td><td>${esc(g.fil0||'—')}</td><td>${esc(g.annee||'—')}</td><td style="white-space:nowrap">${g.created_at?dfr(g.created_at):'—'}</td><td style="white-space:nowrap">${dhfr(g.last_seen)}</td><td>${fmt(g.nbc)}</td>
-      <td style="white-space:nowrap">${g.nq==null?'—':`<b>${fmt(g.nq)}</b>${mo!=null?` · moy. <b>${n20(mo)}</b>`:''}`}</td><td style="white-space:nowrap">${g.tps==null?'—':dureeFr(g.tps)}</td></tr>`; };
+    return `<tr class="click" data-nom="${esc(g.a)}"><td style="width:30px"><input type="checkbox" data-scsel="${esc(g.a)}" ${S0.has(g.a)?'checked':''} aria-label="Sélectionner ${esc(g.prenom)}"></td><td><div class="who"><div class="av" style="background:${avColor(g.id)}">${initials(g)}</div><div><b>${esc(g.prenom)}</b>${on.has(g.a)?' <span class="pill ok" style="font-size:11px">🟢 en ligne</span>':''}${actPrincipale(g)?`<small>surtout : ${esc(actPrincipale(g))}</small>`:''}</div></div></td><td>${esc(g.fil0||'—')}</td><td>${esc(g.annee||'—')}</td><td style="white-space:nowrap">${g.created_at?dfr(g.created_at):'—'}</td><td style="white-space:nowrap">${dhfr(g.last_seen)}</td><td>${fmt(g.nbc)}</td>
+      <td style="white-space:nowrap">${g.nq==null?'—':`<b>${fmt(g.nq)}</b>${mo!=null?` · moy. <b>${n20(mo)}</b>`:''}`}</td><td class="num">${fmt(+g.nrep||0)}</td><td style="white-space:nowrap">${g.tps==null?'—':dureeFr(g.tps)}</td></tr>`; };
   return `<div class="card" id="sccard" style="margin-top:16px">
     <div class="row wrap" style="align-items:baseline;gap:10px"><h3 style="margin:0;flex:1">✍️ Inscrits avec le nom <span class="muted" style="font-weight:500;font-size:13px">· sans e-mail · comptés comme élèves gratuits</span></h3><span class="muted" style="font-size:13px">${fmt(L0.length)} élève${L0.length>1?'s':''}</span></div>
     ${SCX && SCX.err==='sql'?`<p class="muted" style="font-size:13px;margin:8px 0 0">Colle le fichier <b>supabase/eleves/1_eleves_nom_reponses.sql</b> dans Supabase (SQL Editor → Run) pour voir la date d’inscription, les quiz, les notes et le temps passé.</p>`:''}
     ${L0.length?`<input class="field" id="scq" placeholder="Chercher un nom, une filière, une licence…" value="${esc(UI.scq||'')}" style="max-width:360px;margin:10px 0" aria-label="Chercher un élève inscrit avec le nom">
-    <div class="tablewrap"><table class="t"><thead><tr><th>Élève</th><th>Filière</th><th>Licence</th><th>Inscrit le</th><th>Dernière connexion</th><th>Connexions</th><th>Quiz · moyenne</th><th>Temps passé</th></tr></thead><tbody>
-    ${L.slice(0,aff).map(ligne).join('') || `<tr><td colspan="8" class="muted">Aucun résultat.</td></tr>`}</tbody></table></div>
+    ${scFiltresHTML()}${scSelBarre(L)}
+    <div class="tablewrap"><table class="t"><thead><tr><th></th><th>Élève</th><th>Filière</th><th>Licence</th><th>Inscrit le</th><th>Dernière connexion</th><th>Connexions</th><th>Sujets terminés · moyenne</th><th>Questions répondues</th><th>Temps passé</th></tr></thead><tbody>
+    ${L.slice(0,aff).map(ligne).join('') || `<tr><td colspan="10" class="muted">Aucun résultat.</td></tr>`}</tbody></table></div>
     ${L.length>20?`<button class="btn sm" id="scall" style="margin-top:8px">${UI.scAll?'Voir moins':`Voir les ${fmt(L.length)}`}</button>`:''}
     <p class="muted" style="font-size:12.5px;margin:8px 0 0">Touchez un élève pour voir ses matières composées, ses notes, ses heures de connexion et son temps passé.${sql?'':' '}</p>`:''}
   </div>`;
@@ -1407,6 +1416,9 @@ function bindUserRows(){ document.querySelectorAll('[data-user]').forEach(tr=>tr
 /* =========================================================
    9. ÉLÈVES
    ========================================================= */
+function usersTries(){ const s = UI.eleves, L = filteredUsers(), t = s.tri||'recent', A = p=>activiteCompte(p)||{};
+  const k = {recent:p=>new Date(p.last_seen||0).getTime(), temps:p=>+A(p).tps||0, quiz:p=>Math.max((A(p).quiz||[]).length, p.quiz|0), reponses:p=>+A(p).nrep||0, inscrit:p=>new Date(p.created_at||0).getTime()}[t];
+  return t==='nom' ? L.sort((a,b)=>fullName(a).localeCompare(fullName(b),'fr')) : L.sort((a,b)=>k(b)-k(a)); }
 function filteredUsers(){
   const s = UI.eleves, q = s.q.trim().toLowerCase();
   return DB.profiles.filter(p=>{
@@ -1444,8 +1456,141 @@ function accessPill(p){
   const d = daysLeft(pass);
   return d<=7 ? `<span class="pill warn">Premium · ${d} j</span>` : `<span class="pill prem">Premium · ${dfr(pass.end,{day:'numeric',month:'short'})}</span>`;
 }
+/* ======================= ACTIVITÉ DÉTAILLÉE : ce que l'élève fait dans l'appli =======================
+   Statistique « activite » de l'appli (supabase/suivi/1_activite_suggestions.sql) : secondes par « rubrique|cours »
+   et questions répondues par cours, même sans terminer un sujet. */
+const VUE_NOM = {home:'Accueil', matiere:'Page d’un cours', sujets:'Liste des sujets', dech:'Choix d’un sujet', fil:'Répondre aux questions', quiz:'Quiz', result:'Résultats',
+  exam:'Examen chronométré', examcfg:'Examen chronométré', sujexam:'Examen chronométré', flash:'Flashcards', flashcfg:'Flashcards', cours:'Lire le cours', sommaire:'Lire le cours', formch:'Lire le cours',
+  resumes:'Résumés', appview:'Appli complète (Correction nationale…)', diff:'Questions difficiles', gloss:'Glossaire', formules:'Formules', notes:'Mes notes', stats:'Mes statistiques', search:'Recherche',
+  prepmat:'Prépa D.E', prepplus:'Prépa D.E', prepall:'Prépa D.E', profile:'Profil et réglages', plus:'Autres rubriques', autres:'Autres rubriques', programme:'Choix de la filière', filiere:'Choix de la filière', annee:'Choix de la filière', heures:'Heures de révision'};
+const vueNom = v => VUE_NOM[v] || (v ? v.charAt(0).toUpperCase()+v.slice(1) : 'Autre');
+function actResume(act){ const V = {}, M = {}; Object.entries(act||{}).forEach(([k,s])=>{ s = +s||0; if(s<=0) return; const [v,m] = String(k).split('|'); const nv = vueNom(v); V[nv] = (V[nv]||0)+s; if(m) M[m] = (M[m]||0)+s; });
+  return {V:Object.entries(V).sort((a,b)=>b[1]-a[1]), M:Object.entries(M).sort((a,b)=>b[1]-a[1]), tot:Object.values(V).reduce((a,b)=>a+b,0)}; }
+function actPrincipale(g){ const R = actResume(g.act); return R.V.length ? R.V[0][0] : ''; }
+function blocCeQuilFait(A){
+  const R = actResume(A.act), rep = Object.entries(A.rep||{}).map(([m,x])=>[m,+(x&&x[0])||0,+(x&&x[1])||0]).filter(x=>x[1]>0).sort((a,b)=>b[1]-a[1]);
+  const barre = (lab,s,mx)=>`<div class="row" style="gap:8px;align-items:center;padding:3px 0;font-size:13.5px"><span style="flex:0 0 46%;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(lab)}</span><span style="flex:1;height:9px;border-radius:5px;background:var(--line,#eee);overflow:hidden"><span style="display:block;height:100%;width:${Math.max(3,Math.round(s/mx*100))}%;background:var(--brand,#6C3BF5)"></span></span><b style="flex:0 0 64px;text-align:right">${dureeFr(s)}</b></div>`;
+  if(!R.V.length && !rep.length) return `<div class="sect">Ce qu’il fait dans l’appli</div><p class="muted" style="font-size:13.5px;margin:4px 0">${(+A.tps||0)>0?'Temps passé reçu, mais pas encore le détail par rubrique : son téléphone a une version de l’appli antérieure au suivi détaillé (le détail arrive dès qu’il ouvre l’appli à jour).':'Pas encore de détail reçu.'}</p>`;
+  return `<div class="sect">Ce qu’il fait dans l’appli${R.tot?' · '+dureeFr(R.tot)+' suivies':''}</div>
+    ${R.V.length?`<div style="margin:4px 0 8px">${R.V.slice(0,8).map(([l,s])=>barre(l,s,R.V[0][1])).join('')}</div>`:''}
+    ${R.M.length?`<div class="muted" style="font-size:12.5px;margin:6px 0 2px">Par cours</div><div>${R.M.slice(0,8).map(([m,s])=>barre(matName(m),s,R.M[0][1])).join('')}</div>`:''}
+    ${rep.length?`<div class="sect">Questions répondues · ${fmt(rep.reduce((n,x)=>n+x[1],0))}</div><div class="tablewrap"><table class="t"><thead><tr><th>Cours</th><th>Répondues</th><th>Justes</th></tr></thead><tbody>${rep.map(([m,n,ok])=>`<tr><td>${esc(matName(m))}</td><td>${fmt(n)}</td><td>${fmt(ok)} · ${Math.round(ok/n*100)} %</td></tr>`).join('')}</tbody></table></div>`:''}`;
+}
+
+/* ======================= ÉLÈVES : filtres, tris, sélection =======================
+   Une seule fonction de tri/filtre pour les élèves inscrits avec le nom (la grande majorité). */
+const enLigneSet = ()=>new Set(((PRESD && PRESD.L) || []).map(x=>x.a).filter(Boolean));
+const SC_TRIS = [['recent','Dernière connexion'],['temps','Temps passé'],['sujets','Sujets terminés'],['reponses','Questions répondues'],['cnx','Connexions'],['moyenne','Moyenne'],['inscrit','Inscription récente'],['nom','Nom (A → Z)']];
+function scFiltrer(L0){
+  const F = UI.scF = UI.scF || {fil:'tous', niv:'tous', per:'tous', act:'tous', tri:'recent'}, q = nrmTxt((UI.scq||'').trim()), on = enLigneSet(), now = Date.now(), H = 36e5;
+  let L = L0.filter(g=>!q || nrmTxt(`${g.prenom} ${g.fil0} ${g.annee}`).includes(q));
+  if(F.fil!=='tous') L = L.filter(g=>g.filiere===F.fil);
+  if(F.niv!=='tous') L = L.filter(g=>String(g.annee||'').toUpperCase()===F.niv);
+  const age = g=>now-new Date(g.last_seen||0).getTime();
+  if(F.per==='live') L = L.filter(g=>on.has(g.a)); else if(F.per==='24h') L = L.filter(g=>age(g)<24*H); else if(F.per==='7j') L = L.filter(g=>age(g)<7*24*H); else if(F.per==='30j') L = L.filter(g=>age(g)<30*24*H); else if(F.per==='inactif') L = L.filter(g=>age(g)>=7*24*H);
+  if(F.act==='zero') L = L.filter(g=>!(+g.nq)); else if(F.act==='zerorep') L = L.filter(g=>!(+g.nq) && !(+g.nrep)); else if(F.act==='tempsSans') L = L.filter(g=>(+g.tps||0)>=1800 && !(+g.nq)); else if(F.act==='actifs') L = L.filter(g=>(+g.nq||0)>0);
+  const k = { recent:g=>new Date(g.last_seen||0).getTime(), temps:g=>+g.tps||0, sujets:g=>+g.nsuj||+g.nq||0, reponses:g=>+g.nrep||0, cnx:g=>+g.nbc||0, moyenne:g=>moyQuiz(g.quiz)??-1, inscrit:g=>new Date(g.created_at||0).getTime() }[F.tri];
+  L = F.tri==='nom' ? L.sort((a,b)=>String(a.prenom).localeCompare(String(b.prenom),'fr')) : L.sort((a,b)=>(k?k(b)-k(a):0));
+  return L;
+}
+function scFiltresHTML(){
+  const F = UI.scF = UI.scF || {fil:'tous', niv:'tous', per:'tous', act:'tous', tri:'recent'};
+  const sel = (n,v,opts,lab)=>`<select class="field" style="width:auto" data-scf="${n}" aria-label="${lab}">${opts.map(([a,b])=>`<option value="${a}" ${v===a?'selected':''}>${b}</option>`).join('')}</select>`;
+  return `<div class="row wrap" style="gap:8px;margin:0 0 10px">
+    ${sel('tri',F.tri,SC_TRIS.map(([a,b])=>[a,'↓ Trier : '+b]),'Trier')}
+    ${sel('fil',F.fil,[['tous','Toutes filières'],['IDE','Infirmier'],['SF','Sage-femme']],'Filière')}
+    ${sel('niv',F.niv,[['tous','Toutes licences'],['L1','Licence 1'],['L2','Licence 2'],['L3','Licence 3']],'Licence')}
+    ${sel('per',F.per,[['tous','Toutes périodes'],['live','🟢 Connectés maintenant'],['24h','Venus ces 24 h'],['7j','Venus cette semaine'],['30j','Venus ce mois'],['inactif','Absents depuis 7 jours']],'Période')}
+    ${sel('act',F.act,[['tous','Toute activité'],['zero','0 sujet terminé'],['zerorep','0 sujet et 0 question'],['tempsSans','30 min ou plus sans sujet terminé'],['actifs','Au moins 1 sujet terminé']],'Activité')}
+  </div>`;
+}
+function scSelBarre(L){
+  const S0 = UI.scSel = UI.scSel || new Set(), n = S0.size;
+  return `<div class="row wrap" style="gap:8px;align-items:center;background:var(--soft);border-radius:12px;padding:8px 12px;margin-bottom:10px">
+    <b>${fmt(L.length)} élève${L.length>1?'s':''} dans ce filtre</b>${n?` · <b>${n} sélectionné${n>1?'s':''}</b>`:''}<span style="flex:1"></span>
+    <button class="btn sm" id="scselall">${L.length && L.every(g=>S0.has(g.a))?'Tout désélectionner':'Sélectionner les '+fmt(L.length)}</button>
+    <button class="btn sm pri" id="scsug" ${n?'':'disabled'}>📣 Proposer un sujet${n?' à '+n:''}</button></div>`;
+}
+function bindScFiltres(){
+  document.querySelectorAll('[data-scf]').forEach(el=>el.onchange=()=>{ UI.scF[el.dataset.scf] = el.value; render(); });
+  const S0 = UI.scSel = UI.scSel || new Set();
+  document.querySelectorAll('[data-scsel]').forEach(cb=>{ cb.onclick = e=>e.stopPropagation(); cb.onchange = ()=>{ cb.checked ? S0.add(cb.dataset.scsel) : S0.delete(cb.dataset.scsel); render(); }; });
+  const all = $('#scselall'); if(all) all.onclick = ()=>{ const L = scFiltrer(nomsEleves()); if(L.length && L.every(g=>S0.has(g.a))) L.forEach(g=>S0.delete(g.a)); else L.forEach(g=>S0.add(g.a)); render(); };
+  const sg = $('#scsug'); if(sg) sg.onclick = ()=>{ const A = [...S0], N = A.map(a=>{ const g = nomDe(a); return g ? g.prenom : a; }); suggModal({appareils:A, noms:N}); };
+}
+
+/* ======================= SUJETS PROPOSÉS (page + fenêtre de création) ======================= */
+let SG = null, SG_ERR = '';
+async function sgCharger(){ if(MODE!=='supabase'||!SB){ SG = []; SG_ERR = 'local'; return; }
+  try{ const {data,error} = await SB.rpc('suggestions_liste'); if(error) throw error; SG = data||[]; SG_ERR = ''; }
+  catch(e){ SG = []; SG_ERR = /suggestions_liste|function|PGRST|404/.test(String(e&&e.message||e)) ? 'sql' : frErr(e); }
+  if(page==='sugg') render(); }
+const sgCible = c=>{ c = c||{}; if(Array.isArray(c.appareils) && c.appareils.length) return `👤 ${c.appareils.length} élève${c.appareils.length>1?'s':''} choisi${c.appareils.length>1?'s':''}${Array.isArray(c.noms)&&c.noms.length?' : '+c.noms.slice(0,6).join(', ')+(c.noms.length>6?'…':''):''}`;
+  const f = (c.fil||[]).map(x=>x==='SF'?'Sage-femme':'Infirmier').join(' + '), n = (c.niv||[]).join(' + '); return f||n ? '🎯 '+[f||'Toutes filières', n||'toutes licences'].join(' · ') : '🌍 Tous les élèves'; };
+function sgEtat(s){ if(!s.actif) return ['Retiré','bad']; if(s.au && new Date(s.au)<new Date()) return ['Terminé','bad']; return ['En cours','ok']; }
+VIEWS.sugg = ()=>{
+  if(SG===null) sgCharger();
+  const head = headHTML('Sujets proposés', 'Proposez un sujet précis aux élèves (tous, une filière, une licence, ou des élèves choisis) : il s’affiche sur l’accueil de leur téléphone, s’ouvre en grand à la prochaine visite et arrive en notification s’ils les ont autorisées.', `<button class="btn pri" id="sgnew">📣 Proposer un sujet</button>`);
+  if(SG_ERR==='local') return head+'<div class="card"><p class="muted" style="margin:0">Connectez-vous au compte administrateur (Supabase) pour proposer des sujets.</p></div>';
+  if(SG_ERR==='sql') return head+'<div class="card"><b>Une étape dans Supabase :</b><p class="muted">Collez <b>supabase/suivi/1_activite_suggestions.sql</b> (SQL Editor → New query → coller → Run), puis rechargez cette page.</p></div>';
+  if(SG===null) return head+'<div class="card"><p class="muted" style="margin:0">⏳ Chargement…</p></div>';
+  if(SG_ERR) return head+`<div class="card"><p class="muted" style="margin:0">${esc(SG_ERR)}</p></div>`;
+  return head + `<div class="card">${SG.length?`<div class="tablewrap"><table class="t"><thead><tr><th>Sujet proposé</th><th>Pour qui</th><th>Envoyé</th><th>Vu</th><th>Ouvert</th><th>État</th><th></th></tr></thead><tbody>
+    ${SG.map(s=>{ const [e,c] = sgEtat(s); return `<tr><td><b>${esc(s.titre)}</b><div class="cnote">${esc([matName(s.mat||''), s.sujet].filter(Boolean).join(' · '))}${s.message?' · « '+esc(String(s.message).slice(0,80))+' »':''}</div></td><td style="font-size:13px">${esc(sgCible(s.cible))}</td><td style="white-space:nowrap">${dhfr(s.cree_at)}</td><td class="num">${fmt(+s.vues||0)}</td><td class="num"><b>${fmt(+s.ouvertes||0)}</b></td><td><span class="pill ${c}">${e}</span></td><td>${s.actif?`<button class="btn sm" data-sgoff="${s.id}">Retirer</button>`:''}</td></tr>`; }).join('')}</tbody></table></div>
+    <p class="cnote" style="margin:8px 0 0">« Vu » = élèves dont le téléphone l’a affiché ; « Ouvert » = élèves qui ont touché « Commencer ».</p>`
+    : '<p class="muted" style="margin:0">Aucun sujet proposé pour l’instant.</p>'}</div>`;
+};
+AFTER.sugg = ()=>{
+  const n = $('#sgnew'); if(n) n.onclick = ()=>suggModal(null);
+  document.querySelectorAll('[data-sgoff]').forEach(b=>b.onclick=()=>confirmModal('Retirer ce sujet proposé ?', 'Il disparaîtra des téléphones à leur prochaine ouverture.', 'Retirer', async ()=>{
+    try{ const {error} = await SB.rpc('suggestion_retirer', {p_id:+b.dataset.sgoff}); if(error) throw error; audit('Sujet proposé retiré', b.dataset.sgoff); toast('Retiré.'); await sgCharger(); }catch(e){ toast('Impossible : '+frErr(e)); } }));
+};
+async function suggModal(choisis){
+  if(MODE!=='supabase' || !SB){ toast('Connectez-vous au compte administrateur pour proposer un sujet.'); return; }
+  openModal('<p class="muted">⏳ Chargement de la liste des sujets…</p>');
+  const cat = await cpCatalogue(); if(!cat.ok){ openModal(`<button class="iconbtn x" id="mx" aria-label="Fermer">${ic('x')}</button><div class="msg bad">${esc(cat.err)}</div>`); $('#mx').onclick = closeModal; return; }
+  const f = UI.sgF = UI.sgF || {}; const DOCS = cat.L.filter(x=>x.doc);
+  if(!f.mid) f.mid = DOCS.length ? DOCS[0].id : cat.L[0].id;
+  const coursSel = `<select class="field" id="sgmid">${DOCS.length?`<optgroup label="📝 DOCUMENT DE REVISION INFAS">${DOCS.map(x=>`<option value="${esc(x.id)}" ${f.mid===x.id?'selected':''}>${esc(x.doc)}</option>`).join('')}</optgroup>`:''}${[...new Set(cat.L.map(x=>x.rub))].map(r=>`<optgroup label="${esc(r)}">${cat.L.filter(x=>x.rub===r&&!x.doc).map(x=>`<option value="${esc(x.id)}" ${f.mid===x.id?'selected':''}>${esc(x.nom)}</option>`).join('')}</optgroup>`).join('')}</select>`;
+  const sujOpts = mid=>{ const m = cat.L.find(x=>x.id===mid); return `<option value="">La liste des sujets du cours (l’élève choisit)</option>${m?cpOptions(m,{k:f.k==null?-1:f.k}):''}`; };
+  const ch = choisis && choisis.appareils && choisis.appareils.length ? choisis : null;
+  openModal(`<button class="iconbtn x" id="mx" aria-label="Fermer">${ic('x')}</button><h2 style="margin:0 0 6px;font-family:var(--display)">📣 Proposer un sujet</h2>
+    <p class="muted" style="margin:0 0 10px;font-size:13px">Le sujet s’affiche sur l’accueil de leur téléphone avec « ▶️ Commencer », s’ouvre en grand à leur prochaine visite et arrive en notification s’ils les ont autorisées.</p>
+    <label class="lbl" for="sgmid">Cours</label>${coursSel}
+    <label class="lbl" for="sgk">Sujet</label><select class="field" id="sgk">${sujOpts(f.mid)}</select>
+    <label class="lbl" for="sgt">Titre affiché</label><input class="field" id="sgt" maxlength="140">
+    <label class="lbl" for="sgm">Message (facultatif)</label><textarea class="field" id="sgm" rows="3" placeholder="Ex. Entraîne-toi sur ce sujet avant la composition de lundi 💪"></textarea>
+    <label class="lbl">Pour qui ?</label>
+    <div style="display:grid;gap:6px">${ch?`<label class="row" style="gap:8px;cursor:pointer"><input type="radio" name="sgc" value="ch" checked> <span>👤 Les <b>${ch.appareils.length}</b> élève${ch.appareils.length>1?'s':''} choisi${ch.appareils.length>1?'s':''}<span class="cnote" style="display:block">${esc((ch.noms||[]).slice(0,10).join(', '))}${(ch.noms||[]).length>10?'…':''}</span></span></label>`:''}
+      <label class="row" style="gap:8px;cursor:pointer"><input type="radio" name="sgc" value="tous" ${ch?'':'checked'}> <span>🌍 Tous les élèves</span></label>
+      <label class="row" style="gap:8px;cursor:pointer"><input type="radio" name="sgc" value="grp"> <span>🎯 Une filière et/ou une licence :</span></label>
+      <div class="row wrap" style="gap:10px;padding-left:26px">${[['IDE','Infirmier'],['SF','Sage-femme']].map(([v,l])=>`<label class="row" style="gap:5px;cursor:pointer"><input type="checkbox" data-sgfil="${v}"> ${l}</label>`).join('')}<span class="muted">·</span>${['L1','L2','L3'].map(v=>`<label class="row" style="gap:5px;cursor:pointer"><input type="checkbox" data-sgniv="${v}"> ${v}</label>`).join('')}</div></div>
+    <div class="row wrap" style="gap:10px;margin-top:10px"><label class="row" style="gap:6px;cursor:pointer"><input type="checkbox" id="sgn" checked> 🔔 Envoyer aussi en notification</label><span style="flex:1"></span>
+      <label class="row" style="gap:6px">Pendant <select class="field" id="sgd" style="width:auto">${[[3,'3 jours'],[7,'7 jours'],[14,'14 jours'],[30,'30 jours']].map(([v,l])=>`<option value="${v}" ${v===7?'selected':''}>${l}</option>`).join('')}</select></label></div>
+    <div class="row" style="justify-content:flex-end;margin-top:14px"><button class="btn" id="mno">Annuler</button><button class="btn pri" id="mok">📣 Proposer</button></div>`);
+  const titre = ()=>{ const m = cat.L.find(x=>x.id===$('#sgmid').value), o = $('#sgk').selectedOptions[0]; return (m?m.nom:'')+(o&&o.value!==''?' · '+o.textContent.replace(/ · \d+ q\.$/,''):''); };
+  let auto = true; const majT = ()=>{ if(auto) $('#sgt').value = titre(); };
+  $('#sgt').oninput = ()=>{ auto = false; }; majT();
+  $('#sgmid').onchange = ()=>{ f.mid = $('#sgmid').value; f.k = null; $('#sgk').innerHTML = sujOpts(f.mid); majT(); };
+  $('#sgk').onchange = ()=>{ f.k = $('#sgk').value===''?null:+$('#sgk').value; majT(); };
+  document.querySelectorAll('[data-sgfil],[data-sgniv]').forEach(x=>x.onchange = ()=>{ const g = document.querySelector('[name=sgc][value=grp]'); if(g) g.checked = true; });
+  $('#mx').onclick = $('#mno').onclick = closeModal;
+  $('#mok').onclick = async ()=>{
+    const mode = (document.querySelector('[name=sgc]:checked')||{}).value, t = $('#sgt').value.trim(); if(!t){ toast('Écrivez un titre.'); return; }
+    let cible = {};
+    if(mode==='ch') cible = {appareils:ch.appareils, noms:(ch.noms||[]).slice(0,200)};
+    else if(mode==='grp'){ cible = {fil:[...document.querySelectorAll('[data-sgfil]:checked')].map(x=>x.dataset.sgfil), niv:[...document.querySelectorAll('[data-sgniv]:checked')].map(x=>x.dataset.sgniv)}; if(!cible.fil.length && !cible.niv.length){ toast('Cochez au moins une filière ou une licence.'); return; } }
+    const kv = $('#sgk').value, o = $('#sgk').selectedOptions[0], j = +$('#sgd').value||7;
+    const p = {titre:t, message:$('#sgm').value.trim(), mat:$('#sgmid').value, k:kv===''?null:+kv, sujet:kv===''?'':o.textContent.replace(/ · \d+ q\.$/,''), cible, notif:$('#sgn').checked, au:new Date(Date.now()+j*864e5).toISOString()};
+    $('#mok').disabled = true;
+    try{ const {data,error} = await SB.rpc('suggestion_publier', {p}); if(error || !data || !data.ok) throw error||new Error('refusé');
+      closeModal(); audit('Sujet proposé', t+' · '+sgCible(cible)); toast('📣 Sujet proposé : il apparaîtra sur les téléphones à leur prochaine ouverture (dans les 10 minutes s’ils sont dans l’appli).', 6000);
+      if(UI.scSel) UI.scSel.clear(); SG = null; if(page==='sugg') render(); else render(); }
+    catch(e){ $('#mok').disabled = false; toast(/suggestion_publier|function|PGRST|404/.test(String(e&&e.message||e))?'Collez d’abord supabase/suivi/1_activite_suggestions.sql dans Supabase.':'Envoi impossible : '+frErr(e), 6000); }
+  };
+}
 VIEWS.eleves = ()=>{
-  const s = UI.eleves, L = filteredUsers(), per = 20, pages = Math.max(1,Math.ceil(L.length/per));
+  const s = UI.eleves, L = usersTries(), per = 20, pages = Math.max(1,Math.ceil(L.length/per));
   s.page = Math.min(s.page, pages);
   const rows = L.slice((s.page-1)*per, s.page*per);
   const sel = (name,val,opts)=>`<select class="field" style="width:auto" data-f="${name}" aria-label="${name}">${opts.map(([v,l])=>`<option value="${v}" ${val===v?'selected':''}>${l}</option>`).join('')}</select>`;
@@ -1463,6 +1608,7 @@ VIEWS.eleves = ()=>{
       ${sel('an',s.an,[['tous','Toutes années'],['L1','L1'],['L2','L2'],['L3','L3']])}
       ${sel('acc',s.acc,[['tous','Tous les accès'],['gratuit','Gratuit'],['premium','Premium'],['expire','Expire sous 7 jours'],['bloque','Bloqués']])}
       ${sel('type',s.type,[['tous','Comptes et tests'],['compte','Vrais comptes'],['test','Élèves de test']])}
+      ${sel('tri',s.tri||'recent',[['recent','↓ Dernière connexion'],['temps','↓ Temps passé'],['quiz','↓ Quiz terminés'],['reponses','↓ Questions répondues'],['inscrit','↓ Inscription récente'],['nom','Nom (A → Z)']])}
     </div>
     ${s.sel.size?`<div class="row wrap" style="background:var(--soft);border-radius:12px;padding:8px 12px;margin-bottom:10px"><b>${s.sel.size} sélectionné${s.sel.size>1?'s':''}</b><div class="grow" style="flex:1"></div><button class="btn sm pri" id="bulkgift">${ic('gift')}Offrir un pass</button><button class="btn sm" id="bulkclear">Désélectionner</button></div>`:''}
     <div class="tablewrap"><table class="t"><thead><tr><th style="width:30px"><input type="checkbox" id="selall" aria-label="Tout sélectionner" ${rows.length && rows.every(p=>s.sel.has(p.id))?'checked':''}></th><th>Élève</th><th>Niveau</th><th>Accès</th><th>Dernière connexion</th><th>Quiz</th><th>Appareils</th></tr></thead><tbody>
@@ -1478,9 +1624,9 @@ AFTER.eleves = ()=>{
   const uq = $('#uq'); uq.oninput = ()=>{ s.q = uq.value; s.page=1; clearTimeout(uq.t); uq.t=setTimeout(()=>{ render(); const n=$('#uq'); n.focus(); n.setSelectionRange(n.value.length,n.value.length); },250); };
   document.querySelectorAll('[data-f]').forEach(el=>el.onchange=()=>{ s[el.dataset.f]=el.value; s.page=1; render(); });
   document.querySelectorAll('[data-sel]').forEach(cb=>cb.onchange=()=>{ cb.checked?s.sel.add(cb.dataset.sel):s.sel.delete(cb.dataset.sel); render(); });
-  $('#selall').onchange = e=>{ const L=filteredUsers().slice((s.page-1)*20, s.page*20); L.forEach(p=> e.target.checked?s.sel.add(p.id):s.sel.delete(p.id)); render(); };
+  $('#selall').onchange = e=>{ const L=usersTries().slice((s.page-1)*20, s.page*20); L.forEach(p=> e.target.checked?s.sel.add(p.id):s.sel.delete(p.id)); render(); };
   $('#pprev').onclick=()=>{ s.page--; render(); }; $('#pnext').onclick=()=>{ s.page++; render(); };
-  $('#adduser').onclick = addUserModal; bindCnx(); document.querySelectorAll('[data-elpart]').forEach(b=>b.onclick=()=>{ UI.elPart = b.dataset.elpart; render(); });
+  $('#adduser').onclick = addUserModal; bindCnx(); bindScFiltres(); document.querySelectorAll('[data-elpart]').forEach(b=>b.onclick=()=>{ UI.elPart = b.dataset.elpart; render(); });
   if($('#ureload')) $('#ureload').onclick = async ()=>{ try{ toast('Actualisation…'); DB = await SupabaseSource.load(); await loadReal(); render(); toast('Liste à jour.'); }catch(e){ toast(frErr(e)); } };
   $('#csv').onclick = ()=>{
     const L = filteredUsers();
@@ -2708,13 +2854,16 @@ VIEWS.contrib = ()=>{
   if(CT.etat==='sql') return head + '<div class="card"><b>Une étape dans Supabase :</b><p class="muted">Collez le fichier <b>supabase/contributeurs/1_contributeurs.sql</b> dans Supabase (SQL Editor → New query → coller → Run), puis rechargez cette page.</p></div>';
   if(CT.etat!=='ok') return head + `<div class="card"><p class="muted" style="margin:0">${CT.etat==='err'?'Chargement impossible : vérifiez la connexion. <button class="btn sm" id="ctre">Réessayer</button>':'⏳ Chargement…'}</p></div>`;
   const R = CT.reg, sw = (k,l,d)=>`<label class="row" style="gap:10px;padding:8px 0;cursor:pointer;align-items:flex-start"><input type="checkbox" data-ctreg="${k}" ${R[k]!==false?'checked':''} style="width:20px;height:20px;margin-top:2px"><span><b>${l}</b><br><span class="cnote">${d}</span></span></label>`;
-  const qq = nrmTxt(CT.q||''), C = ctCandidats().filter(g=>!qq || nrmTxt(g.nom+' '+g.a).includes(qq));
+  const qq = nrmTxt(CT.q||''), tri = CT.tri||'defaut', C = ctCandidats().filter(g=>!qq || nrmTxt(g.nom+' '+g.a).includes(qq)).filter(g=>CT.st==='oui'?g.c&&g.c.statut==='accepte':CT.st==='att'?g.c&&g.c.statut==='demande':CT.st==='sans'?!g.c:true);
+  if(tri!=='defaut') C.sort((a,b)=>tri==='nom'?String(a.nom).localeCompare(String(b.nom),'fr'):(({sig:x=>x.sig,ph:x=>x.ph,ok:x=>x.cor})[tri](b)-({sig:x=>x.sig,ph:x=>x.ph,ok:x=>x.cor})[tri](a)));
   const lig = g=>{ const c = g.c; return `<div class="row wrap" style="gap:10px;padding:10px 0;border-top:1px solid var(--line);align-items:center"><div style="flex:1;min-width:220px"><b>${esc(g.nom||'(sans nom)')}</b> ${ctStat(c)} ${c&&c.medaille?`<span class="pill">${CT_MED[c.medaille]||''}</span>`:''}${c&&!c.visible?' <span class="pill">masqué</span>':''}
       <div class="cnote">${g.sig} signalement${g.sig>1?'s':''} · ${g.ph} photo${g.ph>1?'s':''} · ${g.cor} juste${g.cor>1?'s':''}${c?` · crédité sur ${+c.nb_credits||0} question${(+c.nb_credits||0)>1?'s':''}`:''}${c&&c.felicitation&&!c.felicitation_vue?' · 🎉 félicitations pas encore lues':''}</div></div>
       <div class="row" style="gap:6px;flex-wrap:wrap"><button class="btn sm" data-ctdem="${esc(g.a)}">🤝 ${c?'Redemander':'Demander son accord'}</button><button class="btn sm pri" data-ctmed="${esc(g.a)}">🏅 Médaille / félicitations</button>${c?`<button class="btn sm" data-ctcred="${esc(g.a)}">📷 Créditer</button><button class="btn sm" data-ctdel="${esc(g.a)}" aria-label="Retirer">🗑️</button>`:''}</div></div>`; };
   const cred = CT.credits.length ? `<div class="card" style="margin-top:16px"><h3 style="margin:0 0 6px">📷 Sources créditées · ${CT.credits.length}</h3>${CT.credits.slice(0,60).map(s=>{ const c = CT.L.find(x=>x.appareil===s.appareil); return `<div class="row" style="gap:10px;padding:6px 0;border-top:1px solid var(--line)"><span style="flex:1;font-size:14px"><b>${esc(c?c.nom:'?')}</b> ${c&&c.statut!=='accepte'?'<span class="cnote">(pas affiché : pas encore Oui)</span>':''} · <span class="muted">${esc(s.qid)}</span></span><button class="btn sm" data-ctrm="${esc(s.qid)}|${esc(s.appareil)}">Retirer</button></div>`; }).join('')}</div>` : '';
   return head + `<div class="card" style="margin-bottom:16px"><h3 style="margin:0 0 4px">⚙️ Réglages</h3>${sw('actif','Activer les contributeurs','Demandes d’accord, félicitations et médailles sur les téléphones.')}${sw('tableau','Tableau d’honneur sur l’accueil','Tous les contributeurs qui ont dit Oui (avec leur médaille s’ils en ont une), visibles par tous les élèves.')}${sw('credits','« 📷 Sources photos fournies par … » sous les questions','Le nom de l’élève sous l’explication quand sa photo a servi de source.')}</div>
-    <div class="card"><h3 style="margin:0 0 8px">👩‍🎓 Élèves</h3><input class="field" id="ctq" placeholder="Chercher un nom…" value="${esc(CT.q||'')}" style="margin-bottom:6px" aria-label="Chercher un élève">
+    <div class="card"><h3 style="margin:0 0 8px">👩‍🎓 Élèves</h3><div class="row wrap" style="gap:8px;margin-bottom:6px"><input class="field" id="ctq" placeholder="Chercher un nom…" value="${esc(CT.q||'')}" style="flex:1;min-width:180px" aria-label="Chercher un élève">
+    <select class="field" style="width:auto" id="cttri" aria-label="Trier">${[['defaut','↓ Trier : contributeurs d’abord'],['ok','↓ Signalements justes'],['ph','↓ Photos fournies'],['sig','↓ Signalements'],['nom','Nom (A → Z)']].map(([v,l])=>`<option value="${v}" ${tri===v?'selected':''}>${l}</option>`).join('')}</select>
+    <select class="field" style="width:auto" id="ctst" aria-label="Statut">${[['tous','Tous les élèves'],['oui','✅ Ont dit Oui'],['att','⏳ Demande en attente'],['sans','Pas encore demandé']].map(([v,l])=>`<option value="${v}" ${(CT.st||'tous')===v?'selected':''}>${l}</option>`).join('')}</select></div>
     <div class="cnote">Élèves qui ont envoyé des signalements ou donné leur nom. Quand vous ajoutez à une explication la photo d’un élève (Questions › Corriger), il est crédité automatiquement.</div>
     ${C.slice(0,CT.lim||60).map(lig).join('') || '<p class="muted">Aucun élève pour l’instant.</p>'}${C.length>(CT.lim||60)?'<button class="btn sm" id="ctplus" style="margin-top:8px">Voir plus</button>':''}</div>` + cred;
 };
@@ -2723,6 +2872,7 @@ AFTER.contrib = ()=>{
   const re = $('#ctre'); if(re) re.onclick = ()=>{ CT.etat=''; render(); };
   const q = $('#ctq'); if(q) q.oninput = ()=>{ const p = q.selectionStart; CT.q = q.value; clearTimeout(q.t); q.t = setTimeout(()=>{ render(); const n = $('#ctq'); if(n){ n.focus(); try{ n.setSelectionRange(p,p); }catch(e){} } }, 250); };
   const pl = $('#ctplus'); if(pl) pl.onclick = ()=>{ CT.lim = (CT.lim||60)+100; render(); };
+  const tt = $('#cttri'); if(tt) tt.onchange = ()=>{ CT.tri = tt.value; render(); }; const st = $('#ctst'); if(st) st.onchange = ()=>{ CT.st = st.value; render(); };
   document.querySelectorAll('[data-ctreg]').forEach(x=>x.onchange = async ()=>{ const v = Object.assign({}, CT.reg, {[x.dataset.ctreg]: x.checked});
     try{ const {data,error} = await SB.rpc('contrib_reglages_maj', {p_valeur:v}); if(error || !data || !data.ok) throw error||new Error('refusé'); CT.reg = v; audit('Contributeurs : réglage', x.dataset.ctreg+' = '+(x.checked?'oui':'non')); toast('✅ Réglage enregistré : les téléphones le recevront à leur prochaine ouverture.'); }
     catch(e){ x.checked = !x.checked; toast('Enregistrement impossible : '+(typeof frErr==='function'?frErr(e):e.message)); } });
