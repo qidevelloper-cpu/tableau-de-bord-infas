@@ -1076,6 +1076,7 @@ const PAGES = [
   {id:'annonces', nom:'Annonces', icon:'bell', grp:2, count:()=>DB.announcements.filter(a=>annonceLive(a)).length},
   {id:'signalements', nom:'Signalements', icon:'flag', grp:2, count:()=>sigGroupes(DB.reports.filter(r=>r.statut!=='corrige')).length},
   {id:'questions', nom:'Questions', icon:'quiz', grp:2, count:()=>(QX.suspects||[]).length},
+  {id:'dossiers', nom:'Dossiers de correction', icon:'users', grp:2, count:()=>DC.L.filter(dcArbitrer).length},
   {id:'compos', nom:'Compositions', icon:'quiz', grp:2},
   {id:'contrib', nom:'Contributeurs', icon:'star', grp:2},
   {id:'sugg', nom:'Sujets proposés', icon:'bell', grp:2},
@@ -2658,6 +2659,21 @@ function sujStats(){ const S = new Map(), C = new Map();
     let c = C.get(r.sjm); if(!c){ c = {m:r.sjm, tot:0, nouv:0, suj:new Set()}; C.set(r.sjm, c); } c.tot++; if(r.statut!=='corrige') c.nouv++; c.suj.add(r.sjk); });
   return {S:[...S.values()].sort((a,b)=>(b.nouv-a.nouv)||(b.tot-a.tot)||(b.der-a.der)), C:[...C.values()].sort((a,b)=>(b.nouv-a.nouv)||(b.tot-a.tot))}; }
 const sujNom = g=>qxTitreCorr(g.f) || g.t;
+/* questions d'un sujet, de la plus signalée à la moins signalée */
+function sujQuestions(k){ const M = new Map();
+  DB.reports.forEach(r=>{ if(r.sjk!==k) return; const q = sq(r); let x = M.get(q); if(!x){ x = {qid:q, tot:0, nouv:0, el:new Set(), ph:0, der:0, msg:'', txt:r.question||''}; M.set(q, x); }
+    x.tot++; if(r.statut!=='corrige' && r.reponse_type!=='corrigee') x.nouv++; if(r.appareil||r.user_id) x.el.add(r.appareil||r.user_id); if(r.photo) x.ph++;
+    const t = new Date(r.date||0).getTime(); if(t>=x.der){ x.der = t; x.msg = r.message||''; } });
+  return [...M.values()].sort((a,b)=>(b.nouv-a.nouv)||(b.el.size-a.el.size)||(b.tot-a.tot)); }
+function sujQuestionsHTML(g){ const L = sujQuestions(g.k); if(!L.length) return '';
+  const pos = qxEval('(()=>{try{const L=sujets('+JSON.stringify(g.m)+')['+g.n+'];return L}catch(e){return []}})()') || [], mx = L[0].nouv||L[0].tot||1;
+  return `<details class="sjq" data-sjqk="${esc(g.k)}" ${UI.sjOpen===g.k?'open':''} style="margin-top:6px"><summary class="cnote" style="cursor:pointer;font-weight:800">🔎 Questions les plus signalées de ce sujet · ${L.length}</summary>
+    ${L.map(x=>{ const q = QX.etat==='ok' ? qxQ(x.qid) : null, off = !!(q && q.off), n = pos.indexOf(x.qid);
+      return `<div class="row wrap" style="gap:8px;padding:8px 0 8px 10px;border-left:3px solid ${x.nouv?'#e11d48':'#cbd5e1'};margin:6px 0;align-items:center">
+        <div style="flex:1;min-width:220px"><b>${n>=0?'Question '+(n+1):esc(x.qid)}</b> · <b style="color:${x.nouv?'#b42318':'inherit'}">${x.nouv}</b> à traiter / ${x.tot} · ${x.el.size} élève${x.el.size>1?'s':''}${x.ph?' · 📷 '+x.ph:''}${off?' <span class="pill" style="background:#fdecec;color:#b42318;font-weight:700">🙈 désactivée</span>':''}
+          <div style="height:5px;border-radius:3px;background:var(--line);margin:4px 0;overflow:hidden;max-width:260px"><div style="height:100%;width:${Math.max(4,Math.round((x.nouv||x.tot)/mx*100))}%;background:${x.nouv?'#e11d48':'#94a3b8'}"></div></div>
+          <div class="cnote" style="overflow-wrap:anywhere">${esc(String(q?((q.s?q.s+' — ':'')+q.q):x.txt).slice(0,180))}</div>${x.msg?`<div class="cnote" style="overflow-wrap:anywhere">💬 « ${esc(String(x.msg).slice(0,140))} »</div>`:''}</div>
+        <div class="row wrap" style="gap:6px"><button class="btn sm" data-qoff="${esc(x.qid)}" data-v="${off?0:1}">${off?'👁️ Réactiver':'🙈 Désactiver la question'}</button><button class="btn sm pri" data-qedit="${esc(x.qid)}">✏️ Corriger</button><button class="btn sm" data-sjqvoir="${esc(x.qid)}">🔍 Signalements</button></div></div>`; }).join('')}</details>`; }
 function sujActions(g){ const D = sujDrapeaux(g.f);
   return `<button class="btn sm" data-sjfav="${esc(g.f)}" title="${D.afaire?'Retirer de mes sujets à corriger':'Ajouter à mes sujets à corriger'}">${D.afaire?'⭐':'☆'} À corriger</button>
     ${D.off?`<button class="btn sm" data-sjon="${esc(g.f)}">✅ Remettre en ligne</button>`:`<button class="btn sm" data-sjoff="${esc(g.f)}">🙈 Désactiver</button>`}
@@ -2670,7 +2686,8 @@ function sujSignalesCarte(){
     <div style="flex:1;min-width:240px"><b>${esc(sujNom(g))}</b>${D.off?' <span class="pill" style="background:#fff1e6;color:#b45309">🛠️ désactivé</span>':''}${D.afaire?' <span class="pill">⭐ à corriger</span>':''}
       <div class="cnote">${esc(matName(g.m))} · ${g.nq} questions · <b>${g.nouv}</b> à traiter / ${g.tot} signalement${g.tot>1?'s':''} · ${g.qs.size} question${g.qs.size>1?'s':''} signalée${g.qs.size>1?'s':''} · ${g.el.size} élève${g.el.size>1?'s':''}${g.ph?' · 📷 '+g.ph:''}</div>
       <div style="height:6px;border-radius:4px;background:var(--line);margin-top:5px;overflow:hidden"><div style="height:100%;width:${Math.max(3,Math.round((g.nouv||g.tot)/mx*100))}%;background:${g.nouv?'#e11d48':'#94a3b8'}"></div></div></div>
-    <div class="row wrap" style="gap:6px"><button class="btn sm" data-sjvoir="${esc(g.k)}">🔍 Voir</button>${sujActions(g)}</div></div>`; };
+    <div class="row wrap" style="gap:6px"><button class="btn sm" data-sjvoir="${esc(g.k)}">🔍 Voir</button>${sujActions(g)}</div>
+    <div style="flex-basis:100%">${sujQuestionsHTML(g)}</div></div>`; };
   return `<div class="card" style="margin-bottom:14px"><div class="row wrap" style="gap:8px;align-items:center"><h3 style="margin:0;flex:1">🎯 Sujets les plus signalés</h3>${UI.sigSuj?`<button class="btn sm" id="sjall">✕ Tous les sujets</button>`:''}</div>
     <p class="cnote" style="margin:4px 0 0">Classés par signalements à traiter. « Désactiver » grise le sujet chez les élèves (« 🛠️ En correction ») sans changer sa place ; corrigez-le puis « Remettre en ligne ».</p>
     ${S.slice(0,lim).map(ligne).join('')}${S.length>lim?`<button class="btn sm" id="sjplus" style="margin-top:8px">Voir les ${S.length} sujets signalés</button>`:''}
@@ -2691,7 +2708,10 @@ function sujFavorisCarte(){
 }
 function bindSujSig(){
   const re = ()=>render();
-  document.querySelectorAll('[data-sjvoir]').forEach(b=>b.onclick=()=>{ UI.sigSuj = b.dataset.sjvoir; if(page!=='signalements'){ go('signalements'); } else re(); setTimeout(()=>{ const l = document.querySelector('.siglist'); if(l) l.scrollIntoView({behavior:'smooth', block:'start'}); }, 80); });
+  document.querySelectorAll('details.sjq').forEach(d=>d.ontoggle = ()=>{ if(d.open) UI.sjOpen = d.dataset.sjqk; else if(UI.sjOpen===d.dataset.sjqk) UI.sjOpen = ''; });
+  document.querySelectorAll('[data-qoff]').forEach(b=>b.onclick=()=>qxOff(b.dataset.qoff, b.dataset.v==='1'));
+  document.querySelectorAll('[data-sjqvoir]').forEach(b=>b.onclick=()=>{ UI.sigQ = b.dataset.sjqvoir; UI.sigSuj = ''; render(); setTimeout(()=>{ const l = document.querySelector('.siglist'); if(l) l.scrollIntoView({behavior:'smooth', block:'start'}); }, 80); });
+  document.querySelectorAll('[data-sjvoir]').forEach(b=>b.onclick=()=>{ UI.sigSuj = b.dataset.sjvoir; UI.sigQ = ''; if(page!=='signalements'){ go('signalements'); } else re(); setTimeout(()=>{ const l = document.querySelector('.siglist'); if(l) l.scrollIntoView({behavior:'smooth', block:'start'}); }, 80); });
   const a = $('#sjall'); if(a) a.onclick = ()=>{ UI.sigSuj = ''; re(); };
   const p = $('#sjplus'); if(p) p.onclick = ()=>{ UI.sjLim = 1e6; re(); };
   document.querySelectorAll('[data-sjedit]').forEach(b=>b.onclick=()=>{ const [m,k] = b.dataset.sjedit.split('|'); qxSujEditer(m, +k); });
@@ -2738,7 +2758,7 @@ function bindMise(){
 }
 VIEWS.signalements = ()=>{
   const st = UI.sig, cnt = s=>sigGroupes(DB.reports.filter(r=>r.statut===s)).length;
-  const L = DB.reports.filter(r=>r.statut===st && (!UI.sigSuj || r.sjk===UI.sigSuj)).sort((a,b)=>new Date(b.date)-new Date(a.date));
+  const L = DB.reports.filter(r=>r.statut===st && (!UI.sigSuj || r.sjk===UI.sigSuj) && (!UI.sigQ || sq(r)===UI.sigQ)).sort((a,b)=>new Date(b.date)-new Date(a.date));
   const tabs = [['nouveau','🚩 Nouveaux'],['en-cours','🛠️ En cours'],['corrige','✅ Corrigés']];
   const sjF = UI.sigSuj ? (sujStats().S.find(g=>g.k===UI.sigSuj)||null) : null;
   const notif = ('Notification' in window) ? Notification.permission : 'absent';
@@ -2754,6 +2774,7 @@ VIEWS.signalements = ()=>{
   ${miseCarte()}${sujFavorisCarte()}${sujSignalesCarte()}
   ${sigBilanCarte()}
   ${UI.sigSuj?`<div class="row wrap" style="gap:8px;align-items:center;background:var(--soft);border-radius:12px;padding:8px 12px;margin-bottom:10px">🔍 Seulement le sujet <b>${esc(sjF?sujNom(sjF):UI.sigSuj)}</b><span style="flex:1"></span><button class="btn sm" id="sjall2">✕ Tous les sujets</button></div>`:''}
+  ${UI.sigQ?`<div class="row wrap" style="gap:8px;align-items:center;background:var(--soft);border-radius:12px;padding:8px 12px;margin-bottom:10px">🔍 Seulement la question <b>${esc(UI.sigQ)}</b><span style="flex:1"></span><button class="btn sm" id="sjqall">✕ Toutes les questions</button></div>`:''}
   <div class="chips" style="margin-bottom:14px">${tabs.map(([v,l])=>`<button class="chip ${st===v?'on':''}" data-sig="${v}">${l} · ${cnt(v)}</button>`).join('')}</div>
   <div class="siglist">${sigGroupes(L).map(g=>g.L.length>1?sigGroupeCarte(g):sigCarte(g.L[0])).join('') || `<div class="cempty">${st==='corrige'?'Aucun signalement corrigé pour l’instant.':'Rien à traiter ici. Les nouveaux signalements des élèves apparaîtront dans cette liste.'}</div>`}</div>`;
 };
@@ -2794,11 +2815,11 @@ async function xiEnvoyer(blob, qid){
   if(up.error) throw (/bucket|not found|policy|row-level|security/i.test(String(up.error.message||up.error)) ? new Error('Stockage des images pas encore installé : collez supabase/outils/2_images_explications.sql dans Supabase (SQL Editor).') : up.error);
   const u = SB.storage.from('explications').getPublicUrl(dest).data.publicUrl; if(!xiOk(u)) throw new Error('Adresse d’image inattendue.'); return u;
 }
-async function xiCopier(path, qid){
+async function xiCopier(path, qid, pre){
   const manque = e => /bucket|not found|policy|row-level|security/i.test(String((e&&e.message)||e)) ? new Error('Stockage des images pas encore installé : collez supabase/outils/2_images_explications.sql dans Supabase (SQL Editor).') : e;
   const d = await SB.storage.from('signalements').download(path); if(d.error || !d.data) throw new Error('Photo introuvable : '+((d.error&&d.error.message)||path));
   const blob = d.data, ty = /^image\/(jpeg|png|webp)$/.test(blob.type) ? blob.type : 'image/jpeg', ext = ty==='image/png'?'png':ty==='image/webp'?'webp':'jpg';
-  const dest = String(qid).replace(/[^A-Za-z0-9._-]/g,'_') + '/' + Date.now() + '-' + Math.random().toString(36).slice(2,8) + '.' + ext;
+  const dest = (pre||'') + String(qid).replace(/[^A-Za-z0-9._-]/g,'_') + '/' + Date.now() + '-' + Math.random().toString(36).slice(2,8) + '.' + ext;
   const up = await SB.storage.from('explications').upload(dest, blob, {contentType:ty, upsert:false, cacheControl:'31536000'}); if(up.error) throw manque(up.error);
   const u = SB.storage.from('explications').getPublicUrl(dest).data.publicUrl; if(!xiOk(u)) throw new Error('Adresse d’image inattendue.'); return u;
 }
@@ -2813,6 +2834,7 @@ async function photoUrl(path){
 AFTER.signalements = ()=>{
   waDestCharger(); sigAttendre(); sujSigPreparer(); bindSujSig(); bindMise(); bindQedit();
   const sa2 = $('#sjall2'); if(sa2) sa2.onclick = ()=>{ UI.sigSuj = ''; render(); };
+  const sq2 = $('#sjqall'); if(sq2) sq2.onclick = ()=>{ UI.sigQ = ''; render(); };
   const sb = $('#sigbil'); if(sb) sb.ontoggle = ()=>{ UI.sigBil = sb.open; }; const sbp = $('#sigbilplus'); if(sbp) sbp.onclick = ()=>{ UI.sigBil = true; UI.sigBilN = 100000; render(); };
   const sbc = $('#sigbilct'); if(sbc) sbc.onclick = e=>{ e.preventDefault(); go('contrib'); };
   if($('#wadok')) $('#wadok').onclick = ()=>waDestEnregistrer($('#wadn').value);
@@ -3037,6 +3059,105 @@ function qxSujEditer(mid, k){
     }catch(e){ b.disabled = false; b.textContent = 'Publier les modifications'; toast('Publication impossible : '+(typeof frErr==='function'?frErr(e):e.message), 6000); }
   };
 }
+
+/* ======================= DOSSIERS DE CORRECTION (équipe de correcteurs) =======================
+   SQL : supabase/correcteurs/1_correcteurs.sql. Circuit : signalements → dossier de la question → avis des correcteurs
+   (page correcteurs.html, sur leur téléphone) → correction publiée (corrections_questions) → élèves prévenus.
+   N avis identiques (réglable) → publiée seule ; ta validation → publiée tout de suite ; avis différents → « À arbitrer ». */
+const DC = { etat:'', L:[], req:3, eq:[], f:'tous', fix:false };
+const dcLien = () => location.href.split(/[?#]/)[0].replace(/[^/]*$/, '') + 'correcteurs.html';
+async function dcCharger(){ if(MODE!=='supabase' || !SB){ DC.etat = 'local'; return; } DC.etat = 'charge';
+  try{ const [a, b] = await Promise.all([SB.rpc('dossiers_liste'), SB.rpc('correcteurs_liste')]); if(a.error) throw a.error; if(b.error) throw b.error;
+    DC.L = (a.data && a.data.dossiers) || []; DC.req = (a.data && a.data.avis_requis) || 3; DC.eq = (b.data && b.data.correcteurs) || []; DC.etat = 'ok'; DC.fix = false; }
+  catch(e){ DC.etat = /dossiers_liste|correcteurs_liste|function|schema cache/i.test(String(e.message||e)) ? 'sql' : 'err'; DC.err = String(e.message||e); }
+  if(page==='dossiers') render(); }
+function dcGroupes(d){ const G = {}; (d.avis||[]).filter(a=>a.decision!=='passe').forEach(a=>{ const g = G[a.signature] = G[a.signature] || {sig:a.signature, decision:a.decision, prop:{}, noms:[]};
+    g.noms.push(a.nom); ['a','am','v'].forEach(k=>{ if(a.prop && a.prop[k]!=null) g.prop[k] = a.prop[k]; }); if(a.prop && a.prop.x && !g.prop.x) g.prop.x = a.prop.x; if(a.prop && a.prop.src && !g.prop.srcu){ g.prop.src = a.prop.src; if(a.prop.srcu) g.prop.srcu = a.prop.srcu; } });
+  return Object.values(G).sort((x,y)=>y.noms.length-x.noms.length); }
+const dcArbitrer = d => dcGroupes(d).length > 1;
+function dcRepTxt(p, q){ if(!p) return ''; if(p.v!=null) return p.v ? 'Vrai' : 'Faux';
+  const o = (q && q.o) || []; const L = Array.isArray(p.am) ? p.am : p.a!=null ? [p.a] : []; return L.map(i=>QL[i]+(o[i]?'. '+o[i]:'')).join(' ; '); }
+function dcChoixTxt(d){ const c = d.choix || {}, T = Object.values(c).reduce((s,n)=>s+n,0); if(!T) return '';
+  return '<div class="cnote" style="margin-top:4px">📊 Réponses des élèves : ' + Object.entries(c).sort((a,b)=>b[1]-a[1]).map(([k,n])=>`<b>${esc(k==='V'?'Vrai':k==='F'?'Faux':k.split('').join('+'))}</b> ${Math.round(n*100/T)} %`).join(' · ') + ` <span class="muted">(${T})</span></div>`; }
+function dcCarte(d){ const q = qxQ(d.qid), G = dcGroupes(d), arb = G.length > 1;
+  return `<div class="card" style="margin-bottom:12px${arb?';border:2px solid var(--amber)':''}">
+    <div class="row wrap" style="gap:8px;align-items:baseline"><b>${esc(matName(d.mat||String(d.qid).split('.')[0]))}</b><span class="muted" style="font-size:12.5px">n° ${esc(d.qid)}</span>
+      <span class="pill">⚑ ${d.nb} signalement${d.nb>1?'s':''} · ${d.eleves} élève${d.eleves>1?'s':''}${d.photos?' · 📷 '+d.photos:''}</span>${d.mise?'<span class="pill" style="background:#fdecec;color:#b42318">🙈 mise de côté</span>':''}${arb?'<span class="pill" style="background:#fff7e0;color:#8a5a00;font-weight:700">⚖️ À arbitrer</span>':''}<span class="grow"></span><span class="cnote">${dhfr(d.dernier)}</span></div>
+    ${q ? `<div style="margin-top:6px">${esc(String((q.s?q.s+' — ':'')+(q.q||'')).slice(0,600))}</div>${q.t==='qcm'?`<ol type="A" style="margin:6px 0 0 18px;padding:0">${(q.o||[]).map(o=>`<li>${esc(o)}</li>`).join('')}</ol>`:''}<div class="cnote" style="margin-top:4px">✔ Réponse actuelle de l’appli : <b>${esc(qxRepTxt(q))}</b></div>`
+        : `<div class="cnote" style="margin-top:6px">${QX.etat==='ok'?'Question introuvable dans l’appli.':'⏳ Chargement de la question…'}</div>`}
+    ${dcChoixTxt(d)}
+    <details style="margin-top:8px"><summary class="cnote" style="cursor:pointer">Ce que disent les élèves (${d.signalements.length})</summary>${d.signalements.map(s=>`<div style="padding:6px 0;border-top:1px solid var(--line)"><span class="cnote">${esc(s.prenom||'Élève')} · ${dhfr(s.t)}${s.qid!==d.qid?' · n° envoyé '+esc(s.qid):''}</span><div>${esc(s.message||'')}</div>${s.photo?`<div class="sigph" data-photo="${esc(s.photo)}"><span class="cnote">📷 Chargement…</span></div>`:''}</div>`).join('')}</details>
+    <div style="margin-top:10px"><b style="font-size:14px">Avis de l’équipe · ${G.reduce((s,g)=>s+g.noms.length,0)}</b> <span class="cnote">(${DC.req} avis identiques publient seuls)</span>
+      ${G.length ? G.map(g=>`<div class="row wrap" style="gap:8px;padding:6px 0;border-top:1px solid var(--line);align-items:flex-start"><div style="flex:1;min-width:220px">
+          ${g.decision==='rejet' ? '👍 <b>La question est juste</b>' : `✏️ <b>Bonne réponse : ${esc(dcRepTxt(g.prop, q))}</b>`}<div class="cnote">${esc(g.noms.join(', '))} (${g.noms.length})</div>
+          ${g.prop.x?`<div style="font-size:13.5px;margin-top:2px">« ${esc(g.prop.x)} »</div>`:''}${g.prop.src?`<div class="sigph" data-photo="${esc(g.prop.src)}"><span class="cnote">📷 Source…</span></div>`:''}</div>
+          <button class="btn sm pri" data-dcval="${esc(d.qid)}" data-sig="${esc(g.sig)}">${g.decision==='rejet'?'✅ Confirmer : question juste':'✅ Valider et publier'}</button></div>`).join('')
+        : '<p class="cnote" style="margin:4px 0 0">Aucun avis pour l’instant.</p>'}</div>
+    <div class="row wrap" style="gap:6px;margin-top:8px">${G.some(g=>g.decision==='rejet')?'':`<button class="btn sm" data-dcjuste="${esc(d.qid)}">👍 La question est juste</button>`}<button class="btn sm" data-dcmoi="${esc(d.qid)}">🖊️ Ma réponse</button><button class="btn sm" data-qedit="${esc(d.qid)}">✏️ Corriger en détail</button></div>
+  </div>`; }
+VIEWS.dossiers = ()=>{
+  if(!DC.etat) dcCharger(); if(QX.etat!=='ok' && QX.etat!=='charge') qxCharger();
+  const head = headHTML('Dossiers de correction', `Les signalements d’une même question forment un dossier. Ton équipe de correcteurs donne son avis depuis son téléphone : ${DC.req} avis identiques → la correction est publiée seule ; ta validation → publiée tout de suite ; avis différents → « À arbitrer ».`,
+    `<button class="btn sm" id="dcre">↻ Actualiser</button>`);
+  if(DC.etat==='local') return head+'<div class="card"><p class="muted" style="margin:0">Connectez-vous au compte administrateur (Supabase) pour voir les dossiers.</p></div>';
+  if(DC.etat==='sql') return head+'<div class="card"><b>Une étape dans Supabase :</b><p class="muted">Collez <b>supabase/correcteurs/1_correcteurs.sql</b> (SQL Editor → New query → coller → Run), puis rechargez cette page.</p></div>';
+  if(DC.etat!=='ok') return head+`<div class="card"><p class="muted" style="margin:0">${DC.etat==='err'?esc(DC.err||'Erreur'):'⏳ Chargement…'}</p></div>`;
+  const nA = DC.L.filter(dcArbitrer).length, nV = DC.L.filter(d=>(d.avis||[]).some(a=>a.decision!=='passe')).length;
+  const L = DC.L.filter(d=>DC.f==='arb'?dcArbitrer(d):DC.f==='avis'?(d.avis||[]).some(a=>a.decision!=='passe'):DC.f==='sans'?!(d.avis||[]).some(a=>a.decision!=='passe'):true);
+  const eq = `<div class="card" style="margin-bottom:16px"><div class="cardhead"><div class="grow"><h3>👥 Équipe de correction · ${DC.eq.filter(c=>c.actif).length}</h3><p class="sub">Chaque correcteur se connecte avec l’e-mail de son compte (le même que dans l’appli) sur la page des correcteurs. Il voit toutes les matières signalées.</p></div>
+      <label class="cnote">Avis identiques requis <select class="field" id="dcreq" style="width:auto;display:inline-block;margin-left:4px">${[1,2,3,4,5].map(n=>`<option ${n===DC.req?'selected':''}>${n}</option>`).join('')}</select></label></div>
+    <div class="row wrap" style="gap:6px;margin-bottom:8px"><input class="field" id="dcmail" type="email" placeholder="E-mail du correcteur" style="flex:2;min-width:200px"><input class="field" id="dcnom" placeholder="Nom affiché" style="flex:1;min-width:140px"><button class="btn pri" id="dcadd">Ajouter</button></div>
+    ${DC.eq.length ? `<div class="tablewrap"><table class="t"><thead><tr><th>Correcteur</th><th>Avis donnés</th><th>Fiabilité</th><th></th></tr></thead><tbody>${DC.eq.map(c=>{ const t = (c.accords||0)+(c.desaccords||0);
+      return `<tr><td><b>${esc(c.nom)}</b><div class="cnote">${esc(c.email)}</div></td><td>${c.avis||0}</td><td>${t?`<b>${Math.round((c.accords||0)*100/t)} %</b> <span class="cnote">d’accord avec la décision (${c.accords}/${t})</span>`:'<span class="cnote">—</span>'}</td>
+        <td><button class="btn sm" data-dcact="${esc(c.email)}" data-v="${c.actif?0:1}">${c.actif?'⏸️ Retirer':'▶️ Réactiver'}</button></td></tr>`; }).join('')}</tbody></table></div>` : '<p class="cnote" style="margin:0">Aucun correcteur pour l’instant.</p>'}
+    <div class="row wrap" style="gap:6px;margin-top:10px"><input class="field" id="dclien" readonly value="${esc(dcLien())}" style="flex:1;min-width:220px"><button class="btn sm" id="dccopie">📋 Copier le lien</button><a class="btn sm" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent('Page des correcteurs Révision INFAS : '+dcLien())}">WhatsApp</a></div>
+    ${DC.eq.some(c=>c.actif) ? `<div class="row wrap" style="gap:6px;margin-top:8px;align-items:center"><span class="cnote" style="flex:1;min-width:200px">📣 Prévenir l’équipe : ${dcAfaire()} question${dcAfaire()>1?'s':''} sans avis${nA?' · '+nA+' à arbitrer':''}</span>
+      <a class="btn sm" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(dcMessage())}">WhatsApp (groupe)</a>
+      <a class="btn sm" href="mailto:?bcc=${encodeURIComponent(DC.eq.filter(c=>c.actif).map(c=>c.email).join(','))}&subject=${encodeURIComponent('Révision INFAS : questions à vérifier')}&body=${encodeURIComponent(dcMessage())}">✉️ E-mail à l’équipe</a></div>` : ''}</div>`;
+  const filt = `<div class="row wrap" style="gap:6px;margin-bottom:12px">${[['tous','Tous',DC.L.length],['arb','⚖️ À arbitrer',nA],['avis','Avec avis',nV],['sans','Sans avis',DC.L.length-nV]].map(([k,t,n])=>`<button class="btn sm ${DC.f===k?'pri':''}" data-dcf="${k}">${t} · ${n}</button>`).join('')}</div>`;
+  return head + eq + filt + (L.length ? L.slice(0, 80).map(dcCarte).join('') : '<div class="card"><p class="muted" style="margin:0">Aucun dossier ici.</p></div>');
+};
+const dcAfaire = () => DC.L.filter(d=>!(d.avis||[]).some(a=>a.decision!=='passe')).length;
+const dcMessage = () => `Bonjour l’équipe 👋\n${dcAfaire()} question${dcAfaire()>1?'s':''} signalée${dcAfaire()>1?'s':''} par les élèves attend${dcAfaire()>1?'ent':''} votre avis.\nVérifiez-les avec votre cours ici : ${dcLien()}\nMerci !`;
+async function dcAvis(qid, decision, prop){ try{
+    if(prop && prop.src && !prop.srcu){ prop = Object.assign({}, prop); try{ prop.srcu = await xiCopier(prop.src, qid, 'sources/'); }catch(e){ toast('Photo source non copiée : '+String(e.message||e)); } }
+    const {data, error} = await SB.rpc('donner_avis', {p_qid:qid, p_decision:decision, p_prop:prop||{}}); if(error) throw error;
+    if(!data || !data.ok) return toast('Avis refusé : vérifie la réponse choisie.');
+    toast(data.etat==='publie' ? '✅ Correction publiée : les élèves sont prévenus.' : data.etat==='confirme' ? '✅ Question confirmée : les élèves sont prévenus.' : 'Avis enregistré.');
+    audit(data.etat==='publie'?'Correction publiée (dossier)':'Dossier fermé (question juste)', qid); QX.suspects = null; dcCharger(); }
+  catch(e){ toast('Erreur : '+String(e.message||e)); } }
+function dcMaReponse(qid){ const q = qxQ(qid); if(!q || !['qcm','vf'].includes(q.t)) return toast(q ? 'Question ouverte : utilise « Corriger en détail ».' : 'Question pas encore chargée.');
+  const multi = q.t==='qcm' && Array.isArray(q.am) && q.am.length > 1;
+  openModal(`<button class="iconbtn x" id="mx" aria-label="Fermer">${ic('x')}</button><h2 style="margin:0 0 6px;font-family:var(--display)">Ma réponse</h2><p style="margin:0 0 8px">${esc(String(q.q||'').slice(0,400))}</p>
+    ${q.t==='vf' ? ['Vrai','Faux'].map((t,i)=>`<label class="row" style="gap:8px;padding:6px 0"><input type="radio" name="dcr" value="${1-i}"> ${t}</label>`).join('')
+      : (q.o||[]).map((o,i)=>`<label class="row" style="gap:8px;padding:6px 0;align-items:flex-start"><input type="checkbox" name="dcr" value="${i}"> <span><b>${QL[i]}.</b> ${esc(o)}</span></label>`).join('') + `<p class="cnote">Coche ${multi?'toutes les bonnes réponses':'la bonne réponse (plusieurs si besoin)'}.</p>`}
+    <label class="lbl" for="dcx">Explication courte (facultatif)</label><textarea class="field" id="dcx" rows="3" maxlength="600"></textarea>
+    <div class="row" style="gap:6px;margin-top:12px"><button class="btn pri" id="dcok">✅ Publier</button><button class="btn" id="dcno">Annuler</button></div>`);
+  $('#mx').onclick = $('#dcno').onclick = closeModal;
+  $('#dcok').onclick = ()=>{ const v = [...document.querySelectorAll('[name=dcr]:checked')].map(x=>+x.value); if(!v.length) return toast('Choisis la bonne réponse.');
+    const p = q.t==='vf' ? {v:v[0]} : v.length>1 ? {am:v.sort()} : {a:v[0]}; const x = $('#dcx').value.trim(); if(x) p.x = x; closeModal(); dcAvis(qid, 'juste', p); }; }
+async function dcVerifierNumeros(){ /* téléphones restés sur une ancienne version : le n° envoyé peut désigner une autre question */
+  if(DC.fix || DC.etat!=='ok' || QX.etat!=='ok' || !QX.W) return; DC.fix = true;
+  const L = []; DC.L.forEach(d=>d.signalements.forEach(s=>{ if(s.question && s.qid===d.qid) L.push([s.id, s.qid, d.mat, s.question]); })); if(!L.length) return;
+  try{ const out = await QX.W.eval('('+sigTrouver.toString()+')('+JSON.stringify(L)+')') || {}; const fx = {};
+    L.forEach(([id, qid])=>{ const v = out[id]; if(v && v!=='?' && v!==qid) fx[id] = v; });
+    if(Object.keys(fx).length){ const {data} = await SB.rpc('signal_qid_fixer', {p:fx}); if(data && data.n) dcCharger(); } }catch(e){} }
+AFTER.dossiers = ()=>{
+  bindQedit(); dcVerifierNumeros(); if(QX.etat==='charge'){ clearTimeout(DC.t); DC.t = setTimeout(()=>{ if(page==='dossiers') render(); }, 1500); }
+  document.querySelectorAll('#view [data-photo]').forEach(async el=>{ const u = await photoUrl(el.dataset.photo); el.innerHTML = u ? `<a href="${esc(u)}" target="_blank" rel="noopener"><img src="${esc(u)}" alt="Photo envoyée par l’élève" loading="lazy"></a>` : '<span class="cnote">📷 Photo jointe</span>'; });
+  const re = $('#dcre'); if(re) re.onclick = ()=>{ DC.etat=''; render(); };
+  document.querySelectorAll('[data-dcf]').forEach(b=>b.onclick=()=>{ DC.f = b.dataset.dcf; render(); });
+  const rq = $('#dcreq'); if(rq) rq.onchange = async ()=>{ const {error} = await SB.rpc('correction_avis_requis', {p_n:+rq.value}); if(error) return toast('Erreur : '+error.message); DC.req = +rq.value; audit('Avis requis pour publier', rq.value); toast('Réglé : '+rq.value+' avis identiques.'); render(); };
+  const ad = $('#dcadd'); if(ad) ad.onclick = async ()=>{ const m = $('#dcmail').value.trim(), n = $('#dcnom').value.trim(); if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(m)) return toast('E-mail invalide.');
+    const {data, error} = await SB.rpc('correcteur_enregistrer', {p_email:m, p_nom:n||null, p_actif:true}); if(error || !data || !data.ok) return toast('Erreur : '+(error?error.message:'e-mail invalide'));
+    audit('Correcteur ajouté', m); toast('Correcteur ajouté. Envoie-lui le lien de la page des correcteurs.'); dcCharger(); };
+  document.querySelectorAll('[data-dcact]').forEach(b=>b.onclick=async ()=>{ const {error} = await SB.rpc('correcteur_enregistrer', {p_email:b.dataset.dcact, p_nom:null, p_actif:b.dataset.v==='1'}); if(error) return toast('Erreur : '+error.message); dcCharger(); });
+  const cp = $('#dccopie'); if(cp) cp.onclick = ()=>{ try{ navigator.clipboard.writeText(dcLien()); toast('Lien copié.'); }catch(e){ $('#dclien').select(); } };
+  document.querySelectorAll('[data-dcval]').forEach(b=>b.onclick=()=>{ const d = DC.L.find(x=>x.qid===b.dataset.dcval), g = d && dcGroupes(d).find(x=>x.sig===b.dataset.sig); if(!g) return;
+    confirmModal(g.decision==='rejet'?'Confirmer que la question est juste ?':'Publier cette correction ?', g.decision==='rejet'?'Le dossier est fermé et les élèves qui ont signalé sont prévenus.':'Bonne réponse : <b>'+esc(dcRepTxt(g.prop, qxQ(d.qid)))+'</b>. Elle part chez tous les élèves et ceux qui ont signalé sont prévenus.', 'Oui', ()=>dcAvis(d.qid, g.decision, g.prop)); });
+  document.querySelectorAll('[data-dcjuste]').forEach(b=>b.onclick=()=>confirmModal('La question est juste ?', 'Le dossier est fermé et les élèves qui ont signalé sont prévenus que la réponse est confirmée.', 'Oui', ()=>dcAvis(b.dataset.dcjuste, 'rejet', {})));
+  document.querySelectorAll('[data-dcmoi]').forEach(b=>b.onclick=()=>dcMaReponse(b.dataset.dcmoi));
+};
 
 /* ======================= CONTRIBUTEURS & MÉDAILLES =======================
    SQL : supabase/contributeurs/1_contributeurs.sql. L'élève reçoit la demande sur son téléphone (Oui / Non) ;
