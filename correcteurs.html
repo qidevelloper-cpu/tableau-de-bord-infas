@@ -43,12 +43,22 @@ ol.opts{margin:8px 0 0;padding-left:22px}ol.opts li{margin:3px 0}
 #toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(120px);background:var(--ink);color:var(--bg);padding:11px 16px;border-radius:12px;transition:transform .25s;max-width:calc(100% - 32px);z-index:9}
 #toast.on{transform:translateX(-50%) translateY(0)}
 details summary{cursor:pointer;color:var(--muted);font-size:14px}
+#menu{font-size:22px;line-height:1;width:44px;height:44px;padding:0;border-radius:12px}
+#tiroir{position:fixed;inset:0;z-index:8;display:none}#tiroir.on{display:block}
+#tiroir .fond{position:absolute;inset:0;background:rgba(0,0,0,.35)}
+#tiroir nav{position:absolute;left:0;top:0;bottom:0;width:min(86vw,330px);background:var(--card);padding:16px;overflow:auto;box-shadow:0 0 30px rgba(0,0,0,.2)}
+#tiroir nav button{display:flex;width:100%;justify-content:space-between;align-items:center;text-align:left;margin:6px 0;gap:8px}
+#tiroir nav button.on{background:var(--soft);border-color:var(--pri)}
+.grp{border:1.5px solid var(--amber);background:var(--amber-soft);border-radius:16px;padding:10px;margin-bottom:12px}
+.grp .card{margin-bottom:8px}
+.suj{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;text-align:left}
 h2{font:700 17px/1.3 var(--display);margin:0 0 6px}
 </style>
 </head>
 <body>
-<header><h1>✅ Équipe de correction</h1><span id="qui" class="small muted"></span><button class="btn sm" id="out" hidden>Quitter</button></header>
+<header><button class="btn" id="menu" aria-label="Rubriques" hidden>☰</button><h1>✅ Équipe de correction</h1><span id="qui" class="small muted"></span><button class="btn sm" id="out" hidden>Quitter</button></header>
 <main id="v"><div class="card"><p class="muted" style="margin:0">Chargement…</p></div></main>
+<div id="tiroir" aria-hidden="true"><div class="fond"></div><nav id="nav" aria-label="Rubriques"></nav></div>
 <div id="toast" role="status"></div>
 <script>
 /* Page des correcteurs (téléphone). Données : supabase/correcteurs/1_correcteurs.sql (dossiers_liste, donner_avis, signal_qid_fixer).
@@ -60,6 +70,7 @@ const esc = s => String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'
 const quand = iso => { try{ return new Date(iso).toLocaleString('fr-FR', {day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'}); }catch(e){ return ''; } };
 function toast(t){ const e = $('#toast'); e.textContent = t; e.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(()=>e.classList.remove('on'), 2800); }
 let SB = null, MOI = null, D = {L:[], req:3}, ONG = 'afaire', OUV = null, W = null, QETAT = '', FIX = false;
+let RUB = 'signales', SUJ = null, SUS = null, DBL = null, AVQ = {}, LIM = 15;
 const PH = {};
 
 function charger(src){ return new Promise((ok, ko)=>{ const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = ()=>ko(new Error('Pas de connexion internet.')); document.head.appendChild(s); }); }
@@ -85,7 +96,7 @@ async function entrer(){
   vue('<div class="card"><p class="muted" style="margin:0">Chargement des dossiers…</p></div>');
   const {data, error} = await SB.rpc('correcteur_moi');
   if(error) return vue(`<div class="card"><p class="msg bad">${/correcteur_moi|function|schema/i.test(error.message)?'L’espace des correcteurs n’est pas encore activé.':esc(error.message)}</p></div>`);
-  MOI = data; $('#out').hidden = false; $('#qui').textContent = MOI.nom || MOI.email;
+  MOI = data; $('#out').hidden = false; $('#menu').hidden = !(MOI.correcteur || MOI.admin); $('#qui').textContent = MOI.nom || MOI.email;
   if(!MOI.correcteur && !MOI.admin) return vue(`<div class="card"><h2>Compte pas encore dans l’équipe</h2><p>Le compte <b>${esc(MOI.email)}</b> est connecté, mais il n’est pas (ou plus) dans l’équipe de correction. Demande à Daniel de l’ajouter, puis recharge cette page.</p><button class="btn" onclick="location.reload()">Recharger</button></div>`);
   chargerAppli(); await dossiers(); if(ALERTE.perm==='granted') abonner();
 }
@@ -101,7 +112,7 @@ function chargerAppli(){ if(QETAT) return; QETAT = 'charge';
     try{ if(w && w.PORTAIL_READY && w.eval('typeof QI')==='object'){ W = w; QETAT = 'ok'; chargerMatieres().then(()=>{ rendre(); verifierNumeros(); }); return; } }catch(e){}
     if(Date.now()-t0 > 120e3){ QETAT = 'err'; rendre(); return; } setTimeout(tick, 500); };
   setTimeout(tick, 800); }
-async function chargerMatieres(){ const M = [...new Set(D.L.map(d=>d.mat).filter(Boolean))];
+async function chargerMatieres(L){ const M = [...new Set((L || D.L.map(d=>d.mat)).filter(Boolean))]; if(!W || !M.length) return;
   try{ await W.eval(`(async()=>{let ch=false;for(const m of ${JSON.stringify(M)})for(const k of [m,'plus-'+m,'plusnat-'+m]){try{if(typeof needX==='function'&&needX(k)){await ensureX(k);ch=true}}catch(e){}}if(ch)try{applyContent()}catch(e){}})()`); }catch(e){} }
 const question = qid => { try{ const q = W && W.eval('QI['+JSON.stringify(qid)+']'); return q ? JSON.parse(JSON.stringify(q)) : null; }catch(e){ return null; } };
 const repTxt = (p, q) => { if(!p) return ''; if(p.v!=null) return p.v ? 'Vrai' : 'Faux'; const o = (q && q.o) || [], L = Array.isArray(p.am) ? p.am : p.a!=null ? [p.a] : []; return L.map(i=>QL[i]+(o[i]?'. '+o[i]:'')).join(' ; '); };
@@ -123,17 +134,82 @@ async function verifierNumeros(){ if(FIX || QETAT!=='ok' || !D.L.length) return;
     if(Object.keys(fx).length){ const {data} = await SB.rpc('signal_qid_fixer', {p:fx}); if(data && data.n) dossiers(); } }catch(e){} }
 
 const monAvis = d => (d.avis||[]).find(a=>a.moi);
+const lettres = k => k==='V' ? 'Vrai' : k==='F' ? 'Faux' : String(k||'').split('').join('+');
 function groupes(d){ const G = {}; (d.avis||[]).filter(a=>a.decision!=='passe').forEach(a=>{ const g = G[a.signature] = G[a.signature] || {decision:a.decision, prop:a.prop||{}, noms:[]}; g.noms.push(a.moi?'toi':a.nom); }); return Object.values(G).sort((x,y)=>y.noms.length-x.noms.length); }
-function rendre(){
+/* ---------- rubriques (menu ☰ en haut à gauche) ---------- */
+const RUBS = [
+  ['signales', '⚑', 'Questions signalées', 'Les élèves ont signalé une erreur.'],
+  ['sujets', '🎯', 'Sujets les plus signalés', 'Les sujets d’où viennent le plus de signalements.'],
+  ['suspects', '🔎', 'Corrigés à vérifier', 'La plupart des élèves choisissent une autre réponse que le corrigé.'],
+  ['doublons', '🧭', 'Questions identiques, réponses différentes', 'Même énoncé, mêmes propositions, mais pas la même bonne réponse.']];
+const sansAvis = L => L.filter(d=>!monAvis(d)).length;
+function compte(r){ if(r==='signales') return sansAvis(D.L); if(r==='sujets') return sujetsSignales().length; if(r==='suspects') return SUS ? sansAvis(listeSuspects()) : '';
+  if(r==='doublons') return DBL ? DBL.length : ''; return ''; }
+function menu(on){ const t = $('#tiroir'); t.classList.toggle('on', on); t.setAttribute('aria-hidden', on?'false':'true'); if(!on) return;
+  $('#nav').innerHTML = '<h2 style="margin:4px 0 10px">Rubriques</h2>' + RUBS.map(([k,i,n,d])=>`<button class="btn ${RUB===k?'on':''}" data-rub="${k}"><span>${i} ${n}<br><span class="muted small" style="font-weight:500">${d}</span></span><span class="pill">${compte(k)}</span></button>`).join('')
+    + `<p class="muted small" style="margin-top:14px">Dans chaque rubrique, donne ton avis question par question avec ton cours.</p>`;
+  document.querySelectorAll('[data-rub]').forEach(b=>b.onclick=()=>{ RUB = b.dataset.rub; SUJ = null; OUV = null; LIM = 15; menu(false); ouvrirRubrique(); }); }
+$('#menu').onclick = ()=>menu(true); $('#tiroir .fond').onclick = ()=>menu(false);
+document.addEventListener('keydown', e=>{ if(e.key==='Escape') menu(false); });
+async function ouvrirRubrique(){ rendre(); window.scrollTo({top:0});
+  if(RUB==='suspects' && SUS===null) await chargerSuspects();
+  if(RUB==='doublons' && DBL===null) await chargerDoublons(); }
+async function chargerSuspects(){ const {data, error} = await SB.rpc('corriges_suspects_equipe', {p_min:10, p_part:0.6});
+  SUS = error ? [] : (data||[]); if(error) toast('Corrigés à vérifier : '+error.message);
+  await chargerMatieres(SUS.map(x=>String(x.qid).split('.')[0])); await chargerAvis(SUS.map(x=>x.qid)); rendre(); }
+async function chargerDoublons(){ if(QETAT!=='ok'){ DBL = null; return; } rendre();
+  await chargerMatieres(W.eval('MAT.map(m=>m.id)')||[]);
+  DBL = W.eval(`(()=>{if(typeof riDoublons!=='function')return [];const n=x=>String(x==null?'':x).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,' ').trim();
+    const cle=y=>y.t==='vf'?'v'+(y.v?1:0):y.t==='qcm'?(Array.isArray(y.am)&&y.am.length?y.am:[y.a]).map(i=>n((y.o||[])[i])).sort().join('|'):n(y.r);
+    const vu={},R=[];for(const id in QI){if(vu[id])continue;const d=riDoublons(id);if(!d.length)continue;d.forEach(x=>vu[x]=1);const G=[id].concat(d);if(new Set(G.map(x=>cle(QI[x]))).size>1)R.push(G)}return R})()`) || [];
+  await chargerAvis([].concat(...DBL)); rendre(); }
+async function chargerAvis(L){ if(!L.length) return; const {data} = await SB.rpc('avis_questions', {p_qids:[...new Set(L)].slice(0,400)}); AVQ = Object.assign(AVQ, data||{}); }
+/* question hors dossier : on l'affiche comme un dossier sans signalement (avis déjà donnés compris) */
+function pseudo(qid, extra){ const d = D.L.find(x=>x.qid===qid); if(d) return Object.assign({}, d, extra||{});
+  return Object.assign({qid, mat:String(qid).split('.')[0], nb:0, eleves:0, photos:0, mise:false, signalements:[], avis:AVQ[qid]||[], choix:null}, extra||{}); }
+function listeSuspects(){ return (SUS||[]).map(x=>pseudo(x.qid, {choix:x.dist, suspect:x})); }
+function sujetsSignales(){ if(QETAT!=='ok') return []; const G = {};
+  D.L.filter(d=>d.origine!=='avis').forEach(d=>{ let k = null; try{ k = W.eval(`(()=>{const m=${JSON.stringify(d.mat)};const L=typeof sujets==='function'?sujets(m):[];const i=L.findIndex(x=>x.includes(${JSON.stringify(d.qid)}));return i<0?null:[m,i,typeof sujTitre==='function'?sujTitre(m,i):'Sujet '+(i+1)]})()`); }catch(e){}
+    if(!k) return; const id = k[0]+'#'+k[1], g = G[id] = G[id] || {id, mat:k[0], titre:k[2], L:[], el:0}; g.L.push(d); g.el += d.eleves||0; });
+  return Object.values(G).sort((a,b)=>b.L.length-a.L.length || b.el-a.el); }
+const nomMat = m => { try{ return (W && W.eval('(MAT.find(x=>x.id==='+JSON.stringify(m)+')||{}).title||""')) || m; }catch(e){ return m; } };
+function contenu(){
+  const vide = t => `<div class="card"><p class="muted" style="margin:0">${t}</p></div>`;
+  if(RUB==='sujets'){
+    if(QETAT!=='ok') return vide('⏳ Chargement des sujets de l’appli…');
+    const S = sujetsSignales();
+    if(SUJ){ const g = S.find(x=>x.id===SUJ); if(!g){ SUJ = null; return contenu(); }
+      return `<button class="btn sm" id="sujret" style="margin-bottom:10px">← Tous les sujets</button><div class="card"><b>${esc(g.titre)}</b><div class="muted small">${esc(nomMat(g.mat))} · ${g.L.length} question${g.L.length>1?'s':''} signalée${g.L.length>1?'s':''} · ${g.el} élève${g.el>1?'s':''}</div></div>` + g.L.map(carte).join(''); }
+    return S.length ? S.map(g=>`<div class="card"><button class="btn suj" data-suj="${esc(g.id)}"><span><b>${esc(g.titre)}</b><br><span class="muted small">${esc(nomMat(g.mat))} · ${g.el} élève${g.el>1?'s':''}</span></span><span class="pill amber">⚑ ${g.L.length} question${g.L.length>1?'s':''}${sansAvis(g.L)?' · '+sansAvis(g.L)+' sans ton avis':''}</span></button></div>`).join('') : vide('Aucun sujet signalé pour l’instant.');
+  }
+  if(RUB==='suspects'){
+    if(SUS===null) return vide('⏳ Chargement…');
+    const L = listeSuspects(); return L.length ? L.slice(0, LIM).map(carte).join('') + plus(L.length) : vide('✅ Aucun corrigé suspect pour l’instant (il faut au moins 10 réponses d’élèves à une question).');
+  }
+  if(RUB==='doublons'){
+    if(QETAT!=='ok' || DBL===null) return vide('⏳ Analyse des questions de l’appli… (peut prendre un moment)');
+    return DBL.length ? '<p class="muted small" style="margin:0 0 10px">Ces questions ont le même énoncé et les mêmes propositions, mais pas la même bonne réponse : l’une est sûrement fausse. Donne ton avis sur celle qui est fausse (ou sur chacune).</p>'
+      + DBL.slice(0, LIM).map(G=>`<div class="grp">${G.map(id=>carte(pseudo(id))).join('')}</div>`).join('') + plus(DBL.length) : vide('✅ Aucune : toutes les questions identiques ont la même réponse.');
+  }
   const af = D.L.filter(d=>!monAvis(d)), fait = D.L.filter(d=>monAvis(d)), L = ONG==='afaire' ? af : fait;
-  document.title = (af.length ? '('+af.length+') ' : '') + 'Correcteurs Révision INFAS';
+  return `<div class="tabs"><button class="btn sm ${ONG==='afaire'?'on':''}" data-ong="afaire">À vérifier · ${af.length}</button><button class="btn sm ${ONG==='fait'?'on':''}" data-ong="fait">Mes avis donnés · ${fait.length}</button></div>`
+    + (L.length ? L.map(carte).join('') : vide(ONG==='afaire'?'🎉 Rien à vérifier pour l’instant. Merci !':'Aucun avis donné pour l’instant.'));
+}
+const plus = n => n > LIM ? `<button class="btn" id="plus" style="width:100%">Voir plus (${n-LIM} de plus)</button>` : '';
+function rendre(){
+  document.title = (sansAvis(D.L) ? '('+sansAvis(D.L)+') ' : '') + 'Correcteurs Révision INFAS';
+  const R = RUBS.find(x=>x[0]===RUB);
   vue(`${MOI && MOI.admin ? '<p class="msg">Tu es connecté en administrateur : ton avis publie la correction tout de suite.</p>' : ''}
-    <p class="muted small" style="margin:0 0 10px">Vérifie chaque question avec ton cours. ${D.req} avis identiques suffisent pour publier la correction ; si les avis diffèrent, Daniel tranche.</p>
-    <div class="tabs"><button class="btn sm ${ONG==='afaire'?'on':''}" data-ong="afaire">À vérifier · ${af.length}</button><button class="btn sm ${ONG==='fait'?'on':''}" data-ong="fait">Mes avis donnés · ${fait.length}</button><button class="btn sm" id="maj">↻</button>${ALERTE.dispo && ALERTE.perm!=='granted' ? `<button class="btn sm" id="alon">🔔 ${ALERTE.perm==='denied'?'Alertes bloquées':'Activer les alertes'}</button>` : ''}</div>
+    <div class="row" style="margin-bottom:6px"><h2 style="margin:0;flex:1">${R[1]} ${R[2]}</h2><button class="btn sm" id="maj" aria-label="Actualiser">↻</button>${ALERTE.dispo && ALERTE.perm!=='granted' ? `<button class="btn sm" id="alon">🔔 ${ALERTE.perm==='denied'?'Alertes bloquées':'Activer les alertes'}</button>` : ''}</div>
+    <p class="muted small" style="margin:0 0 10px">${R[3]} Vérifie avec ton cours : ${D.req} avis identiques publient la correction ; si les avis diffèrent, Daniel tranche. <a href="#" id="voirmenu">☰ Autres rubriques</a></p>
     ${QETAT==='charge' ? '<p class="muted small">⏳ Chargement des questions de l’appli…</p>' : QETAT==='err' ? '<p class="msg bad">Impossible de charger l’appli des élèves : les questions s’afficheront avec le texte envoyé par les élèves.</p>' : ''}
-    ${L.length ? L.map(carte).join('') : `<div class="card"><p class="muted" style="margin:0">${ONG==='afaire'?'🎉 Rien à vérifier pour l’instant. Merci !':'Aucun avis donné pour l’instant.'}</p></div>`}`);
+    ${contenu()}`);
   document.querySelectorAll('[data-ong]').forEach(b=>b.onclick=()=>{ ONG = b.dataset.ong; OUV = null; rendre(); });
-  $('#maj').onclick = ()=>dossiers();
+  $('#voirmenu').onclick = e=>{ e.preventDefault(); menu(true); };
+  document.querySelectorAll('[data-suj]').forEach(b=>b.onclick=()=>{ SUJ = b.dataset.suj; OUV = null; rendre(); window.scrollTo({top:0}); });
+  const sr = $('#sujret'); if(sr) sr.onclick = ()=>{ SUJ = null; rendre(); };
+  const pl = $('#plus'); if(pl) pl.onclick = ()=>{ LIM += 15; rendre(); };
+  $('#maj').onclick = async ()=>{ if(RUB==='suspects') SUS = null; if(RUB==='doublons') DBL = null; await dossiers(); ouvrirRubrique(); };
   const al = $('#alon'); if(al) al.onclick = activerAlertes;
   document.querySelectorAll('[data-juste]').forEach(b=>b.onclick=()=>envoyer(b.dataset.juste, 'rejet', {}));
   document.querySelectorAll('[data-passe]').forEach(b=>b.onclick=()=>envoyer(b.dataset.passe, 'passe', {}));
@@ -160,12 +236,12 @@ function carte(d){
   const choix = d.choix || {}, T = Object.values(choix).reduce((s,n)=>s+n,0);
   const texte = q ? (q.s ? q.s+' — ' : '') + (q.q||'') : (d.signalements[0]||{}).question || '';
   return `<div class="card" id="f-${esc(d.qid)}">
-    <div class="row"><b>${esc(q && W ? (W.eval('(MAT.find(x=>x.id==='+JSON.stringify(q.m)+')||{}).title||""')||d.mat) : d.mat)}</b><span class="pill">⚑ ${d.eleves} élève${d.eleves>1?'s':''}</span>${G.length>1?'<span class="pill amber">avis différents</span>':''}${d.mise?'<span class="pill red">retirée de l’appli en attendant</span>':''}</div>
+    <div class="row"><b>${esc(nomMat(q ? q.m : d.mat))}</b>${d.origine==='avis'?'<span class="pill">💬 proposée par l’équipe</span>':''}${d.eleves?`<span class="pill">⚑ ${d.eleves} élève${d.eleves>1?'s':''}</span>`:''}${d.suspect?`<span class="pill red">${Math.round(d.suspect.part*100)} % ont choisi ${esc(lettres(d.suspect.top))}</span>`:''}${G.length>1?'<span class="pill amber">avis différents</span>':''}${d.mise?'<span class="pill red">retirée de l’appli en attendant</span>':''}</div>
     <p style="margin:8px 0 0;white-space:pre-line">${esc(String(texte).slice(0,1500))}</p>
     ${q && q.t==='qcm' ? `<ol class="opts" type="A">${(q.o||[]).map(o=>`<li>${esc(o)}</li>`).join('')}</ol>` : q && q.t==='vf' ? '<p class="muted small" style="margin:4px 0 0">Vrai ou Faux</p>' : ''}
     ${q ? `<p style="margin:8px 0 0">Réponse de l’appli : <span class="ok">${esc(repActuelle(q))}</span></p>${q.x?`<details><summary>Explication de l’appli</summary><p class="small" style="white-space:pre-line">${esc(String(q.x).replace(/\[\/?(?:b|i|u|g|tg|p)\]/g,'').slice(0,1500))}</p></details>`:''}` : ''}
-    ${T ? `<p class="small muted" style="margin:6px 0 0">📊 Réponses des élèves : ${Object.entries(choix).sort((a,b)=>b[1]-a[1]).map(([k,n])=>`<b>${esc(k==='V'?'Vrai':k==='F'?'Faux':k.split('').join('+'))}</b> ${Math.round(n*100/T)} %`).join(' · ')}</p>` : ''}
-    <details ${ph.length?'open':''} style="margin-top:8px"><summary>Ce que disent les élèves (${d.signalements.length})</summary>${d.signalements.map(s=>`<div class="sig"><span class="muted small">${esc(s.prenom||'Élève')} · ${quand(s.t)}</span><div>${esc(s.message||'')}</div>${s.photo?`<div class="ph" data-photo="${esc(s.photo)}"><span class="muted small">📷 Chargement…</span></div>`:''}</div>`).join('')}</details>
+    ${T ? `<p class="small muted" style="margin:6px 0 0">📊 Réponses des élèves : ${Object.entries(choix).sort((a,b)=>b[1]-a[1]).map(([k,n])=>`<b>${esc(lettres(k))}</b> ${Math.round(n*100/T)} %`).join(' · ')} <span class="muted">(${T})</span></p>` : ''}
+    ${d.signalements.length ? '' : '<!--'}<details ${ph.length?'open':''} style="margin-top:8px"><summary>Ce que disent les élèves (${d.signalements.length})</summary>${d.signalements.map(s=>`<div class="sig"><span class="muted small">${esc(s.prenom||'Élève')} · ${quand(s.t)}</span><div>${esc(s.message||'')}</div>${s.photo?`<div class="ph" data-photo="${esc(s.photo)}"><span class="muted small">📷 Chargement…</span></div>`:''}</div>`).join('')}</details>${d.signalements.length ? '' : '-->'}
     ${G.length ? `<div style="margin-top:8px">${G.map(g=>`<p class="small" style="margin:4px 0">${g.decision==='rejet'?'👍 Question juste':'✏️ Bonne réponse : <b>'+esc(repTxt(g.prop, q))+'</b>'} — ${esc(g.noms.join(', '))}${g.prop.x?`<br><span class="muted">« ${esc(g.prop.x)} »</span>`:''}</p>`).join('')}</div>` : ''}
     ${m ? `<p class="msg small" style="margin-bottom:6px">Ton avis : ${m.decision==='rejet'?'👍 la question est juste':m.decision==='passe'?'⏭️ je ne sais pas':'✏️ '+esc(repTxt(m.prop, q))}. Tu peux le changer.</p>` : ''}
     ${ouvert ? formulaire(d, q, ph) : `<div class="row" style="margin-top:10px"><button class="btn pri" data-juste="${esc(d.qid)}">👍 La question est juste</button><button class="btn" data-faux="${esc(d.qid)}" ${q && !['qcm','vf'].includes(q.t)?'disabled title="Question ouverte : Daniel la corrige"':''}>✏️ Elle est fausse</button><button class="btn sm" data-passe="${esc(d.qid)}">⏭️ Je ne sais pas</button></div>`}
@@ -183,6 +259,7 @@ function formulaire(d, q, ph){
 async function envoyer(qid, decision, prop){
   const {data, error} = await SB.rpc('donner_avis', {p_qid:qid, p_decision:decision, p_prop:prop});
   if(error) return toast('Erreur : '+error.message); if(!data || !data.ok) return toast('Avis refusé : vérifie ta réponse.');
+  if(RUB==='suspects' || RUB==='doublons') await chargerAvis([qid]);
   OUV = null; toast(data.etat==='publie' ? '✅ Correction publiée chez tous les élèves. Merci !' : data.etat==='confirme' ? '✅ Question confirmée. Merci !' : decision==='passe' ? 'Noté.' : 'Avis enregistré ('+(data.n||1)+' / '+(data.requis||D.req)+').');
   dossiers();
 }
