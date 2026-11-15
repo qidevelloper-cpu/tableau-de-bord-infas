@@ -1688,10 +1688,10 @@ VIEWS.eleves = ()=>{
     <div class="row wrap" style="gap:8px;align-items:center;background:var(--soft);border-radius:12px;padding:8px 12px;margin-bottom:10px"><b>${fmt(L.length)} élève${L.length>1?'s':''} dans ce filtre</b>${s.sel.size?` · <b>${s.sel.size} sélectionné${s.sel.size>1?'s':''}</b>`:''}<div class="grow" style="flex:1"></div>
       <button class="btn sm" id="bulkall">${L.length && L.every(p=>s.sel.has(p.id))?'Tout désélectionner':'Sélectionner les '+fmt(L.length)}</button>
       ${s.sel.size?`<button class="btn sm" id="bulkgift">${ic('gift')}Offrir un pass</button>`:''}<button class="btn sm pri" id="bulksug" ${nbSelection()?'':'disabled'}>📣 Proposer un sujet${nbSelection()?' à '+nbSelection():''}</button>${s.sel.size?`<button class="btn sm" id="bulkclear">Désélectionner</button>`:''}</div>
-    <div class="tablewrap"><table class="t"><thead><tr><th style="width:30px"><input type="checkbox" id="selall" aria-label="Tout sélectionner" ${rows.length && rows.every(p=>s.sel.has(p.id))?'checked':''}></th><th>Élève</th><th>Niveau</th><th>Accès</th><th>Dernière connexion</th><th>Quiz</th><th>Appareils</th></tr></thead><tbody>
+    <div class="tablewrap"><table class="t"><thead><tr><th style="width:30px"><input type="checkbox" id="selall" aria-label="Tout sélectionner" ${rows.length && rows.every(p=>s.sel.has(p.id))?'checked':''}></th><th>Élève</th><th>Niveau</th><th>Accès</th><th>Dernière connexion</th><th>Quiz</th><th>Questions répondues</th><th>Temps passé</th><th>Appareils</th></tr></thead><tbody>
     ${rows.map(p=>`<tr class="click" data-user="${p.id}"><td><input type="checkbox" data-sel="${p.id}" ${s.sel.has(p.id)?'checked':''} aria-label="Sélectionner ${esc(fullName(p))}"></td>
       <td><div class="who"><div class="av" style="background:${avColor(p.id)}">${initials(p)}</div><div><b>${esc(fullName(p))}${p.auth_id?' <span class="pill ok" style="font-size:11px">Compte</span>':''}</b><small>${esc(p.email||p.telephone)}</small></div></div></td>
-      <td style="white-space:nowrap">${p.filiere} · ${p.annee}</td><td>${accessPill(p)}${(()=>{ const o = originePremium(p); return o && !o.promo ? `<div class="muted" style="font-size:12px;margin-top:3px">⭐ ${esc(o.court)}</div>` : ''; })()}</td><td style="white-space:nowrap">${derniereCnx(p)}</td><td class="num">${fmt(p.quiz)}</td><td>${p.appareils.length}${p.appareils.length>1?' <span class="pill warn">2</span>':''}</td></tr>`).join('') || `<tr><td colspan="7"><div class="empty">Aucun élève ne correspond à ces filtres. Modifiez la recherche ou réinitialisez les filtres.</div></td></tr>`}
+      <td style="white-space:nowrap">${p.filiere} · ${p.annee}</td><td>${accessPill(p)}${(()=>{ const o = originePremium(p); return o && !o.promo ? `<div class="muted" style="font-size:12px;margin-top:3px">⭐ ${esc(o.court)}</div>` : ''; })()}</td><td style="white-space:nowrap">${derniereCnx(p)}</td>${(()=>{ const A = activiteCompte(p); return `<td class="num">${fmt(Math.max(p.quiz|0, A&&A.quiz?A.quiz.length:0))}</td><td class="num">${A?fmt(+A.nrep||0):'—'}</td><td style="white-space:nowrap">${A?dureeFr(+A.tps||0):'—'}</td>`; })()}<td>${p.appareils.length}${p.appareils.length>1?' <span class="pill warn">2</span>':''}</td></tr>`).join('') || `<tr><td colspan="9"><div class="empty">Aucun élève ne correspond à ces filtres. Modifiez la recherche ou réinitialisez les filtres.</div></td></tr>`}
     </tbody></table></div>
     <div class="pager"><span>${L.length?`${(s.page-1)*per+1}–${Math.min(s.page*per,L.length)} sur ${fmt(L.length)}`:'0 résultat'}</span><div class="row"><button class="btn sm" id="pprev" ${s.page<=1?'disabled':''}>Précédent</button><span>Page ${s.page} / ${pages}</span><button class="btn sm" id="pnext" ${s.page>=pages?'disabled':''}>Suivant</button></div></div>
   </div>`;
@@ -2616,10 +2616,131 @@ function sigBilanCarte(){ const L = [...sigBilan().values()].sort((a,b)=>(b.ok-a
     <div style="overflow-x:auto;margin-top:8px"><table style="width:100%;border-collapse:collapse;font-size:14px"><thead><tr style="text-align:left;border-bottom:1.5px solid var(--line)"><th style="padding:6px 8px">Élève</th><th>Signalements</th><th>📷 Photos</th><th>✅ Justes</th><th>Taux juste</th></tr></thead>
     <tbody>${L.slice(0, UI.sigBilN||20).map(lig).join('')}</tbody></table></div>${L.length>(UI.sigBilN||20)?'<button class="btn sm" id="sigbilplus" style="margin-top:8px">Voir tous les élèves</button>':''}
     <div class="cnote" style="margin-top:6px">« Juste » = la question a été corrigée (✅ Marquer corrigé, ou correction publiée avec « Prévenir l’élève »). Médailles : page <a href="#" id="sigbilct">Contributeurs</a>.</div></details>`; }
+/* ======================= SIGNALEMENTS PAR SUJET · SUJETS À CORRIGER =======================
+   Chaque signalement est rattaché à son sujet (lu dans l'appli : sujets(cours)). Classement des sujets et des cours
+   les plus signalés ; un sujet peut être mis « ⭐ à corriger » et « 🙈 désactivé » (grisé « En correction » chez les
+   élèves) puis corrigé (Modifier le sujet) et remis en ligne. Drapeaux gardés dans la correction « suj:<1re question> »
+   (champs off / afaire), à côté du titre éventuel : rien de plus à coller dans Supabase. */
+let SJR = false;
+async function sigSujetsResoudre(){
+  if(SJR || QX.etat!=='ok' || !QX.W) return 0; const L = DB.reports.filter(r=>sq(r) && r.sjk===undefined); if(!L.length) return 0;
+  SJR = true; let n = 0;
+  try{
+    const M = [...new Set(L.map(r=>r.mat || String(sq(r)).split('.')[0]))];
+    const res = await QX.W.eval('('+(async function(M, Q){
+      for(const m of M) for(const k of [m,'plus-'+m,'plusnat-'+m]){ try{ if(typeof needX==='function' && needX(k)) await ensureX(k); }catch(e){} }
+      const out = {}, cache = {};
+      Q.forEach(([qid, m0])=>{ const q = QI[qid], m = (q && q.m) || m0; if(!m || !MATI[m]) return; let idx = cache[m];
+        if(!idx){ idx = cache[m] = {}; try{ sujets(m).forEach((L,k)=>L.forEach(id=>{ if(!(id in idx)) idx[id] = k; })); }catch(e){} }
+        const k = idx[qid]; if(k==null) return; const L = sujets(m)[k]; out[qid] = [m, k, L[0], String(sujTitre(m,k)||('Sujet '+(k+1))), L.length]; });
+      return out; }).toString()+')('+JSON.stringify(M)+','+JSON.stringify([...new Set(L.map(r=>sq(r)))].map(q=>[q, (DB.reports.find(r=>sq(r)===q)||{}).mat||String(q).split('.')[0]]))+')') || {};
+    L.forEach(r=>{ const x = res[sq(r)]; if(x){ r.sjk = x[0]+'|'+x[1]; r.sjm = x[0]; r.sjn = x[1]; r.sjf = x[2]; r.sjt = x[3]; r.sjq = x[4]; n++; } else r.sjk = null; });
+  }catch(e){} finally{ SJR = false; }
+  return n;
+}
+function sujDrapeaux(first){ const c = (QX.corr||[]).find(x=>x.actif && x.qid==='suj:'+first); return c && c.c && typeof c.c==='object' ? c.c : {}; }
+async function sujMarquer(first, patch, msg){
+  if(MODE!=='supabase' || !SB){ toast('Connectez-vous au compte administrateur.'); return false; }
+  try{ const {data,error} = await SB.rpc('corrections_liste'); if(!error && Array.isArray(data)) QX.corr = data; }catch(e){}
+  const ch = Object.assign({}, sujDrapeaux(first), patch); Object.keys(ch).forEach(k=>{ if(ch[k]===null) delete ch[k]; });
+  const qid = 'suj:'+first;
+  try{ let r;
+    if(!Object.keys(ch).length) r = await SB.rpc('annuler_correction', {p_qid:qid});
+    else r = await SB.rpc('publier_correction', {p_qid:qid, p_champs:ch, p_note:msg||null});
+    if(r.error || (r.data && r.data.ok===false)) throw r.error||new Error('refusé');
+    try{ const {data} = await SB.rpc('corrections_liste'); if(Array.isArray(data)) QX.corr = data; }catch(e){}
+    if(msg) audit(msg, qid); return true; }
+  catch(e){ toast('Impossible : '+(typeof frErr==='function'?frErr(e):e.message), 6000); return false; }
+}
+function sujStats(){ const S = new Map(), C = new Map();
+  DB.reports.forEach(r=>{ if(!r.sjk) return; let g = S.get(r.sjk); if(!g){ g = {k:r.sjk, m:r.sjm, n:r.sjn, f:r.sjf, t:r.sjt, nq:r.sjq, tot:0, nouv:0, qs:new Set(), el:new Set(), ph:0, der:0}; S.set(r.sjk, g); }
+    g.tot++; if(r.statut!=='corrige') g.nouv++; g.qs.add(sq(r)); if(r.appareil||r.user_id) g.el.add(r.appareil||r.user_id); if(r.photo) g.ph++; g.der = Math.max(g.der, new Date(r.date||0).getTime());
+    let c = C.get(r.sjm); if(!c){ c = {m:r.sjm, tot:0, nouv:0, suj:new Set()}; C.set(r.sjm, c); } c.tot++; if(r.statut!=='corrige') c.nouv++; c.suj.add(r.sjk); });
+  return {S:[...S.values()].sort((a,b)=>(b.nouv-a.nouv)||(b.tot-a.tot)||(b.der-a.der)), C:[...C.values()].sort((a,b)=>(b.nouv-a.nouv)||(b.tot-a.tot))}; }
+const sujNom = g=>qxTitreCorr(g.f) || g.t;
+function sujActions(g){ const D = sujDrapeaux(g.f);
+  return `<button class="btn sm" data-sjfav="${esc(g.f)}" title="${D.afaire?'Retirer de mes sujets à corriger':'Ajouter à mes sujets à corriger'}">${D.afaire?'⭐':'☆'} À corriger</button>
+    ${D.off?`<button class="btn sm" data-sjon="${esc(g.f)}">✅ Remettre en ligne</button>`:`<button class="btn sm" data-sjoff="${esc(g.f)}">🙈 Désactiver</button>`}
+    <button class="btn sm pri" data-sjedit="${esc(g.m)}|${g.n}">📝 Corriger le sujet</button>`; }
+function sujSignalesCarte(){
+  if(QX.etat!=='ok') return `<div class="card" style="margin-bottom:14px"><b>🎯 Sujets les plus signalés</b><p class="muted" style="margin:6px 0 0;font-size:13px">⏳ Lecture des sujets de l’appli…</p></div>`;
+  const {S, C} = sujStats(); if(!S.length) return '';
+  const lim = UI.sjLim||6, mx = S[0].nouv||S[0].tot||1;
+  const ligne = g=>{ const D = sujDrapeaux(g.f); return `<div class="row wrap" style="gap:10px;padding:10px 0;border-top:1px solid var(--line);align-items:center">
+    <div style="flex:1;min-width:240px"><b>${esc(sujNom(g))}</b>${D.off?' <span class="pill" style="background:#fff1e6;color:#b45309">🛠️ désactivé</span>':''}${D.afaire?' <span class="pill">⭐ à corriger</span>':''}
+      <div class="cnote">${esc(matName(g.m))} · ${g.nq} questions · <b>${g.nouv}</b> à traiter / ${g.tot} signalement${g.tot>1?'s':''} · ${g.qs.size} question${g.qs.size>1?'s':''} signalée${g.qs.size>1?'s':''} · ${g.el.size} élève${g.el.size>1?'s':''}${g.ph?' · 📷 '+g.ph:''}</div>
+      <div style="height:6px;border-radius:4px;background:var(--line);margin-top:5px;overflow:hidden"><div style="height:100%;width:${Math.max(3,Math.round((g.nouv||g.tot)/mx*100))}%;background:${g.nouv?'#e11d48':'#94a3b8'}"></div></div></div>
+    <div class="row wrap" style="gap:6px"><button class="btn sm" data-sjvoir="${esc(g.k)}">🔍 Voir</button>${sujActions(g)}</div></div>`; };
+  return `<div class="card" style="margin-bottom:14px"><div class="row wrap" style="gap:8px;align-items:center"><h3 style="margin:0;flex:1">🎯 Sujets les plus signalés</h3>${UI.sigSuj?`<button class="btn sm" id="sjall">✕ Tous les sujets</button>`:''}</div>
+    <p class="cnote" style="margin:4px 0 0">Classés par signalements à traiter. « Désactiver » grise le sujet chez les élèves (« 🛠️ En correction ») sans changer sa place ; corrigez-le puis « Remettre en ligne ».</p>
+    ${S.slice(0,lim).map(ligne).join('')}${S.length>lim?`<button class="btn sm" id="sjplus" style="margin-top:8px">Voir les ${S.length} sujets signalés</button>`:''}
+    <details style="margin-top:10px"><summary style="cursor:pointer;font-weight:800">📚 Par cours (rubrique) · ${C.length}</summary><div class="tablewrap" style="margin-top:6px"><table class="t"><thead><tr><th>Cours</th><th>À traiter</th><th>Signalements</th><th>Sujets signalés</th></tr></thead><tbody>
+      ${C.map(c=>`<tr><td><b>${esc(matName(c.m))}</b></td><td class="num"><b>${c.nouv}</b></td><td class="num">${c.tot}</td><td class="num">${c.suj.size}</td></tr>`).join('')}</tbody></table></div></details></div>`;
+}
+function sujFavorisCarte(){
+  const F = (QX.corr||[]).filter(c=>c.actif && /^suj:/.test(c.qid) && c.c && (c.c.afaire || c.c.off)); if(!F.length) return '';
+  const st = sujStats().S;
+  return `<div class="card" style="margin-bottom:14px;border:2px solid #f59e0b"><h3 style="margin:0 0 4px">⭐ Mes sujets à corriger · ${F.length}</h3><p class="cnote" style="margin:0 0 4px">Corrigez le sujet (titre, énoncés, réponses, explications), puis « Remettre en ligne ».</p>
+    ${F.map(c=>{ const f = c.qid.slice(4), g = st.find(x=>x.f===f), D = c.c, mid = g ? g.m : String(f).split('.')[0];
+      const k = g ? g.n : (qxEval('(()=>{try{return sujets('+JSON.stringify(mid)+').findIndex(L=>L[0]==='+JSON.stringify(f)+')}catch(e){return -1}})()'));
+      const t = D.titre || (g ? g.t : (k>=0 ? qxEval('String(sujTitre('+JSON.stringify(mid)+','+k+'))') : f));
+      return `<div class="row wrap" style="gap:10px;padding:10px 0;border-top:1px solid var(--line);align-items:center"><div style="flex:1;min-width:220px"><b>${esc(t||f)}</b> ${D.off?'<span class="pill" style="background:#fff1e6;color:#b45309">🛠️ désactivé chez les élèves</span>':'<span class="pill ok">en ligne</span>'}
+        <div class="cnote">${esc(matName(mid))}${g?` · <b>${g.nouv}</b> signalement${g.nouv>1?'s':''} à traiter`:''}</div></div>
+        <div class="row wrap" style="gap:6px">${g?`<button class="btn sm" data-sjvoir="${esc(g.k)}">🔍 Signalements</button>`:''}${k>=0?`<button class="btn sm pri" data-sjedit="${esc(mid)}|${k}">📝 Corriger le sujet</button>`:''}
+        ${D.off?`<button class="btn sm" data-sjon="${esc(f)}">✅ Remettre en ligne</button>`:''}<button class="btn sm" data-sjfav="${esc(f)}">Retirer</button></div></div>`; }).join('')}</div>`;
+}
+function bindSujSig(){
+  const re = ()=>render();
+  document.querySelectorAll('[data-sjvoir]').forEach(b=>b.onclick=()=>{ UI.sigSuj = b.dataset.sjvoir; if(page!=='signalements'){ go('signalements'); } else re(); setTimeout(()=>{ const l = document.querySelector('.siglist'); if(l) l.scrollIntoView({behavior:'smooth', block:'start'}); }, 80); });
+  const a = $('#sjall'); if(a) a.onclick = ()=>{ UI.sigSuj = ''; re(); };
+  const p = $('#sjplus'); if(p) p.onclick = ()=>{ UI.sjLim = 1e6; re(); };
+  document.querySelectorAll('[data-sjedit]').forEach(b=>b.onclick=()=>{ const [m,k] = b.dataset.sjedit.split('|'); qxSujEditer(m, +k); });
+  document.querySelectorAll('[data-sjfav]').forEach(b=>b.onclick=async()=>{ const f = b.dataset.sjfav, on = !sujDrapeaux(f).afaire; b.disabled = true;
+    if(await sujMarquer(f, {afaire: on ? 1 : null, off: on ? sujDrapeaux(f).off||null : null}, on?'Sujet mis à corriger':'Sujet retiré des sujets à corriger')){ toast(on?'⭐ Ajouté à vos sujets à corriger.':'Retiré de vos sujets à corriger'+(sujDrapeaux(f).off?'':' (et remis en ligne s’il était désactivé).')); re(); } else b.disabled = false; });
+  document.querySelectorAll('[data-sjoff]').forEach(b=>b.onclick=()=>confirmModal('Désactiver ce sujet ?', 'Il reste à sa place mais devient grisé « 🛠️ En correction » chez les élèves (site élèves et site test), à leur prochaine ouverture. Il est ajouté à « ⭐ Mes sujets à corriger ».', '🙈 Désactiver', async ()=>{
+    closeModal(); if(await sujMarquer(b.dataset.sjoff, {off:1, afaire:1}, 'Sujet désactivé (en correction)')){ toast('🙈 Sujet désactivé : corrigez-le puis « Remettre en ligne ».', 5000); re(); } }));
+  document.querySelectorAll('[data-sjon]').forEach(b=>b.onclick=async()=>{ b.disabled = true;
+    if(await sujMarquer(b.dataset.sjon, {off:null, afaire:null}, 'Sujet remis en ligne')){ toast('✅ Sujet remis en ligne : les élèves le retrouvent à leur prochaine ouverture.', 5000); re(); } else b.disabled = false; });
+}
+function sujSigPreparer(){ /* charge l'appli lue, les corrections, puis rattache les signalements à leurs sujets */
+  if(MODE==='supabase' && SB && !QX.corr && !QX.corrCh){ QX.corrCh = 1; SB.rpc('corrections_liste').then(({data})=>{ if(Array.isArray(data)){ QX.corr = data; if(['signalements','questions'].includes(page)) render(); } }); }
+  if(!DB.reports.some(r=>sq(r) && r.sjk===undefined)) return;
+  if(QX.etat!=='ok'){ if(QX.etat!=='charge') qxCharger(); const t0 = Date.now(); const w = ()=>{ if(QX.etat==='ok') sujSigPreparer(); else if(QX.etat!=='err' && Date.now()-t0<90e3) setTimeout(w, 800); }; setTimeout(w, 800); return; }
+  (async()=>{ await sigResoudre(); const n = await sigSujetsResoudre(); if(n && ['signalements','questions'].includes(page)) render(); })();
+}
+/* ======================= DÉSACTIVATION DE SECOURS (supabase/signalements/2_mise_de_cote.sql) =======================
+   Une question signalée par au moins N élèves différents (signalements pas encore corrigés) disparaît chez les élèves
+   jusqu'à votre décision : la corriger (elle revient seule), marquer ses signalements « Corrigé », ou « Garder en ligne ». */
+let MC = null, MC_ERR = '';
+async function mcCharger(){ if(MODE!=='supabase' || !SB){ MC = null; MC_ERR = 'local'; return; }
+  try{ const {data,error} = await SB.rpc('signal_reglages_lire'); if(error) throw error; MC = data || {seuil:3, garder:{}, mises:[]}; MC_ERR = ''; }
+  catch(e){ MC = null; MC_ERR = /signal_reglages_lire|function|PGRST|404/.test(String(e&&e.message||e)) ? 'sql' : frErr(e); }
+  if(page==='signalements') render(); }
+function miseCarte(){
+  if(MC===null && !MC_ERR){ mcCharger(); return ''; }
+  if(MC_ERR==='local') return '';
+  if(MC_ERR==='sql') return `<div class="card" style="margin-bottom:14px"><b>🛟 Désactivation de secours</b><p class="muted" style="margin:6px 0 0;font-size:13px">Une étape dans Supabase : collez <b>supabase/signalements/2_mise_de_cote.sql</b> (SQL Editor → New query → coller → Run), puis rechargez.</p></div>`;
+  if(MC_ERR) return '';
+  const S = +MC.seuil||0, M = Array.isArray(MC.mises) ? MC.mises : [], G = Object.keys(MC.garder||{});
+  const nEl = qid=>new Set(DB.reports.filter(r=>sq(r)===qid && r.statut!=='corrige' && r.reponse_type!=='corrigee').map(r=>r.appareil||r.user_id).filter(Boolean)).size;
+  const txt = qid=>{ const q = QX.etat==='ok' ? qxQ(qid) : null, r = DB.reports.find(x=>sq(x)===qid); return q ? q.q : r ? r.question : qid; };
+  return `<div class="card" style="margin-bottom:14px;${M.length?'border:2px solid #e11d48':''}"><div class="row wrap" style="gap:10px;align-items:center"><h3 style="margin:0;flex:1">🛟 Désactivation de secours${M.length?' · '+M.length+' question'+(M.length>1?'s':'')+' mise'+(M.length>1?'s':'')+' de côté':''}</h3>
+    <label class="row" style="gap:6px">Mettre de côté une question signalée par <select class="field" id="mcseuil" style="width:auto">${[[0,'— (arrêtée)'],[2,'2 élèves'],[3,'3 élèves'],[4,'4 élèves'],[5,'5 élèves'],[10,'10 élèves']].map(([v,l])=>`<option value="${v}" ${S===v?'selected':''}>${l}</option>`).join('')}</select></label></div>
+    <p class="cnote" style="margin:4px 0 0">${S?`Dès que <b>${S} élèves différents</b> signalent la même question (signalements pas encore corrigés), elle disparaît chez les élèves jusqu’à votre décision : la corriger (elle revient toute seule), marquer ses signalements « Corrigé », ou « Garder en ligne ».`:'Arrêtée : les questions signalées restent en ligne.'}</p>
+    ${M.map(qid=>`<div class="row wrap" style="gap:10px;padding:10px 0;border-top:1px solid var(--line);align-items:center"><div style="flex:1;min-width:240px"><span class="pill" style="background:#fdecec;color:#b42318;font-weight:700">🙈 mise de côté</span> <b>${esc(matName(String(qid).split('.')[0]))}</b> · ${esc(qid)} · ${nEl(qid)} élève${nEl(qid)>1?'s':''}<div class="cnote" style="overflow-wrap:anywhere">${esc(String(txt(qid)||'').slice(0,160))}</div></div>
+      <div class="row wrap" style="gap:6px"><button class="btn sm pri" data-qedit="${esc(qid)}">✏️ Corriger</button><button class="btn sm" data-mcgarde="${esc(qid)}">✅ Garder en ligne</button></div></div>`).join('')}
+    ${G.length?`<details style="margin-top:8px"><summary class="cnote" style="cursor:pointer">Gardées en ligne malgré les signalements · ${G.length}</summary>${G.map(qid=>`<div class="row" style="gap:8px;padding:4px 0"><span style="flex:1;font-size:13px">${esc(qid)}</span><button class="btn sm" data-mcannule="${esc(qid)}">Annuler</button></div>`).join('')}</details>`:''}</div>`;
+}
+function bindMise(){
+  const s = $('#mcseuil'); if(s) s.onchange = async ()=>{ try{ const {error} = await SB.rpc('signal_seuil', {p_seuil:+s.value}); if(error) throw error; audit('Désactivation de secours : seuil', s.value); toast(+s.value?'🛟 Seuil enregistré : '+s.value+' élèves.':'Désactivation de secours arrêtée.'); await mcCharger(); }catch(e){ toast('Impossible : '+frErr(e)); } };
+  document.querySelectorAll('[data-mcgarde],[data-mcannule]').forEach(b=>b.onclick = async ()=>{ const on = !!b.dataset.mcgarde, qid = b.dataset.mcgarde||b.dataset.mcannule; b.disabled = true;
+    try{ const {error} = await SB.rpc('signal_garder_en_ligne', {p_qid:qid, p_on:on}); if(error) throw error; audit(on?'Question gardée en ligne':'Garder en ligne annulé', qid); toast(on?'✅ Question remise en ligne : les élèves la retrouvent à leur prochaine ouverture.':'Annulé.'); await mcCharger(); }catch(e){ b.disabled = false; toast('Impossible : '+frErr(e)); } });
+}
 VIEWS.signalements = ()=>{
   const st = UI.sig, cnt = s=>sigGroupes(DB.reports.filter(r=>r.statut===s)).length;
-  const L = DB.reports.filter(r=>r.statut===st).sort((a,b)=>new Date(b.date)-new Date(a.date));
+  const L = DB.reports.filter(r=>r.statut===st && (!UI.sigSuj || r.sjk===UI.sigSuj)).sort((a,b)=>new Date(b.date)-new Date(a.date));
   const tabs = [['nouveau','🚩 Nouveaux'],['en-cours','🛠️ En cours'],['corrige','✅ Corrigés']];
+  const sjF = UI.sigSuj ? (sujStats().S.find(g=>g.k===UI.sigSuj)||null) : null;
   const notif = ('Notification' in window) ? Notification.permission : 'absent';
   return headHTML('Signalements', 'Erreurs de questions envoyées par les élèves, avec leur photo. Touchez « Corriger dans l’éditeur » pour ouvrir directement la question.', demoTag()) + `
   <div class="sigalert ${MODE==='supabase'?'':'off'}">
@@ -2630,7 +2751,9 @@ VIEWS.signalements = ()=>{
     ${MODE==='supabase'&&notif==='denied'?`<span class="cnote">Notifications bloquées par le navigateur (cadenas de la barre d’adresse).</span>`:''}
   </div>
   ${waDestCard()}
+  ${miseCarte()}${sujFavorisCarte()}${sujSignalesCarte()}
   ${sigBilanCarte()}
+  ${UI.sigSuj?`<div class="row wrap" style="gap:8px;align-items:center;background:var(--soft);border-radius:12px;padding:8px 12px;margin-bottom:10px">🔍 Seulement le sujet <b>${esc(sjF?sujNom(sjF):UI.sigSuj)}</b><span style="flex:1"></span><button class="btn sm" id="sjall2">✕ Tous les sujets</button></div>`:''}
   <div class="chips" style="margin-bottom:14px">${tabs.map(([v,l])=>`<button class="chip ${st===v?'on':''}" data-sig="${v}">${l} · ${cnt(v)}</button>`).join('')}</div>
   <div class="siglist">${sigGroupes(L).map(g=>g.L.length>1?sigGroupeCarte(g):sigCarte(g.L[0])).join('') || `<div class="cempty">${st==='corrige'?'Aucun signalement corrigé pour l’instant.':'Rien à traiter ici. Les nouveaux signalements des élèves apparaîtront dans cette liste.'}</div>`}</div>`;
 };
@@ -2688,7 +2811,8 @@ async function photoUrl(path){
   PHOTOS[path] = {u:data.signedUrl, t:Date.now()}; return data.signedUrl;
 }
 AFTER.signalements = ()=>{
-  waDestCharger(); sigAttendre();
+  waDestCharger(); sigAttendre(); sujSigPreparer(); bindSujSig(); bindMise(); bindQedit();
+  const sa2 = $('#sjall2'); if(sa2) sa2.onclick = ()=>{ UI.sigSuj = ''; render(); };
   const sb = $('#sigbil'); if(sb) sb.ontoggle = ()=>{ UI.sigBil = sb.open; }; const sbp = $('#sigbilplus'); if(sbp) sbp.onclick = ()=>{ UI.sigBil = true; UI.sigBilN = 100000; render(); };
   const sbc = $('#sigbilct'); if(sbc) sbc.onclick = e=>{ e.preventDefault(); go('contrib'); };
   if($('#wadok')) $('#wadok').onclick = ()=>waDestEnregistrer($('#wadn').value);
@@ -2804,7 +2928,7 @@ VIEWS.questions = ()=>{
   const C = (QX.corr||[]);
   const corr = C.length ? `<div class="card" style="margin-bottom:16px"><h3 style="margin:0 0 6px">✅ Corrections publiées · ${C.filter(c=>c.actif).length}</h3>${C.slice(0,30).map(c=>`<div class="row wrap" style="gap:10px;padding:8px 0;border-top:1px solid var(--line)"><span style="flex:1;min-width:200px">${/^suj:/.test(c.qid)?`<b>📝 Titre de sujet</b> · « ${esc(c.c&&c.c.titre||'')} »`:`<b>${esc(matName(String(c.qid).split('.')[0]))}</b> · ${esc(c.qid)}`} <span class="muted">· ${dhfr(c.t)}${c.note?' · '+esc(c.note):''}</span></span>${c.actif?`<span class="pill ok">En ligne</span>${/^suj:/.test(c.qid)?'':`<button class="btn sm" data-qedit="${esc(c.qid)}">Modifier</button>`}<button class="btn sm" data-qann="${esc(c.qid)}">Annuler</button>`:'<span class="pill">Annulée</span>'}</div>`).join('')}</div>` : '';
   const qq = nrmTxt((QX.q||'').trim()), L = qxListe(QX.mid).filter(x=>!qq || nrmTxt(x.q+' '+x.s+' '+x.id).includes(qq));
-  return head + susp + qxSujCarte() + corr + qxVerifHTML() + `<div class="card">
+  return head + susp + sujFavorisCarte() + qxSujCarte() + corr + qxVerifHTML() + `<div class="card">
     <h3 style="margin:0 0 10px">📚 Toutes les questions</h3>
     <div class="row wrap" style="gap:10px;margin-bottom:10px"><select class="field" id="qxmid" style="max-width:340px" aria-label="Matière">${mats.map(m=>`<option value="${esc(m.id)}" ${m.id===QX.mid?'selected':''}>${esc(m.nom)} · ${m.n}</option>`).join('')}</select>
       <input class="field" id="qxq" placeholder="Chercher des mots de la question ou son numéro…" value="${esc(QX.q||'')}" style="flex:1;min-width:220px" aria-label="Chercher une question"></div>
@@ -2821,7 +2945,7 @@ AFTER.questions = ()=>{
   const m = $('#qxmid'); if(m) m.onchange = ()=>{ QX.mid = m.value; QX.lim = 40; render(); };
   const q = $('#qxq'); if(q) q.oninput = ()=>{ const pos = q.selectionStart; QX.q = q.value; clearTimeout(q.t); q.t = setTimeout(()=>{ render(); const n = $('#qxq'); if(n){ n.focus(); try{ n.setSelectionRange(pos,pos); }catch(e){} } }, 250); };
   const pl = $('#qxplus'); if(pl) pl.onclick = ()=>{ QX.lim += 60; render(); };
-  bindQedit(); qxSujBind();
+  bindQedit(); qxSujBind(); bindSujSig(); sujSigPreparer();
   document.querySelectorAll('[data-qoff]').forEach(b=>b.onclick=()=>qxOff(b.dataset.qoff, b.dataset.v==='1'));
   document.querySelectorAll('[data-qshare]').forEach(b=>b.onclick=()=>qxPartager(b.dataset.qshare, b.dataset.qpart));
   document.querySelectorAll('[data-qann]').forEach(b=>b.onclick=()=>confirmModal('Annuler la correction ?', 'La question revient à sa version d’origine sur les téléphones, à leur prochaine ouverture.', 'Oui, annuler', async ()=>{
@@ -2899,7 +3023,9 @@ function qxSujEditer(mid, k){
     try{ const {data,error} = await SB.rpc('corrections_liste'); if(!error && Array.isArray(data)) QX.corr = data; }catch(e){}
     try{
       if(tChange){ b.textContent = 'Titre…'; const qid = 'suj:'+S0.first;
-        if(t && t!==S0.t){ const {data,error} = await SB.rpc('publier_correction', {p_qid:qid, p_champs:{titre:t}, p_note:note}); if(error || !data || !data.ok) err++; else n++; }
+        const D0 = Object.assign({}, sujDrapeaux(S0.first)); delete D0.titre;   /* garder « désactivé » / « à corriger » */
+        if(t && t!==S0.t){ const {data,error} = await SB.rpc('publier_correction', {p_qid:qid, p_champs:Object.assign(D0, {titre:t}), p_note:note}); if(error || !data || !data.ok) err++; else n++; }
+        else if(Object.keys(D0).length){ const {data,error} = await SB.rpc('publier_correction', {p_qid:qid, p_champs:D0, p_note:note}); if(error || !data || !data.ok) err++; else n++; }
         else if((QX.corr||[]).some(c=>c.qid===qid && c.actif)){ const {error} = await SB.rpc('annuler_correction', {p_qid:qid}); if(error) err++; else n++; } }
       for(const [q, ch] of W){ b.textContent = 'Publication '+(n+1)+'/'+(W.length+(tChange?1:0))+'…';
         const avant = (QX.corr||[]).find(c=>c.qid===q.id && c.actif); if(avant && avant.c && typeof avant.c==='object') Object.keys(avant.c).forEach(f=>{ if(!(f in ch)) ch[f] = avant.c[f]; });
@@ -3209,7 +3335,7 @@ function qxEditer(qid, reps){
       const avant = (QX.corr||[]).find(c=>c.qid===qid && c.actif);
       if(avant && avant.c && typeof avant.c==='object') Object.keys(avant.c).forEach(k=>{ if(!(k in champs)) champs[k] = avant.c[k]; });
       if(MODE==='supabase' && SB){ const {data,error} = await SB.rpc('publier_correction', {p_qid:qid, p_champs:champs, p_note:$('#qxn').value.trim()||null}); if(error) throw error; if(!data || !data.ok) throw new Error('Correction refusée.');
-        const L = QX.corr = (QX.corr||[]).filter(c=>c.qid!==qid); L.unshift({id:data.id, qid, c:JSON.parse(JSON.stringify(champs)), note:$('#qxn').value.trim()||null, actif:true, t:data.t});
+        const L = QX.corr = (QX.corr||[]).filter(c=>c.qid!==qid); L.unshift({id:data.id, qid, c:JSON.parse(JSON.stringify(champs)), note:$('#qxn').value.trim()||null, actif:true, t:data.t}); MC = null;
         /* photo d'un élève ajoutée à l'explication : il est crédité (« Sources photos fournies par … », affiché seulement après son Oui) */
         if(xiAjout.length){ const A = [...new Set(DB.reports.filter(r=>sq(r)===qid && r.photo && r.appareil && xiAjout.includes(r.photo)).map(r=>r.appareil))]; if(A.length) try{ await SB.rpc('contrib_crediter', {p_qid:qid, p_appareils:A}); CT.etat = ''; }catch(e){} } }
       try{ const W = QX.W, Q = W.eval('QI['+JSON.stringify(qid)+']'); Object.keys(champs).forEach(k=>{ if(champs[k]===null) delete Q[k]; else Q[k] = JSON.parse(JSON.stringify(champs[k])); }); Q.__corr = 1; }catch(e){}
