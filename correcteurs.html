@@ -77,10 +77,20 @@ function charger(src){ return new Promise((ok, ko)=>{ const s = document.createE
 async function demarrer(){
   try{ if(!window.supabase) await charger('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js'); SB = window.supabase.createClient(SBC.url, SBC.key); }
   catch(e){ return vue(`<div class="card"><p class="msg bad">${esc(e.message)}</p><button class="btn" onclick="location.reload()">Réessayer</button></div>`); }
-  const {data:{session}} = await SB.auth.getSession(); if(!session) return connexion();
+  let session = null; try{ ({data:{session}} = await SB.auth.getSession()); }catch(e){ return erreur(e, demarrer); } if(!session) return connexion();
   entrer();
 }
 function vue(h){ $('#v').innerHTML = h; }
+/* réseau mobile instable : chaque appel à Supabase est retenté (jusqu'à 4 fois) avant d'afficher une erreur */
+const reseau = e => /failed to fetch|network|load failed|fetch/i.test(String((e && e.message) || e || ''));
+async function rpc(fn, args){ let r = null;
+  for(let i = 0; i < 4; i++){ try{ r = await SB.rpc(fn, args); }catch(e){ r = {error:e}; }
+    if(!r.error || !reseau(r.error)) return r; await new Promise(ok=>setTimeout(ok, 1500*(i+1))); }
+  return r; }
+function erreur(e, apres){ const net = reseau(e);
+  vue(`<div class="card"><p class="msg bad">${net ? '📶 Connexion internet trop faible ou coupée : la page n’a pas pu joindre le serveur.' : esc(e && e.message || e)}</p>
+    ${net ? '<p class="muted small">Vérifie ta connexion (données mobiles ou Wi-Fi), puis touche « Réessayer ».</p>' : ''}<button class="btn pri" id="reessai">Réessayer</button></div>`);
+  $('#reessai').onclick = apres || (()=>location.reload()); }
 function connexion(err){
   $('#out').hidden = true; $('#qui').textContent = '';
   vue(`<div class="card"><h2>Connexion</h2><p class="muted small" style="margin:0 0 10px">Utilise l’e-mail et le mot de passe de ton compte Révision INFAS (celui de l’appli). Daniel doit d’abord avoir ajouté ton e-mail à l’équipe.</p>
@@ -94,14 +104,14 @@ function connexion(err){
 $('#out').onclick = async ()=>{ try{ await SB.auth.signOut(); }catch(e){} location.reload(); };
 async function entrer(){
   vue('<div class="card"><p class="muted" style="margin:0">Chargement des dossiers…</p></div>');
-  const {data, error} = await SB.rpc('correcteur_moi');
-  if(error) return vue(`<div class="card"><p class="msg bad">${/correcteur_moi|function|schema/i.test(error.message)?'L’espace des correcteurs n’est pas encore activé.':esc(error.message)}</p></div>`);
+  const {data, error} = await rpc('correcteur_moi');
+  if(error) return /correcteur_moi|function|schema/i.test(error.message) ? vue('<div class="card"><p class="msg bad">L’espace des correcteurs n’est pas encore activé.</p></div>') : erreur(error, entrer);
   MOI = data; $('#out').hidden = false; $('#menu').hidden = !(MOI.correcteur || MOI.admin); $('#qui').textContent = MOI.nom || MOI.email;
   if(!MOI.correcteur && !MOI.admin) return vue(`<div class="card"><h2>Compte pas encore dans l’équipe</h2><p>Le compte <b>${esc(MOI.email)}</b> est connecté, mais il n’est pas (ou plus) dans l’équipe de correction. Demande à Daniel de l’ajouter, puis recharge cette page.</p><button class="btn" onclick="location.reload()">Recharger</button></div>`);
   chargerAppli(); await dossiers(); if(ALERTE.perm==='granted') abonner();
 }
 async function dossiers(){
-  const {data, error} = await SB.rpc('dossiers_liste'); if(error) return vue(`<div class="card"><p class="msg bad">${esc(error.message)}</p></div>`);
+  const {data, error} = await rpc('dossiers_liste'); if(error){ if(D.L.length && reseau(error)) return toast('📶 Connexion faible : liste pas actualisée.'); return erreur(error, dossiers); }
   D = {L:data.dossiers||[], req:data.avis_requis||3}; FIX = false; rendre(); verifierNumeros(); alerter();
 }
 /* l'appli des élèves, chargée en arrière-plan : texte, propositions et réponse actuelle de chaque question */
@@ -154,7 +164,7 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape') menu(false); });
 async function ouvrirRubrique(){ rendre(); window.scrollTo({top:0});
   if(RUB==='suspects' && SUS===null) await chargerSuspects();
   if(RUB==='doublons' && DBL===null) await chargerDoublons(); }
-async function chargerSuspects(){ const {data, error} = await SB.rpc('corriges_suspects_equipe', {p_min:10, p_part:0.6});
+async function chargerSuspects(){ const {data, error} = await rpc('corriges_suspects_equipe', {p_min:10, p_part:0.6});
   SUS = error ? [] : (data||[]); if(error) toast('Corrigés à vérifier : '+error.message);
   await chargerMatieres(SUS.map(x=>String(x.qid).split('.')[0])); await chargerAvis(SUS.map(x=>x.qid)); rendre(); }
 async function chargerDoublons(){ if(QETAT!=='ok'){ DBL = null; return; } rendre();
@@ -163,7 +173,7 @@ async function chargerDoublons(){ if(QETAT!=='ok'){ DBL = null; return; } rendre
     const cle=y=>y.t==='vf'?'v'+(y.v?1:0):y.t==='qcm'?(Array.isArray(y.am)&&y.am.length?y.am:[y.a]).map(i=>n((y.o||[])[i])).sort().join('|'):n(y.r);
     const vu={},R=[];for(const id in QI){if(vu[id])continue;const d=riDoublons(id);if(!d.length)continue;d.forEach(x=>vu[x]=1);const G=[id].concat(d);if(new Set(G.map(x=>cle(QI[x]))).size>1)R.push(G)}return R})()`) || [];
   await chargerAvis([].concat(...DBL)); rendre(); }
-async function chargerAvis(L){ if(!L.length) return; const {data} = await SB.rpc('avis_questions', {p_qids:[...new Set(L)].slice(0,400)}); AVQ = Object.assign(AVQ, data||{}); }
+async function chargerAvis(L){ if(!L.length) return; const {data} = await rpc('avis_questions', {p_qids:[...new Set(L)].slice(0,400)}); AVQ = Object.assign(AVQ, data||{}); }
 /* question hors dossier : on l'affiche comme un dossier sans signalement (avis déjà donnés compris) */
 function pseudo(qid, extra){ const d = D.L.find(x=>x.qid===qid); if(d) return Object.assign({}, d, extra||{});
   return Object.assign({qid, mat:String(qid).split('.')[0], nb:0, eleves:0, photos:0, mise:false, signalements:[], avis:AVQ[qid]||[], choix:null}, extra||{}); }
@@ -257,8 +267,8 @@ function formulaire(d, q, ph){
     <div class="row" style="margin-top:10px"><button class="btn pri" data-prop="${esc(d.qid)}">Envoyer mon avis</button><button class="btn" data-annul="1">Annuler</button></div></div>`;
 }
 async function envoyer(qid, decision, prop){
-  const {data, error} = await SB.rpc('donner_avis', {p_qid:qid, p_decision:decision, p_prop:prop});
-  if(error) return toast('Erreur : '+error.message); if(!data || !data.ok) return toast('Avis refusé : vérifie ta réponse.');
+  const {data, error} = await rpc('donner_avis', {p_qid:qid, p_decision:decision, p_prop:prop});
+  if(error) return toast(reseau(error) ? '📶 Connexion trop faible : ton avis n’est pas parti, réessaie.' : 'Erreur : '+error.message); if(!data || !data.ok) return toast('Avis refusé : vérifie ta réponse.');
   if(RUB==='suspects' || RUB==='doublons') await chargerAvis([qid]);
   OUV = null; toast(data.etat==='publie' ? '✅ Correction publiée chez tous les élèves. Merci !' : data.etat==='confirme' ? '✅ Question confirmée. Merci !' : decision==='passe' ? 'Noté.' : 'Avis enregistré ('+(data.n||1)+' / '+(data.requis||D.req)+').');
   dossiers();
