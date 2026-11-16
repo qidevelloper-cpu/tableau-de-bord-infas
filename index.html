@@ -3016,18 +3016,24 @@ function qxSujEditer(mid, k){
   const S0 = qxSujets(mid)[k]; if(!S0){ toast('Sujet introuvable.'); return; }
   const ids = qxEval('sujets('+JSON.stringify(mid)+')['+k+']') || [], Q = ids.map(id=>qxQ(id)).filter(Boolean);
   const titre0 = qxTitreCorr(S0.first) || S0.t;
+  const bonnes = q => Array.isArray(q.am)&&q.am.length ? q.am.slice() : (q.a!=null ? [q.a] : []);
+  /* signalements pas encore traités sur les questions de ce sujet (n° retrouvé par le texte) */
+  const RS = (DB.reports||[]).filter(r=>ids.includes(sq(r)) && r.statut!=='corrige' && r.reponse_type!=='corrigee');
   openModal(`<button class="iconbtn x" id="mx" aria-label="Fermer">${ic('x')}</button><h2 style="margin:0 0 4px;font-family:var(--display)">📝 Modifier le sujet</h2>
-    <p class="muted" style="margin:0 0 10px;font-size:13px">${esc(matName(mid))} · ${Q.length} questions · seules les parties modifiées sont publiées. Pour changer une <b>bonne réponse</b>, touchez « Réponse… » sur la question.</p>
+    <p class="muted" style="margin:0 0 10px;font-size:13px">${esc(matName(mid))} · ${Q.length} questions · seules les parties modifiées sont publiées. Cochez ou décochez les <b>bonnes réponses</b> directement (plusieurs possibles en QCM) ; Vrai / Faux pour les QCD.</p>
     <label class="lbl" for="sjt">Titre du sujet</label><input class="field" id="sjt" maxlength="160" value="${esc(titre0)}">
-    ${Q.map((q,i)=>`<div class="card" style="margin:12px 0 0;padding:12px;border:1.5px solid var(--line)"><div class="row" style="gap:8px;align-items:center"><b>Question ${i+1}</b><span class="pill">${q.t==='vf'?'QCD':q.t==='open'?'Ouverte':'QCM'}</span><span class="muted" style="font-size:12px;flex:1">${esc(q.id)}${q.__corr?' · corrigée':''}</span><label class="cnote" style="display:flex;gap:4px;align-items:center;cursor:pointer"><input type="checkbox" id="sjoff${i}" ${q.off?'checked':''}> 🙈 Désactivée</label><button type="button" class="btn sm" data-sjrep="${esc(q.id)}">Réponse…</button></div>
+    ${Q.map((q,i)=>`<div class="card" style="margin:12px 0 0;padding:12px;border:1.5px solid var(--line)"><div class="row" style="gap:8px;align-items:center"><b>Question ${i+1}</b><span class="pill">${q.t==='vf'?'QCD':q.t==='open'?'Ouverte':'QCM'}</span><span class="muted" style="font-size:12px;flex:1">${esc(q.id)}${q.__corr?' · corrigée':''}</span><label class="cnote" style="display:flex;gap:4px;align-items:center;cursor:pointer"><input type="checkbox" id="sjoff${i}" ${q.off?'checked':''}> 🙈 Désactivée</label><button type="button" class="btn sm" data-sjrep="${esc(q.id)}" title="Images, photo source, détails">✏️ Détail…</button></div>
       ${q.s?`<label class="lbl" for="sjs${i}">Situation clinique</label><textarea class="field" id="sjs${i}" rows="2">${esc(q.s)}</textarea>`:''}
       <label class="lbl" for="sjq${i}">Énoncé</label><textarea class="field" id="sjq${i}" rows="2">${esc(q.q||'')}</textarea>
-      ${q.t==='qcm'&&Array.isArray(q.o)?q.o.map((o,j)=>{ const ok = (Array.isArray(q.am)&&q.am.length?q.am:[q.a]).includes(j); return `<div class="row" style="gap:6px;margin-top:4px;align-items:center"><b style="min-width:20px;${ok?'color:#16a34a':''}">${QL[j]}${ok?'✓':''}</b><input class="field" id="sjo${i}_${j}" value="${esc(o)}" style="flex:1"></div>`; }).join(''):q.t==='vf'?`<div class="cnote">Bonne réponse : <b>${q.v?'Vrai':'Faux'}</b></div>`:`<div class="cnote">Réponse attendue : <b>${esc(q.r||'')}</b></div>`}
+      ${q.t==='qcm'&&Array.isArray(q.o)?`<div class="cnote" style="margin-top:6px">Cochez la ou les bonnes réponses :</div>`+q.o.map((o,j)=>{ const ok = bonnes(q).includes(j); return `<div class="row sjopt" style="gap:6px;margin-top:4px;align-items:center"><label class="sjck" style="display:flex;align-items:center;gap:4px;min-width:52px;cursor:pointer;font-weight:700;${ok?'color:#16a34a':''}" title="Bonne réponse"><input type="checkbox" id="sjc${i}_${j}" ${ok?'checked':''} style="width:18px;height:18px;accent-color:#16a34a">${QL[j]}</label><input class="field" id="sjo${i}_${j}" value="${esc(o)}" style="flex:1;${ok?'border-color:#16a34a;background:#f0fdf4':''}"></div>`; }).join(''):q.t==='vf'?`<div class="row" style="gap:14px;margin-top:6px;align-items:center"><span class="cnote">Bonne réponse :</span><label style="display:flex;gap:5px;align-items:center;cursor:pointer;font-weight:700"><input type="radio" name="sjv${i}" value="1" ${q.v?'checked':''}> Vrai</label><label style="display:flex;gap:5px;align-items:center;cursor:pointer;font-weight:700"><input type="radio" name="sjv${i}" value="0" ${q.v?'':'checked'}> Faux</label></div>`:`<div class="cnote">Réponse attendue : <b>${esc(q.r||'')}</b></div>`}
       <label class="lbl" for="sjx${i}" style="margin-top:8px">Explication</label>${rixBarre('sjx'+i)}<textarea class="field" id="sjx${i}" rows="3">${esc(q.x||'')}</textarea><div id="sjxa${i}" style="font-size:14px;margin-top:4px"></div></div>`).join('')}
     <label class="lbl" for="sjn" style="margin-top:12px">Ce qui a été modifié (pour vous, facultatif)</label><input class="field" id="sjn" maxlength="200">
+    ${RS.length ? `<label class="row" style="gap:8px;margin-top:12px;align-items:flex-start;cursor:pointer;padding:10px 12px;border-radius:12px;background:var(--soft,#f1eefb)"><input type="checkbox" id="sjpre" checked style="width:18px;height:18px;margin-top:2px"><span><b>📣 Prévenir les élèves qui ont signalé</b><br><span class="cnote">${RS.length} signalement${RS.length>1?'s':''} en attente dans ce sujet. Seuls les élèves des questions que vous modifiez reçoivent « Ta remarque était juste : la question a été corrigée » sur leur téléphone (avec la nouvelle bonne réponse si elle change).</span></span></label>` : ''}
     <div class="row" style="justify-content:flex-end;margin-top:16px;position:sticky;bottom:0;background:var(--card,#fff);padding:8px 0"><button class="btn" id="mno">Annuler</button><button class="btn pri" id="mok">Publier les modifications</button></div>`);
   $('#modal').style.width = 'min(860px,calc(100% - 28px))';
   rixBind($('#modal')); Q.forEach((q,i)=>rixApercu($('#sjx'+i), $('#sjxa'+i)));
+  document.querySelectorAll('#modal .sjopt input[type=checkbox]').forEach(c=>c.onchange=()=>{ const r = c.closest('.sjopt'), f = r.querySelector('input.field');
+    r.querySelector('.sjck').style.color = c.checked ? '#16a34a' : ''; f.style.borderColor = c.checked ? '#16a34a' : ''; f.style.background = c.checked ? '#f0fdf4' : ''; });
   const fermer = ()=>{ $('#modal').style.width = ''; closeModal(); };
   $('#mx').onclick = $('#mno').onclick = fermer;
   document.querySelectorAll('[data-sjrep]').forEach(b=>b.onclick=()=>{ fermer(); qxEditer(b.dataset.sjrep); });
@@ -3037,8 +3043,15 @@ function qxSujEditer(mid, k){
     Q.forEach((q,i)=>{ const n = {q:$('#sjq'+i).value.trim(), x:$('#sjx'+i).value.trim(), off:$('#sjoff'+i).checked?1:null}; if($('#sjs'+i)) n.s = $('#sjs'+i).value.trim();
       if(q.t==='qcm' && Array.isArray(q.o)) n.o = q.o.map((o,j)=>{ const e = $('#sjo'+i+'_'+j); return e ? e.value.trim() : o; });
       if(!n.q) return; if(n.o && n.o.some(x=>!x)) return;
-      const ch = {}; Object.keys(n).forEach(f=>{ const a = n[f]===''?null:n[f], b = q[f]==null||q[f]===''?null:q[f]; if(JSON.stringify(a)!==JSON.stringify(b)) ch[f] = a; }); if(Object.keys(ch).length) W.push([q, ch]); });
+      const ch = {}; Object.keys(n).forEach(f=>{ const a = n[f]===''?null:n[f], b = q[f]==null||q[f]===''?null:q[f]; if(JSON.stringify(a)!==JSON.stringify(b)) ch[f] = a; });
+      /* bonne(s) réponse(s) */
+      if(q.t==='qcm' && Array.isArray(q.o)){ const sel = q.o.map((o,j)=>$('#sjc'+i+'_'+j) && $('#sjc'+i+'_'+j).checked ? j : -1).filter(j=>j>=0);
+        if(sel.length && JSON.stringify(sel)!==JSON.stringify(bonnes(q).slice().sort((a,b)=>a-b))){ ch.a = sel[0]; ch.am = sel.length>1 ? sel : null; } }
+      if(q.t==='vf'){ const r = document.querySelector('#modal [name=sjv'+i+']:checked'); if(r && (+r.value===1) !== !!q.v) ch.v = +r.value; }
+      if(Object.keys(ch).length) W.push([q, ch]); });
     if(Q.some((q,i)=>!$('#sjq'+i).value.trim())){ toast('Un énoncé ne peut pas être vide.'); return; }
+    const sansRep = Q.map((q,i)=>q.t==='qcm'&&Array.isArray(q.o)&&!q.o.some((o,j)=>$('#sjc'+i+'_'+j)&&$('#sjc'+i+'_'+j).checked)?i+1:0).filter(Boolean);
+    if(sansRep.length){ toast('Cochez au moins une bonne réponse : question'+(sansRep.length>1?'s ':' ')+sansRep.join(', ')+'.', 5000); return; }
     const t = $('#sjt').value.trim(), tChange = t !== titre0;
     if(!W.length && !tChange){ toast('Rien n’a changé.'); return; }
     const b = $('#mok'); b.disabled = true; let n = 0, err = 0;
@@ -3054,8 +3067,15 @@ function qxSujEditer(mid, k){
         try{ const {data,error} = await SB.rpc('publier_correction', {p_qid:q.id, p_champs:ch, p_note:note}); if(error || !data || !data.ok){ err++; continue; } n++;
           try{ const X = QX.W.eval('QI['+JSON.stringify(q.id)+']'); Object.keys(ch).forEach(f=>{ if(ch[f]===null) delete X[f]; else X[f] = JSON.parse(JSON.stringify(ch[f])); }); X.__corr = 1; }catch(e){} }catch(e){ err++; } }
       try{ const {data,error} = await SB.rpc('corrections_liste'); if(!error && Array.isArray(data)) QX.corr = data; }catch(e){}
-      audit('Sujet modifié depuis le tableau de bord', matName(mid)+' · '+(t||S0.t)+' · '+n+' modification(s)'); fermer();
-      toast(err ? '⚠️ '+n+' modification(s) publiée(s), '+err+' refusée(s).' : '✅ '+n+' modification(s) publiée(s) : les téléphones les recevront à leur prochaine ouverture.', 5000); render();
+      let nr = 0;
+      if($('#sjpre') && $('#sjpre').checked){ b.textContent = 'Élèves prévenus…';
+        for(const [q, ch] of W){ const X = Object.assign({}, q, ch);
+          const rep = ('a' in ch || 'am' in ch) ? ' : la bonne réponse est maintenant '+bonnes(X).map(j=>QL[j]).join(', ')+'.' : ('v' in ch) ? ' : la bonne réponse est « '+(ch.v?'Vrai':'Faux')+' ».' : '.';
+          const txt = 'Merci ! Ta remarque était juste : la question a été corrigée'+rep;
+          for(const r of RS.filter(r=>sq(r)===q.id)){ try{ const {data} = await SB.rpc('repondre_signalement', {p_id:String(r.id), p_type:'corrigee', p_texte:txt});
+            if(data && data.ok){ r.reponse = txt; r.reponse_type = 'corrigee'; r.reponse_at = new Date().toISOString(); r.statut = 'corrige'; nr++; } }catch(e){} } } }
+      audit('Sujet modifié depuis le tableau de bord', matName(mid)+' · '+(t||S0.t)+' · '+n+' modification(s)'+(nr?' · '+nr+' élève(s) prévenu(s)':'')); fermer();
+      toast((err ? '⚠️ '+n+' modification(s) publiée(s), '+err+' refusée(s)' : '✅ '+n+' modification(s) publiée(s) : les téléphones les recevront à leur prochaine ouverture')+(nr?' · '+nr+' élève'+(nr>1?'s':'')+' prévenu'+(nr>1?'s':''):'')+'.', 5000); QX.suspects = null; render();
     }catch(e){ b.disabled = false; b.textContent = 'Publier les modifications'; toast('Publication impossible : '+(typeof frErr==='function'?frErr(e):e.message), 6000); }
   };
 }
