@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Évaluer une question · Révision INFAS</title>
+<meta name="robots" content="noindex">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#6C3BF5">
+<style>
+:root{--paper:#F5F4FB;--card:#FFFFFF;--ink:#1F1A3D;--muted:#6E6889;--line:#E9E6F4;--soft:#F1EEFB;--violet:#6C3BF5;--violet-ink:#4A22C9;--green:#1E9E6A;--red:#E04848;--amber:#E89A2C;
+  --shadow:0 1px 2px rgba(31,26,61,.04),0 8px 24px -12px rgba(31,26,61,.12)}
+@media (prefers-color-scheme:dark){:root{--paper:#13111F;--card:#1C1930;--ink:#EEEAFB;--muted:#A39DBD;--line:#2C2846;--soft:#25213C;--violet:#8F6BFF;--violet-ink:#B9A2FF}}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--paper);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:16px;line-height:1.5;-webkit-text-size-adjust:100%}
+button,input,textarea{font:inherit;color:inherit}
+header{background:var(--card);border-bottom:1px solid var(--line);padding:12px 16px;display:flex;gap:10px;align-items:center}
+.logo{width:38px;height:38px;border-radius:12px;background:var(--violet);color:#fff;display:grid;place-items:center;font-weight:800;flex:none}
+header b{display:block;font-size:17px;line-height:1.1}header small{color:var(--muted);font-size:13px}
+main{max-width:720px;margin:0 auto;padding:16px 14px 60px}
+.card{background:var(--card);border-radius:20px;box-shadow:var(--shadow);padding:16px;margin-bottom:14px;overflow-wrap:anywhere}
+h1{font-size:21px;margin:0 0 4px}h2{font-size:17px;margin:0 0 8px}
+.muted{color:var(--muted)}.small{font-size:14px}
+.lab{display:block;font-size:12.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin:12px 0 4px}
+.situ{background:var(--soft);border-radius:12px;padding:10px 12px;white-space:pre-wrap}
+.enonce{font-size:17px;font-weight:600;white-space:pre-wrap}
+.opt{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1.5px solid var(--line);border-radius:12px;margin:6px 0}
+.opt .l{width:28px;height:28px;border-radius:50%;background:var(--soft);display:grid;place-items:center;font-weight:800;flex:none}
+.opt.bon{border-color:var(--green);background:color-mix(in srgb,var(--green) 9%,transparent)}.opt.bon .l{background:var(--green);color:#fff}
+.tag{display:inline-block;font-size:12.5px;font-weight:700;border-radius:99px;padding:2px 9px;background:color-mix(in srgb,var(--green) 15%,transparent);color:var(--green)}
+.sig{border-left:4px solid var(--amber);padding:6px 10px;margin:6px 0;background:color-mix(in srgb,var(--amber) 8%,transparent);border-radius:0 10px 10px 0;white-space:pre-wrap}
+img.ph{max-width:100%;border-radius:12px;margin-top:6px;display:block}
+.field{width:100%;font-size:16px;padding:11px 12px;border-radius:12px;border:1px solid var(--line);background:var(--paper)}
+textarea.field{min-height:110px;resize:vertical}
+.choix{display:block;padding:12px 14px;border:2px solid var(--line);border-radius:14px;margin:8px 0;cursor:pointer;font-weight:600}
+.choix input{margin-right:8px;transform:scale(1.25)}
+.choix.on{border-color:var(--violet);background:var(--soft)}
+.lettres{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+.lettres label{display:flex;align-items:center;gap:6px;border:2px solid var(--line);border-radius:12px;padding:8px 12px;cursor:pointer;font-weight:700}
+.lettres label.on{border-color:var(--green);background:color-mix(in srgb,var(--green) 10%,transparent)}
+.btn{border:0;border-radius:14px;padding:14px 18px;font-weight:700;font-size:16px;background:var(--violet);color:#fff;width:100%;cursor:pointer;margin-top:14px}
+.btn:disabled{opacity:.55}
+.ok{text-align:center;padding:30px 16px}.ok .e{font-size:48px}
+.err{color:var(--red);font-weight:600;margin-top:8px}
+</style>
+</head>
+<body>
+<header><div class="logo">R</div><div><b>Révision INFAS</b><small>Évaluer une question signalée</small></div></header>
+<main id="m"><div class="card muted">Chargement de la question…</div></main>
+<script>
+const SBC = {url:'https://fsdcxvszvyjquzdjanpo.supabase.co', key:'sb_publishable_dZGt5cfkEDeH-z5uoUa8kA_UXGQFkzi'};
+const L = 'ABCDEFGHIJKL';
+const esc = s => String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const jeton = (new URLSearchParams(location.search).get('t') || (location.hash.match(/t=([A-Za-z0-9_-]+)/)||[])[1] || '').trim();
+const okImg = u => typeof u==='string' && /^https:\/\/[a-z0-9-]+\.supabase\.co\/storage\/v1\/object\/(public|sign)\/[A-Za-z0-9._\/%-]+(\?token=[A-Za-z0-9._-]+)?$/.test(u);
+async function rpc(fn, args){
+  const r = await fetch(SBC.url+'/rest/v1/rpc/'+fn, {method:'POST', headers:{'Content-Type':'application/json', apikey:SBC.key, Authorization:'Bearer '+SBC.key}, body:JSON.stringify(args)});
+  if(!r.ok) throw new Error('HTTP '+r.status); return r.json();
+}
+const M = document.getElementById('m');
+function fin(e, t, x){ M.innerHTML = `<div class="card ok"><div class="e">${e}</div><h1>${t}</h1><p class="muted">${x||''}</p></div>`; }
+function repTxt(q){
+  if(q.t==='vf') return q.v ? 'Vrai' : 'Faux';
+  if(q.t==='qcm'){ const A = Array.isArray(q.am)&&q.am.length ? q.am : [q.a]; return A.filter(i=>i!=null&&i>=0).map(i=>L[i]+'. '+((q.o||[])[i]||'')).join(' ; '); }
+  return q.r || '';
+}
+function vue(q, deja){
+  const A = q.t==='qcm' ? (Array.isArray(q.am)&&q.am.length ? q.am : [q.a]) : [];
+  const multi = q.t==='qcm' && Array.isArray(q.am) && q.am.length > 1;
+  M.innerHTML = `
+  <div class="card">
+    <h1>Peux-tu vérifier cette question ?</h1>
+    <p class="muted small" style="margin:0">Des élèves pensent que la réponse est fausse. Ton avis est envoyé à l’administrateur de Révision INFAS, qui décide de la correction.</p>
+  </div>
+  <div class="card">
+    ${q.mat?`<span class="lab" style="margin-top:0">Matière</span><div><b>${esc(q.mat)}</b>${q.sujet?` <span class="muted small">· ${esc(q.sujet)}</span>`:''}</div>`:''}
+    ${q.s?`<span class="lab">Situation</span><div class="situ">${esc(q.s)}</div>`:''}
+    <span class="lab">Question</span><div class="enonce">${esc(q.q)}</div>
+    ${q.t==='qcm'?`<span class="lab">Propositions</span>${(q.o||[]).map((o,i)=>`<div class="opt${A.includes(i)?' bon':''}"><span class="l">${L[i]}</span><div>${esc(o)}${A.includes(i)?' <span class="tag">réponse actuelle</span>':''}</div></div>`).join('')}`
+      :`<span class="lab">Réponse actuelle</span><div class="opt bon"><span class="l">✓</span><div>${esc(repTxt(q))}</div></div>`}
+    ${q.x?`<span class="lab">Explication actuelle</span><div class="situ">${esc(q.x)}</div>`:''}
+  </div>
+  ${(q.sig||[]).length||(q.photos||[]).length?`<div class="card"><h2>⚠️ Ce que disent les élèves</h2>${(q.sig||[]).slice(0,8).map(t=>`<div class="sig">${esc(t)}</div>`).join('')}${(q.photos||[]).filter(okImg).slice(0,4).map(u=>`<a href="${esc(u)}" target="_blank" rel="noopener noreferrer"><img class="ph" src="${esc(u)}" alt="Photo envoyée par un élève"></a>`).join('')}</div>`:''}
+  <div class="card" id="f">
+    <h2>Ton avis</h2>
+    ${deja?`<p class="muted small" style="margin:0 0 6px">${deja} avis déjà donné${deja>1?'s':''} sur ce lien.</p>`:''}
+    <label class="choix" data-v="juste"><input type="radio" name="v" value="juste">✅ La réponse actuelle est juste</label>
+    <label class="choix" data-v="faux"><input type="radio" name="v" value="faux">❌ Elle est fausse : je propose la bonne réponse</label>
+    <div id="bonne" style="display:none;margin:0 0 6px 6px">
+      ${q.t==='qcm'?`<span class="lab">Bonne réponse ${multi?'(une ou plusieurs)':''}</span><div class="lettres">${(q.o||[]).map((o,i)=>`<label data-i="${i}"><input type="${multi?'checkbox':'checkbox'}" value="${i}">${L[i]}</label>`).join('')}</div>`
+        :q.t==='vf'?`<span class="lab">Bonne réponse</span><div class="lettres"><label data-vf="1"><input type="radio" name="vf" value="1">Vrai</label><label data-vf="0"><input type="radio" name="vf" value="0">Faux</label></div>`
+        :`<span class="lab">Bonne réponse</span><textarea class="field" id="rr" maxlength="1500" placeholder="Écris la bonne réponse"></textarea>`}
+    </div>
+    <label class="choix" data-v="doute"><input type="radio" name="v" value="doute">🤔 Je ne suis pas sûr(e)</label>
+    <span class="lab">Explication</span><textarea class="field" id="x" maxlength="4000" placeholder="Pourquoi ? (notion du cours, référence…)"></textarea>
+    <span class="lab">Source (facultatif)</span><input class="field" id="so" maxlength="500" placeholder="Cours, livre, page…">
+    <span class="lab">Ton nom (facultatif)</span><input class="field" id="n" maxlength="80" placeholder="Ex. Dr Koné, infirmier diplômé…">
+    <div class="err" id="e"></div>
+    <button class="btn" id="go">Envoyer mon avis</button>
+  </div>`;
+  const marque = ()=>{ document.querySelectorAll('.choix').forEach(c=>c.classList.toggle('on', c.querySelector('input').checked)); document.getElementById('bonne').style.display = document.querySelector('input[name=v][value=faux]').checked ? '' : 'none';
+    document.querySelectorAll('.lettres label').forEach(l=>l.classList.toggle('on', l.querySelector('input').checked)); };
+  M.querySelectorAll('input').forEach(i=>i.addEventListener('change', marque));
+  document.getElementById('go').onclick = async ()=>{
+    const e = document.getElementById('e'); e.textContent = '';
+    const v = (document.querySelector('input[name=v]:checked')||{}).value;
+    if(!v){ e.textContent = 'Choisis une des trois réponses.'; return; }
+    let rep = null;
+    if(v==='faux'){
+      if(q.t==='qcm'){ const S = [...document.querySelectorAll('.lettres input:checked')].map(x=>+x.value).sort((a,b)=>a-b); if(!S.length){ e.textContent = 'Coche la ou les bonnes lettres.'; return; } rep = S.length>1 ? {am:S} : {a:S[0]}; }
+      else if(q.t==='vf'){ const c = document.querySelector('input[name=vf]:checked'); if(!c){ e.textContent = 'Choisis Vrai ou Faux.'; return; } rep = {v: c.value==='1' ? 1 : 0}; }
+      else { const t = document.getElementById('rr').value.trim(); if(!t){ e.textContent = 'Écris la bonne réponse.'; return; } rep = {r:t}; }
+    }
+    const x = document.getElementById('x').value.trim();
+    if(v==='faux' && x.length < 5){ e.textContent = 'Ajoute une courte explication.'; return; }
+    const b = document.getElementById('go'); b.disabled = true; b.textContent = 'Envoi…';
+    try{
+      const r = await rpc('eval_repondre', {p_jeton:jeton, p_nom:document.getElementById('n').value.trim(), p_verdict:v, p_reponse:rep, p_explication:x, p_source:document.getElementById('so').value.trim()});
+      if(r && r.ok){ fin('🙏', 'Merci, ton avis est envoyé', 'L’administrateur de Révision INFAS va l’étudier. Tu peux fermer cette page.'); return; }
+      e.textContent = r && r.raison==='plein' ? 'Ce lien a déjà reçu tous les avis possibles.' : 'Ce lien n’est plus valable.';
+    }catch(err){ e.textContent = 'Envoi impossible : vérifie ta connexion et réessaie.'; }
+    b.disabled = false; b.textContent = 'Envoyer mon avis';
+  };
+}
+(async ()=>{
+  if(!/^[A-Za-z0-9_-]{20,80}$/.test(jeton)){ fin('🔗', 'Lien incomplet', 'Ouvre le lien complet reçu sur WhatsApp.'); return; }
+  try{
+    const r = await rpc('eval_lire', {p_jeton:jeton});
+    if(!r || !r.ok){ const k = r&&r.raison; fin('⏳', k==='expire' ? 'Ce lien a expiré' : k==='ferme' ? 'Cette question a déjà été traitée' : 'Lien inconnu', 'Merci quand même ! Demande un nouveau lien si besoin.'); return; }
+    vue(r.question||{}, r.avis||0);
+  }catch(e){ fin('📶', 'Connexion impossible', 'Vérifie ta connexion internet puis recharge la page.'); }
+})();
+</script>
+</body>
+</html>

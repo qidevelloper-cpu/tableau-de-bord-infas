@@ -109,7 +109,7 @@ const esc = s => String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'
 const quand = iso => { try{ return new Date(iso).toLocaleString('fr-FR', {day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'}); }catch(e){ return ''; } };
 function toast(t){ const e = $('#toast'); e.textContent = t; e.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(()=>e.classList.remove('on'), 2800); }
 let SB = null, MOI = null, D = {L:[], req:3}, ONG = 'afaire', OUV = null, W = null, QETAT = '', FIX = false;
-let RUB = 'signales', SUJ = null, SUS = null, DBL = null, AVQ = {}, LIM = 15;
+let RUB = (/[?&]r=(desactivees|suspects|doublons|sujets)\b/.exec(location.search)||[])[1] || 'signales', SUJ = null, SUS = null, DBL = null, AVQ = {}, LIM = 15;
 const PH = {};
 
 function charger(src){ return new Promise((ok, ko)=>{ const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = ()=>ko(new Error('Pas de connexion internet.')); document.head.appendChild(s); }); }
@@ -158,7 +158,7 @@ function chargerAppli(){ if(QETAT) return; QETAT = 'charge';
   const f = document.createElement('iframe'); f.setAttribute('aria-hidden','true'); f.tabIndex = -1; f.style.cssText = 'position:fixed;left:-9999px;top:0;width:400px;height:800px;border:0;visibility:hidden';
   f.src = SITE + (SITE.includes('?')?'&':'?') + 'lecture=1'; document.body.appendChild(f); const t0 = Date.now();
   const tick = ()=>{ let w = null; try{ w = f.contentWindow; void w.document; }catch(e){ QETAT = 'err'; rendre(); return; }
-    try{ if(w && w.PORTAIL_READY && w.eval('typeof QI')==='object'){ W = w; QETAT = 'ok'; chargerMatieres().then(()=>{ rendre(); verifierNumeros(); }); return; } }catch(e){}
+    try{ if(w && w.PORTAIL_READY && w.eval('typeof QI')==='object'){ W = w; QETAT = 'ok'; chargerMatieres().then(()=>{ rendre(); verifierNumeros(); if(RUB==='desactivees') ouvrirRubrique(); }); return; } }catch(e){}
     if(Date.now()-t0 > 120e3){ QETAT = 'err'; rendre(); return; } setTimeout(tick, 500); };
   setTimeout(tick, 800); }
 async function chargerMatieres(L){ const M = [...new Set((L || D.L.map(d=>d.mat)).filter(Boolean))]; if(!W || !M.length) return;
@@ -190,10 +190,12 @@ const RUBS = [
   ['signales', '⚑', 'Questions signalées', 'Les élèves ont signalé une erreur.'],
   ['sujets', '🎯', 'Sujets les plus signalés', 'Les sujets d’où viennent le plus de signalements.'],
   ['suspects', '🔎', 'Corrigés à vérifier', 'La plupart des élèves choisissent une autre réponse que le corrigé.'],
-  ['doublons', '🧭', 'Questions identiques, réponses différentes', 'Même énoncé, mêmes propositions, mais pas la même bonne réponse.']];
+  ['doublons', '🧭', 'Questions identiques, réponses différentes', 'Même énoncé, mêmes propositions, mais pas la même bonne réponse.'],
+  ['desactivees', '🙈', 'Questions désactivées', 'Retirées de l’appli des élèves : vérifie-les pour qu’on les corrige et les remette.']];
+const desactivees = () => { if(QETAT!=='ok') return []; try{ return W.eval('Object.keys(QI).filter(id=>QI[id]&&QI[id].off)') || []; }catch(e){ return []; } };
 const sansAvis = L => L.filter(d=>!monAvis(d)).length;
 function compte(r){ if(r==='signales') return sansAvis(D.L); if(r==='sujets') return sujetsSignales().length; if(r==='suspects') return SUS ? sansAvis(listeSuspects()) : '';
-  if(r==='doublons') return DBL ? DBL.length : ''; return ''; }
+  if(r==='doublons') return DBL ? DBL.length : ''; if(r==='desactivees') return QETAT==='ok' ? desactivees().length : ''; return ''; }
 function menu(on){ const t = $('#tiroir'); t.classList.toggle('on', on); t.setAttribute('aria-hidden', on?'false':'true'); if(!on) return;
   $('#nav').innerHTML = '<div class="brand" style="padding:2px 8px 10px"><div class="logo">✓</div><div><b>Correction</b><small>Rubriques</small></div></div><div class="navlabel">À corriger</div>'
     + RUBS.map(([k,i,n,d])=>`<button class="nav ${RUB===k?'on':''}" data-rub="${k}"><span class="ico">${i}</span><span>${n}<span class="d">${d}</span></span>${compte(k)!==''?`<span class="count">${compte(k)}</span>`:''}</button>`).join('')
@@ -203,7 +205,8 @@ $('#menu').onclick = ()=>menu(true); $('#tiroir .fond').onclick = ()=>menu(false
 document.addEventListener('keydown', e=>{ if(e.key==='Escape') menu(false); });
 async function ouvrirRubrique(){ rendre(); window.scrollTo({top:0});
   if(RUB==='suspects' && SUS===null) await chargerSuspects();
-  if(RUB==='doublons' && DBL===null) await chargerDoublons(); }
+  if(RUB==='doublons' && DBL===null) await chargerDoublons();
+  if(RUB==='desactivees' && QETAT==='ok'){ const L = desactivees(); await chargerMatieres(L.map(x=>String(x).split('.')[0])); await chargerAvis(L); rendre(); } }
 async function chargerSuspects(){ const {data, error} = await rpc('corriges_suspects_equipe', {p_min:10, p_part:0.6});
   SUS = error ? [] : (data||[]); if(error) toast('Corrigés à vérifier : '+error.message);
   await chargerMatieres(SUS.map(x=>String(x.qid).split('.')[0])); await chargerAvis(SUS.map(x=>x.qid)); rendre(); }
@@ -241,6 +244,11 @@ function contenu(){
     return DBL.length ? '<p class="muted small" style="margin:0 0 10px">Ces questions ont le même énoncé et les mêmes propositions, mais pas la même bonne réponse : l’une est sûrement fausse. Donne ton avis sur celle qui est fausse (ou sur chacune).</p>'
       + DBL.slice(0, LIM).map(G=>`<div class="grp">${G.map(id=>carte(pseudo(id))).join('')}</div>`).join('') + plus(DBL.length) : vide('✅ Aucune : toutes les questions identiques ont la même réponse.');
   }
+  if(RUB==='desactivees'){
+    if(QETAT!=='ok') return vide('⏳ Chargement des questions de l’appli…');
+    const L = desactivees();
+    return L.length ? `<div class="row" style="margin:0 0 10px"><button class="btn sm" id="offwa" style="background:#25d366;border-color:#25d366;color:#fff">💬 Partager la liste</button></div>` + L.slice(0, LIM).map(id=>carte(pseudo(id))).join('') + plus(L.length) : vide('✅ Aucune question désactivée pour l’instant.');
+  }
   const af = D.L.filter(d=>!monAvis(d)), fait = D.L.filter(d=>monAvis(d)), L = ONG==='afaire' ? af : fait;
   return `<div class="tabs"><button class="btn sm ${ONG==='afaire'?'on':''}" data-ong="afaire">À vérifier · ${af.length}</button><button class="btn sm ${ONG==='fait'?'on':''}" data-ong="fait">Mes avis donnés · ${fait.length}</button></div>`
     + (L.length ? L.map(carte).join('') : vide(ONG==='afaire'?'🎉 Rien à vérifier pour l’instant. Merci !':'Aucun avis donné pour l’instant.'));
@@ -259,6 +267,8 @@ function rendre(){
   document.querySelectorAll('[data-suj]').forEach(b=>b.onclick=()=>{ SUJ = b.dataset.suj; OUV = null; rendre(); window.scrollTo({top:0}); });
   const sr = $('#sujret'); if(sr) sr.onclick = ()=>{ SUJ = null; rendre(); };
   const pl = $('#plus'); if(pl) pl.onclick = ()=>{ LIM += 15; rendre(); };
+  const ow = $('#offwa'); if(ow) ow.onclick = ()=>{ const L = desactivees(), t = `🙈 Questions désactivées · Révision INFAS (${L.length})\nÀ vérifier avec ton cours :\n\n` + L.slice(0, 25).map((id,i)=>{ const q = question(id); return q ? `${i+1}. [${nomMat(q.m)}] ${String(q.q||'').slice(0,160)}` : ''; }).filter(Boolean).join('\n') + (L.length>25 ? `\n… et ${L.length-25} autres.` : '') + `\n\n👉 ${location.href.split(/[?#]/)[0]}?r=desactivees`;
+    window.open('https://wa.me/?text='+encodeURIComponent(t), '_blank', 'noopener'); };
   $('#maj').onclick = async ()=>{ if(RUB==='suspects') SUS = null; if(RUB==='doublons') DBL = null; await dossiers(); ouvrirRubrique(); };
   const al = $('#alon'); if(al) al.onclick = activerAlertes;
   document.querySelectorAll('[data-juste]').forEach(b=>b.onclick=()=>envoyer(b.dataset.juste, 'rejet', {}));
