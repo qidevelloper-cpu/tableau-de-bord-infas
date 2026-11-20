@@ -304,6 +304,7 @@ function carte(d){
     ${d.signalements.length ? '' : '<!--'}<details ${ph.length?'open':''} style="margin-top:8px"><summary>Ce que disent les élèves (${d.signalements.length})</summary>${d.signalements.map(s=>`<div class="sig"><span class="muted small">${esc(s.prenom||'Élève')} · ${quand(s.t)}</span><div>${esc(s.message||'')}</div>${s.photo?`<div class="ph" data-photo="${esc(s.photo)}"><span class="muted small">📷 Chargement…</span></div>`:''}</div>`).join('')}</details>${d.signalements.length ? '' : '-->'}
     ${G.length ? `<div style="margin-top:8px">${G.map(g=>`<p class="small" style="margin:4px 0">${g.decision==='rejet'?'👍 Question juste':'✏️ Bonne réponse : <b>'+esc(repTxt(g.prop, q))+'</b>'} — ${esc(g.noms.join(', '))}${g.prop.x?`<br><span class="muted">« ${esc(g.prop.x)} »</span>`:''}</p>`).join('')}</div>` : ''}
     ${m ? `<p class="msg small" style="margin-bottom:6px">Ton avis : ${m.decision==='rejet'?'👍 la question est juste':m.decision==='passe'?'⏭️ je ne sais pas':'✏️ '+esc(repTxt(m.prop, q))}. Tu peux le changer.</p>` : ''}
+    ${q && (MOI && (MOI.correcteur || MOI.admin)) ? `<details class="vxc" data-vxq="${esc(d.qid)}" style="margin-top:8px"><summary>🎙️ Proposer une note vocale</summary><div class="vxz"></div></details>` : ''}
     ${ouvert ? formulaire(d, q, ph) : `<div class="row" style="margin-top:10px"><button class="btn pri" data-juste="${esc(d.qid)}">👍 La question est juste</button><button class="btn" data-faux="${esc(d.qid)}" ${q && !['qcm','vf'].includes(q.t)?'disabled title="Question ouverte : Daniel la corrige"':''}>✏️ Elle est fausse</button><button class="btn sm" data-passe="${esc(d.qid)}">⏭️ Je ne sais pas</button></div>`}
   </div>`;
 }
@@ -355,6 +356,59 @@ function alerter(){ const af = D.L.filter(d=>!monAvis(d)).map(d=>d.qid), vus = v
 setInterval(()=>{ if(MOI && (MOI.correcteur || MOI.admin) && !OUV) dossiers(); }, 120e3);
 document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible' && MOI && (MOI.correcteur || MOI.admin) && !OUV) dossiers(); });
 demarrer();
+
+/* ---------- 🎙️ proposer une note vocale (supabase/notes_vocales/1_notes_vocales.sql) ----------
+   Le correcteur enregistre (ou choisit un fichier) ; la note part dans son dossier du stockage privé
+   « notes-vocales-attente » et attend que Daniel l'écoute et l'accepte au tableau de bord (page Questions). */
+const VXC = {}, VXCM = {L:null};
+const VXC_EXT = {'audio/webm':'webm','audio/ogg':'ogg','audio/mpeg':'mp3','audio/mp4':'m4a','audio/aac':'aac','audio/x-m4a':'m4a','audio/m4a':'m4a','audio/wav':'wav','audio/x-wav':'wav'};
+const VXC_TYPE = {webm:'audio/webm',ogg:'audio/ogg',mp3:'audio/mpeg',m4a:'audio/mp4',aac:'audio/aac',wav:'audio/wav'};
+const vxcDuree = s => { s = Math.max(0, Math.round(s)); return Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); };
+async function vxcMesNotes(force){ if(VXCM.L && !force) return VXCM.L;
+  try{ const {data, error} = await rpc('notes_vocales_liste'); if(error) throw error; VXCM.L = Array.isArray(data) ? data : []; }catch(e){ VXCM.L = []; VXCM.err = e; }
+  return VXCM.L; }
+function vxcZone(qid, z){ const st = VXC[qid] = VXC[qid] || {};
+  const dessiner = ()=>{ const M = (VXCM.L||[]).filter(n=>n.qid===qid);
+    z.innerHTML = `<p class="muted small" style="margin:6px 0">Explique la réponse à voix haute (2 minutes suffisent). Daniel l’écoute avant de la publier sous la question pour les élèves Premium.</p>
+      ${M.length?`<p class="small" style="margin:4px 0">Tes notes pour cette question : ${M.map(n=>n.statut==='acceptee'?'✅ publiée':n.statut==='refusee'?'✕ refusée':'⏳ en attente').join(' · ')}</p>`:''}
+      <div class="row" style="margin-top:6px"><button type="button" class="btn ${st.rec?'pri':''}" data-vxrec>${st.rec?'⏹️ Arrêter · '+vxcDuree((Date.now()-st.t0)/1000):'⏺️ Enregistrer'}</button>
+        <label class="btn sm" style="cursor:pointer">📁 Fichier audio<input type="file" accept="audio/*" data-vxfile style="display:none"></label></div>
+      ${st.blob?`<div style="margin-top:8px"><audio controls src="${st.url}" style="width:100%"></audio><div class="row" style="margin-top:6px"><button type="button" class="btn pri" data-vxenv>📤 Envoyer à Daniel</button><button type="button" class="btn sm" data-vxann>✕ Recommencer</button></div></div>`:''}`;
+    z.querySelector('[data-vxrec]').onclick = async ()=>{
+      if(st.rec){ try{ st.rec.stop(); }catch(e){} return; }
+      if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || typeof MediaRecorder==='undefined') return toast('Enregistrement impossible ici : choisis un fichier audio.');
+      let flux; try{ flux = await navigator.mediaDevices.getUserMedia({audio:true}); }catch(e){ return toast('Micro refusé : autorise le micro pour cette page.'); }
+      const ty = ['audio/webm;codecs=opus','audio/webm','audio/mp4','audio/ogg;codecs=opus'].find(t=>MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t)) || '';
+      const R = new MediaRecorder(flux, ty?{mimeType:ty, audioBitsPerSecond:48000}:undefined), P = [];
+      R.ondataavailable = e=>{ if(e.data && e.data.size) P.push(e.data); };
+      R.onstop = ()=>{ flux.getTracks().forEach(t=>t.stop()); clearInterval(st.tim); st.duree = (Date.now()-st.t0)/1000; st.rec = null;
+        const b = new Blob(P, {type:String(R.mimeType||ty||'audio/webm').split(';')[0]}); if(st.url) URL.revokeObjectURL(st.url); st.blob = b; st.url = URL.createObjectURL(b); dessiner(); };
+      st.rec = R; st.t0 = Date.now(); R.start(1000);
+      st.tim = setInterval(()=>{ const b = z.querySelector('[data-vxrec]'); if(b && st.rec) b.textContent = '⏹️ Arrêter · '+vxcDuree((Date.now()-st.t0)/1000); if(st.rec && Date.now()-st.t0 > 5*60e3) st.rec.stop(); }, 500);
+      dessiner(); };
+    const fi = z.querySelector('[data-vxfile]'); fi.onchange = ()=>{ const f = fi.files && fi.files[0]; if(!f) return;
+      if(f.size > 6*1024*1024) return toast('Fichier trop lourd : 6 Mo au plus.');
+      let ty = String(f.type||'').split(';')[0]; if(!VXC_EXT[ty]){ const e = (/\.([a-z0-9]+)$/i.exec(f.name)||[])[1]; ty = VXC_TYPE[String(e||'').toLowerCase()] || ty; }
+      if(!VXC_EXT[ty]) return toast('Format non accepté : mp3, m4a, ogg, webm ou wav.');
+      if(st.url) URL.revokeObjectURL(st.url); st.blob = new Blob([f], {type:ty}); st.url = URL.createObjectURL(st.blob); st.duree = 0; dessiner(); };
+    const env = z.querySelector('[data-vxenv]'); if(env) env.onclick = async ()=>{ env.disabled = true; env.textContent = '⏳ Envoi…';
+      try{ if(!MOI || !MOI.email) throw new Error('Connecte-toi d’abord.');
+        const ty = String(st.blob.type||'').split(';')[0], ext = VXC_EXT[ty]; if(!ext) throw new Error('Format audio non accepté.');
+        if(st.blob.size > 6*1024*1024) throw new Error('Fichier trop lourd : 6 Mo au plus.');
+        const chemin = MOI.email + '/' + String(qid).replace(/[^A-Za-z0-9._-]/g,'_') + '/' + Date.now() + '-' + Math.random().toString(36).slice(2,8) + '.' + ext;
+        const up = await SB.storage.from('notes-vocales-attente').upload(chemin, st.blob, {contentType:ty, upsert:false}); if(up.error) throw up.error;
+        const {data, error} = await rpc('note_vocale_proposer', {p_qid:qid, p_chemin:chemin, p_duree:Math.round(st.duree||0)}); if(error) throw error;
+        if(!data || !data.ok) throw new Error(data && data.raison==='trop' ? 'Tu as déjà 50 notes en attente : attends que Daniel les traite.' : 'Note refusée ('+((data&&data.raison)||'?')+').');
+        URL.revokeObjectURL(st.url); delete st.blob; delete st.url; await vxcMesNotes(true);
+        toast('📤 Note envoyée : Daniel l’écoutera avant de la publier.'); dessiner(); }
+      catch(e){ env.disabled = false; env.textContent = '📤 Envoyer à Daniel';
+        toast(/bucket|note_vocale|function|schema/i.test(String(e.message||e)) ? 'Les notes vocales ne sont pas encore activées : préviens Daniel.' : (reseau(e) ? '📶 Connexion trop faible : la note n’est pas partie, réessaie.' : 'Erreur : '+(e.message||e))); } };
+    const ann = z.querySelector('[data-vxann]'); if(ann) ann.onclick = ()=>{ if(st.url) URL.revokeObjectURL(st.url); delete st.blob; delete st.url; dessiner(); };
+  };
+  dessiner(); vxcMesNotes().then(dessiner); }
+/* le volet se construit quand on l'ouvre (les fiches sont redessinées souvent) */
+document.addEventListener('toggle', e=>{ const d = e.target; if(!(d instanceof HTMLDetailsElement) || !d.classList.contains('vxc') || !d.open) return;
+  const z = d.querySelector('.vxz'); if(z && !z.dataset.ok){ z.dataset.ok = 1; vxcZone(d.dataset.vxq, z); } }, true);
 </script>
 </body>
 </html>
