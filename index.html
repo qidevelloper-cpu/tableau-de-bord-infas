@@ -2607,7 +2607,9 @@ function sigNumHTML(r){ if(!r.qid) return ''; if(r.qidv) return ` n° ${esc(r.qi
 /* bilan par élève : signalements, photos, signalements justes (question corrigée ou réponse « ✅ Réponse corrigée ») */
 const sigJuste = r => r.statut==='corrige' || r.reponse_type==='corrigee';
 const sigCleEleve = r => r.appareil || r.user_id || null;
-function sigBilan(){ const G = new Map(); DB.reports.forEach(r=>{ const k = sigCleEleve(r); if(!k) return; let g = G.get(k);
+/* bilan par élève : calculé une fois par affichage (avant : recalculé pour chaque carte → la page se figeait à l'arrivée d'un signalement) */
+let SIGB = null;
+function sigBilan(){ if(SIGB) return SIGB; const G = new Map(); SIGB = G; setTimeout(()=>{ SIGB = null; }, 0); DB.reports.forEach(r=>{ const k = sigCleEleve(r); if(!k) return; let g = G.get(k);
     if(!g){ g = {k, nom:'', sig:0, ph:0, ok:0, qs:new Set()}; G.set(k, g); } g.sig++; if(r.photo) g.ph++; if(sigJuste(r)) g.ok++; if(sq(r)) g.qs.add(sq(r));
     if(!g.nom){ const p = api.get('profiles', r.user_id), pn = r.appareil && nomDe(r.appareil); g.nom = p ? fullName(p) : pn ? pn.prenom : r.eleve ? String(r.eleve).replace(/\s*\(sans compte\)\s*/,'').trim() : ''; } });
   return G; }
@@ -2667,7 +2669,7 @@ function sujQuestions(k){ const M = new Map();
     const t = new Date(r.date||0).getTime(); if(t>=x.der){ x.der = t; x.msg = r.message||''; } });
   return [...M.values()].sort((a,b)=>(b.nouv-a.nouv)||(b.el.size-a.el.size)||(b.tot-a.tot)); }
 function sujQuestionsHTML(g){ const L = sujQuestions(g.k); if(!L.length) return '';
-  const pos = qxEval('(()=>{try{const L=sujets('+JSON.stringify(g.m)+')['+g.n+'];return L}catch(e){return []}})()') || [], mx = L[0].nouv||L[0].tot||1;
+  const pos = (qxMemo('L|'+g.m, ()=>qxEval('(()=>{try{return sujets('+JSON.stringify(g.m)+')}catch(e){return []}})()')||[])[g.n]) || [], mx = L[0].nouv||L[0].tot||1;
   return `<details class="sjq" data-sjqk="${esc(g.k)}" ${UI.sjOpen===g.k?'open':''} style="margin-top:6px"><summary class="cnote" style="cursor:pointer;font-weight:800">🔎 Questions les plus signalées de ce sujet · ${L.length}</summary>
     ${L.map(x=>{ const q = QX.etat==='ok' ? qxQ(x.qid) : null, off = !!(q && q.off), n = pos.indexOf(x.qid);
       return `<div class="row wrap" style="gap:8px;padding:8px 0 8px 10px;border-left:3px solid ${x.nouv?'#e11d48':'#cbd5e1'};margin:6px 0;align-items:center">
@@ -2702,7 +2704,7 @@ function sujFavorisCarte(){
   return `<div class="card" style="margin-bottom:14px;border:2px solid #f59e0b"><h3 style="margin:0 0 4px">⭐ Mes sujets à corriger · ${F.length}</h3><p class="cnote" style="margin:0 0 4px">Corrigez le sujet (titre, énoncés, réponses, explications), puis « Remettre en ligne ».</p>
     ${F.map(c=>{ const f = c.qid.slice(4), g = st.find(x=>x.f===f), D = c.c, mid = g ? g.m : String(f).split('.')[0];
       const k = g ? g.n : (qxEval('(()=>{try{return sujets('+JSON.stringify(mid)+').findIndex(L=>L[0]==='+JSON.stringify(f)+')}catch(e){return -1}})()'));
-      const t = D.titre || (g ? g.t : (k>=0 ? qxEval('String(sujTitre('+JSON.stringify(mid)+','+k+'))') : f));
+      const t = D.titre || (g ? g.t : (k>=0 ? ((qxSujets(mid)[k]||{}).t || qxEval('String(sujTitre('+JSON.stringify(mid)+','+k+'))')) : f));
       return `<div class="row wrap" style="gap:10px;padding:10px 0;border-top:1px solid var(--line);align-items:center"><div style="flex:1;min-width:220px"><b>${esc(t||f)}</b> ${D.off?'<span class="pill" style="background:#fff1e6;color:#b45309">🛠️ désactivé chez les élèves</span>':'<span class="pill ok">en ligne</span>'}
         <div class="cnote">${esc(matName(mid))}${g?` · <b>${g.nouv}</b> signalement${g.nouv>1?'s':''} à traiter`:''}</div></div>
         <div class="row wrap" style="gap:6px">${g?`<button class="btn sm" data-sjvoir="${esc(g.k)}">🔍 Signalements</button>`:''}${k>=0?`<button class="btn sm pri" data-sjedit="${esc(mid)}|${k}">📝 Corriger le sujet</button>`:''}
@@ -2922,6 +2924,10 @@ function qxCharger(force){
   setTimeout(tick, 600);
 }
 const qxEval = js => { try{ return QX.W ? QX.W.eval(js) : null; }catch(e){ return null; } };
+/* mémo le temps d'un affichage : la liste des sujets d'un cours et leurs titres ne sont lues qu'une fois
+   (avant : relues pour chaque question/signalement → la page se figeait plusieurs secondes) */
+const QXM = new Map();
+function qxMemo(k, f){ if(QXM.has(k)) return QXM.get(k); if(!QXM.size) setTimeout(()=>QXM.clear(), 0); const v = f(); QXM.set(k, v); return v; }
 function qxQ(qid){ const q = qxEval('QI['+JSON.stringify(qid)+']'); return q ? JSON.parse(JSON.stringify(q)) : null; }
 function qxMats(){ return qxEval('MAT.map(m=>({id:m.id,nom:m.title||m.short||m.id,n:(QBM[m.id]||[]).length}))') || []; }
 function qxListe(mid){ return qxEval('(QBM['+JSON.stringify(mid)+']||[]).map(q=>({id:q.id,t:q.t,q:String(q.q||""),s:String(q.s||""),c:!!q.__corr,off:!!q.off}))') || []; }
@@ -3008,7 +3014,7 @@ async function qxOff(qid, on, silencieux){
 }
 /* ======================= MODIFIER UN SUJET ENTIER (titre, énoncés, propositions, explications) =======================
    Titre : correction « suj:<1re question du sujet> » {titre} ; questions : publier_correction comme « Corriger ». */
-function qxSujets(mid){ return qxEval('(()=>{const m='+JSON.stringify(mid)+';return sujets(m).map((L,k)=>({k,n:L.length,first:L[0]||"",t:String(sujTitre(m,k)||"")}))})()') || []; }
+function qxSujets(mid){ return qxMemo('S|'+mid, ()=>qxEval('(()=>{const m='+JSON.stringify(mid)+';return sujets(m).map((L,k)=>({k,n:L.length,first:L[0]||"",t:String(sujTitre(m,k)||"")}))})()') || []); }
 function qxTitreCorr(first){ const c = (QX.corr||[]).find(x=>x.actif && x.qid==='suj:'+first); return c && c.c && c.c.titre ? String(c.c.titre) : ''; }
 function qxSujCarte(){ const mats = qxMats(); if(!mats.length) return '';
   const mid = QX.sjm && mats.some(m=>m.id===QX.sjm) ? QX.sjm : (QX.mid || mats[0].id), L = qxSujets(mid);
@@ -3040,7 +3046,7 @@ function qxOffBind(){
   document.querySelectorAll('[data-qon]').forEach(b=>b.onclick=()=>qxOff(b.dataset.qon, false));
 }
 /* sujet qui contient une question (signalée) : ouvert en entier, la question signalée mise en avant */
-function qxSujDe(qid){ return qxEval('(()=>{const id='+JSON.stringify(qid)+',q=QI[id];if(!q)return null;const L=sujets(q.m)||[];for(let k=0;k<L.length;k++)if(L[k]&&L[k].includes(id))return{m:q.m,k};return null})()'); }
+function qxSujDe(qid){ const m = qxEval('(QI['+JSON.stringify(qid)+']||{}).m'); if(!m) return null; const ix = qxMemo('I|'+m, ()=>{ const o = {}; const L = qxMemo('L|'+m, ()=>qxEval('sujets('+JSON.stringify(m)+')')||[]); L.forEach((l,k)=>(l||[]).forEach(id=>{ if(!(id in o)) o[id] = k; })); return o; }); const k = ix[qid]; return k==null ? null : {m, k}; }
 function qxSujDeQ(qid){
   if(QX.etat!=='ok'){ toast('⏳ Chargement des questions de l’appli…'); qxCharger(); const t0 = Date.now(); const w = ()=>{ if(QX.etat==='ok') qxSujDeQ(qid); else if(QX.etat!=='err' && Date.now()-t0<90e3) setTimeout(w, 500); else toast('Impossible de charger les questions de l’appli.'); }; setTimeout(w, 500); return; }
   const z = qxSujDe(qid); if(!z){ toast('Cette question n’est rangée dans aucun sujet : utilisez « ✏️ Corriger ici ».'); return; }
