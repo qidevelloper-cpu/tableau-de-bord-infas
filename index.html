@@ -2875,6 +2875,29 @@ const QL = 'ABCDEFGH';
 function qxConflits(){ return qxEval(`(()=>{if(typeof riDoublons!=='function')return null;const n=x=>String(x==null?'':x).toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').replace(/[^a-z0-9]+/g,' ').trim();
   const cle=y=>y.t==='vf'?'v'+(y.v?1:0):y.t==='qcm'?(Array.isArray(y.am)&&y.am.length?y.am:[y.a]).map(i=>n((y.o||[])[i])).sort().join('|'):n(y.r);
   const vu={},R=[];for(const id in QI){if(vu[id])continue;const d=riDoublons(id);if(!d.length)continue;d.forEach(x=>vu[x]=1);const G=[id].concat(d);if(new Set(G.map(x=>cle(QI[x]))).size>1)R.push(G)}return R})()`); }
+/* questions identiques avec des réponses différentes : où en est chaque groupe
+   - 🙈 désactivée : cachée aux élèves ; ✅ corrigée : correction publiée ; 🟢 en ligne : version d'origine
+   - groupe « réglé » quand les questions encore en ligne ont toutes la même bonne réponse (les autres sont désactivées) */
+function qxCleRep(q){ const n = x=>String(x==null?'':x).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,' ').trim();
+  if(!q) return ''; if(q.t==='vf') return 'v'+(q.v?1:0); if(q.t==='qcm') return (Array.isArray(q.am)&&q.am.length?q.am:[q.a]).map(i=>n((q.o||[])[i])).sort().join('|'); return n(q.r); }
+function qxConfEtat(cf){ return qxMemo('CF|'+cf.length, ()=>cf.map(G=>{ const Q = G.map(id=>[id, qxQ(id)]).filter(x=>x[1]);
+  const on = Q.filter(x=>!x[1].off), cles = new Set(on.map(x=>qxCleRep(x[1])));
+  return {G, Q, ok: cles.size<=1, off: Q.length-on.length, corr: Q.filter(x=>x[1].__corr && !x[1].off).length, ligne: on.length}; })); }
+function qxStatutQ(q){ return q.off ? '<span class="pill" style="background:#fdecec;color:#b42318;font-weight:700">🙈 Désactivée</span>'
+  : q.__corr ? '<span class="pill" style="background:#e9f9ef;color:#166534;font-weight:700">✅ Corrigée · en ligne</span>'
+  : '<span class="pill" style="background:#eef2ff;color:#3730a3;font-weight:700">🟢 En ligne (non corrigée)</span>'; }
+function qxConfHTML(cf){
+  if(!cf.length) return '<p class="muted">✅ Aucune : toutes les questions identiques ont la même réponse.</p>';
+  const E = qxConfEtat(cf), f = QX.confF || 'afaire', nA = E.filter(x=>!x.ok).length, nR = E.length-nA;
+  const L = E.filter(x=>f==='tout' || (f==='afaire' ? !x.ok : x.ok));
+  const bt = (k,l)=>`<button class="btn sm" data-qxcf="${k}" aria-pressed="${f===k}" style="${f===k?'border:2px solid var(--ink);font-weight:800':''}">${l}</button>`;
+  return `<p class="muted" style="margin:8px 0 6px;font-size:13.5px">Même énoncé et mêmes propositions, mais pas la même bonne réponse. Un groupe est <b>réglé</b> quand les questions encore en ligne ont toutes la même réponse (les autres sont désactivées). Corrige la bonne réponse : les autres suivront.</p>
+    <div class="row wrap" style="gap:6px;margin-bottom:6px">${bt('afaire','⚠️ À traiter · '+nA)}${bt('regle','✅ Réglées · '+nR)}${bt('tout','Toutes · '+E.length)}</div>`
+    + (L.length ? L.slice(0,40).map(x=>`<div style="border:1.5px solid ${x.ok?'#86efac':'#fcd34d'};background:${x.ok?'#f0fdf4':'#fffbeb'};border-radius:12px;padding:6px 10px 0;margin:8px 0">
+        <div style="font-weight:800;font-size:13.5px">${x.ok?'✅ Réglé':'⚠️ À traiter'} <span class="cnote" style="font-weight:400">· ${x.ligne} en ligne${x.corr?' (dont '+x.corr+' corrigée'+(x.corr>1?'s':'')+')':''} · ${x.off} désactivée${x.off>1?'s':''}${x.ok?'':' · réponses encore différentes en ligne'}</span></div>
+        ${x.Q.map(([id,q])=>qxLigneV(id, '<div style="margin-top:4px">'+qxStatutQ(q)+'</div>')).join('')}</div>`).join('') + (L.length>40?`<p class="muted">… et ${L.length-40} autre(s).</p>`:'')
+      : `<p class="muted">${f==='afaire'?'✅ Plus rien à traiter : chaque groupe est réglé.':'Aucun groupe ici.'}</p>`);
+}
 function qxRepTxt(q){ if(!q) return ''; if(q.t==='vf') return q.v?'Vrai':'Faux'; if(q.t==='qcm') return (Array.isArray(q.am)&&q.am.length?q.am:[q.a]).map(i=>QL[i]+'. '+((q.o||[])[i]||'')).join(' ; '); return q.r||''; }
 function qxLigneV(id, extra){ const q = qxQ(id); if(!q) return '';
   return `<div class="row wrap" style="gap:10px;padding:8px 0;border-top:1px solid var(--line);align-items:flex-start"><div style="flex:1;min-width:220px"><b>${esc(matName(q.m))}</b> <span class="muted" style="font-size:12.5px">· ${esc(id)}${q.__corr?' · ✅ corrigée':''}</span><div style="font-size:14px;margin-top:2px">${esc(String(q.q||'').slice(0,180))}</div><div class="muted" style="font-size:13px;margin-top:2px">✔ ${esc(qxRepTxt(q))}</div>${extra||''}</div><div class="row" style="gap:6px"><button class="btn sm" data-qedit="${esc(id)}">✏️ Corriger</button><button class="btn sm" data-qshare="${esc(id)}">📤 Partager</button></div></div>`; }
@@ -2899,8 +2922,8 @@ function qxVerifHTML(){
   const cf = QX.conf;
   return `<div class="card" style="margin-bottom:16px"><h3 style="margin:0 0 4px">🧭 Questions à vérifier</h3>
     <p class="muted" style="margin:0 0 8px;font-size:13.5px">Quand tu corriges une question, la même question dans les autres sujets (même énoncé, mêmes propositions) est corrigée en même temps.</p>
-    <button class="btn" id="qxconf">${QX.confOuv?'▲ Masquer':'⚠️ Questions identiques avec des réponses différentes'}${cf?' · '+cf.length:''}</button>
-    ${QX.confOuv&&cf?(cf.length?`<p class="muted" style="margin:8px 0 0;font-size:13.5px">Même énoncé et mêmes propositions, mais pas la même bonne réponse : l’une est sûrement fausse. Corrige la bonne réponse, les autres suivront.</p>`+cf.slice(0,40).map(G=>`<div style="border:1.5px solid #fcd34d;background:#fffbeb;border-radius:12px;padding:0 10px;margin:8px 0">${G.map(id=>qxLigneV(id)).join('')}</div>`).join('')+(cf.length>40?`<p class="muted">… et ${cf.length-40} autre(s).</p>`:''):'<p class="muted">✅ Aucune : toutes les questions identiques ont la même réponse.</p>'):''}
+    <button class="btn" id="qxconf">${QX.confOuv?'▲ Masquer':'⚠️ Questions identiques avec des réponses différentes'}${cf?' · '+qxConfEtat(cf).filter(x=>!x.ok).length+' à traiter / '+cf.length:''}</button>
+    ${QX.confOuv&&cf?qxConfHTML(cf):''}
     <h4 style="margin:14px 0 4px">🔎 Questions similaires aux questions corrigées</h4>
     ${C.length?C.map(c=>{ const D = qxEval('riDoublons('+JSON.stringify(c.qid)+')')||[], ouv = O[c.qid], S = ouv ? (qxEval('riSimilaires('+JSON.stringify(c.qid)+',10,.5)')||[]) : null;
       return `<div style="border:1px solid var(--line);border-radius:12px;padding:0 10px 8px;margin:8px 0">${qxLigneV(c.qid, D.length?`<div style="font-size:13px;margin-top:4px">🔁 <b>${D.length}</b> question${D.length>1?'s':''} identique${D.length>1?'s':''} dans d’autres sujets, corrigée${D.length>1?'s':''} aussi</div>`:'')}
@@ -2971,6 +2994,7 @@ VIEWS.questions = ()=>{
 };
 AFTER.questions = ()=>{
   qxOffBind();
+  document.querySelectorAll('[data-qxcf]').forEach(b=>b.onclick=()=>{ QX.confF = b.dataset.qxcf; render(); });
   const vc = $('#qxconf'); if(vc) vc.onclick = ()=>{ QX.confOuv = !QX.confOuv; if(QX.confOuv && !QX.conf){ vc.textContent = '⏳ Recherche…'; setTimeout(()=>{ QX.conf = qxConflits(); render(); }, 30); return; } render(); };
   document.querySelectorAll('[data-qxsim]').forEach(b=>b.onclick=()=>{ const k = b.dataset.qxsim; QX.simOuv = QX.simOuv||{}; QX.simOuv[k] = !QX.simOuv[k]; render(); });
   document.querySelectorAll('[data-qsite]').forEach(b=>b.onclick=()=>{ UI.qSite = b.dataset.qsite; QX.etat=''; QX.mid=''; render(); });
