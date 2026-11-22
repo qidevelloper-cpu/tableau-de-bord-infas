@@ -2457,11 +2457,12 @@ function contactApercu(c){ return `<div style="font-size:17px;font-weight:800">$
 function contactCard(){
   const c = contactCfg(), num = waNum(c.numero);
   return `<div class="card" id="ctcard" style="margin-bottom:18px;border:2px solid ${c.actif?'#16a34a':'var(--line)'}"><div class="cardhead"><div class="grow"><h3>📞 Contacter l’administrateur <span class="pill ${c.actif?'ok':'hid'}">${c.actif?'Affiché':'Masqué'}</span></h3>
-    <p class="sub">Carte en haut de l’accueil de l’appli, avec les annonces. Chaque bouton ouvre <b>WhatsApp</b> avec le message prêt, l’élève n’a qu’à l’envoyer.</p></div></div>
+    <p class="sub">Carte sur l’accueil de l’appli (en haut, en bas, ou en bas avec un bouton en haut qui y mène). Chaque bouton ouvre <b>WhatsApp</b> avec le message prêt, l’élève n’a qu’à l’envoyer.</p></div></div>
     <label class="row" style="gap:8px;align-items:center"><input type="checkbox" id="ctOn" ${c.actif?'checked':''} style="width:22px;height:22px"> <b>Afficher sur l’accueil des élèves</b></label>
     <div class="row wrap" style="gap:10px;margin-top:10px">
       <div style="flex:1 1 220px"><label class="lbl" for="ctNum">Numéro WhatsApp</label><input class="field" id="ctNum" inputmode="tel" placeholder="07 00 00 00 00" value="${esc(c.numero||'')}"></div>
       <div style="flex:2 1 260px"><label class="lbl" for="ctT">Titre</label><input class="field" id="ctT" maxlength="120" value="${esc(c.titre)}"></div></div>
+    <label class="lbl" for="ctPos">Position sur l’accueil</label><select class="field" id="ctPos" style="max-width:420px">${Object.entries(ANN_POS).map(([v,l])=>`<option value="${v}" ${(c.position||'haut')===v?'selected':''}>${l}</option>`).join('')}</select>
     <label class="lbl" for="ctX">Texte</label><textarea class="field" id="ctX" rows="2" maxlength="600">${esc(c.texte)}</textarea>
     <div class="lbl" style="margin-top:10px">Les 3 messages proposés</div>
     ${c.messages.map((x,i)=>`<div class="row wrap" style="gap:8px;margin:6px 0;padding:8px;border:1px solid var(--line);border-radius:12px"><div style="flex:1 1 200px"><label class="lbl" for="ctB${i}">Bouton ${i+1}</label><input class="field" id="ctB${i}" maxlength="60" value="${esc(x.b)}"></div><div style="flex:2 1 280px"><label class="lbl" for="ctM${i}">Message envoyé sur WhatsApp</label><textarea class="field" id="ctM${i}" rows="2" maxlength="1000">${esc(x.m)}</textarea></div></div>`).join('')}
@@ -2478,7 +2479,7 @@ function bindContact(){
     if(on && !/^\d{8,15}$/.test(num)){ toast('Écris le numéro WhatsApp (10 chiffres, ou l’indicatif + le numéro).'); return; }
     const M = [0,1,2].map(i=>({b:($('#ctB'+i).value||'').trim().slice(0,60), m:($('#ctM'+i).value||'').trim().slice(0,1000)}));
     if(on && !M.some(x=>x.b&&x.m)){ toast('Remplis au moins un bouton et son message.'); return; }
-    DB.access.contact = {actif:on, numero:($('#ctNum').value||'').trim(), titre:($('#ctT').value||'').trim().slice(0,120), texte:($('#ctX').value||'').trim().slice(0,600), nom:$('#ctNom').checked, messages:M};
+    DB.access.contact = {actif:on, numero:($('#ctNum').value||'').trim(), titre:($('#ctT').value||'').trim().slice(0,120), texte:($('#ctX').value||'').trim().slice(0,600), nom:$('#ctNom').checked, messages:M, position:($('#ctPos')||{}).value||'haut'};
     DB.access.version++; DB.access.misAJour = new Date().toISOString(); persist();
     audit(on?'Carte « Contacter l’administrateur » affichée':'Carte « Contacter l’administrateur » masquée', 'Accueil'); render(); toast(on?'Carte de contact enregistrée.':'Carte de contact masquée.'); };
 }
@@ -3830,7 +3831,7 @@ function cpgBind(){
   $('#cpgrecomp').onchange=lire;
   document.querySelectorAll('[data-cpgl]').forEach(i=>i.oninput=lire);
   let tf=null; $('#cpgfil').oninput=()=>{ lire(); clearTimeout(tf); tf=setTimeout(()=>{ cpgRender(); const n=$('#cpgfil'); if(n){ n.focus(); n.setSelectionRange(n.value.length,n.value.length); } },250); };
-  $('#cpgmid').onchange=()=>{ lire(); g.mid=$('#cpgmid').value; g.sel={}; cpgRender(); const l=$('#cpglist'); if(l) l.scrollTop=0; };
+  $('#cpgmid').onchange=()=>{ lire(); g.mid=$('#cpgmid').value; g.sel={}; cpgRender(); const l=$('#cpglist'); if(l){ l.scrollTop=0; l.scrollIntoView({behavior:'smooth',block:'start'}); } };
   document.querySelectorAll('[data-cpgmode]').forEach(b=>b.onclick=()=>{ lire(); g.mode=b.dataset.cpgmode; cpgRender(); });
   document.querySelectorAll('[data-cpgk]').forEach(c=>c.onchange=()=>{ lire(); const k=+c.dataset.cpgk, m=cat&&cat.L.find(x=>x.id===g.mid);
     if(c.checked){ const s=m&&m.sujets.find(x=>x.k===k); g.sel[k]=cpgNomCourt(s); } else delete g.sel[k]; cpgRender(); });
