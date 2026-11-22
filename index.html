@@ -3787,15 +3787,15 @@ function cpgTexte(nom, L){ const c0=L[0]||{}, memeChrono=L.every(c=>c.chrono_min
   if(memeChrono&&c0.chrono_min) tete.push(`⏱ ${c0.chrono_min} minutes par sujet`);
   if(memeDl&&c0.date_limite) tete.push(`📅 DATE LIMITE : ${dfr(c0.date_limite,{weekday:'long',day:'numeric',month:'long'})} à ${hfr(c0.date_limite)}`);
   if(L.every(c=>c.recompo)) tete.push('🔄 Tu peux recomposer plusieurs fois');
-  return tete.join('\n')+'\n\n'+L.map(c=>`${c.groupe_libelle||('Compose ici '+(c.titre||c.sujet_titre||'Sujet '+(c.k+1)))}\n${cpLien(c.code)}`).join('\n\n'); }
+  return tete.join('\n')+'\n\n'+L.map(c=>`${String(c.groupe_libelle||('COMPOSE ICI '+(c.titre||c.sujet_titre||'Sujet '+(c.k+1)))).replace(/^compose ici\b/i,'COMPOSE ICI')}\n${cpLien(c.code)}`).join('\n\n'); }
 function cpgFormHTML(cat){
-  const g = UI.cpG = UI.cpG||{nom:'', mid:'', filtre:'', sel:{}, prefixe:'Compose ici', mode:'gratuit'};
+  const g = UI.cpG = UI.cpG||{nom:'', mid:'', filtre:'', sel:{}, prefixe:'COMPOSE ICI', mode:'gratuit'};
   if(!cat||!cat.ok) return '';
   const m = cat.L.find(x=>x.id===g.mid) || cat.L[0]; if(!g.mid&&m) g.mid=m.id;
   const q = nrmTxt(String(g.filtre||'').trim());
   const L = m ? m.sujets.filter(s=>s.n>0||!s.t).filter(s=>!q||nrmTxt(s.t||'').includes(q)||g.sel[s.k]!=null) : [];
   const nsel = Object.keys(g.sel).length;
-  return `<div class="card" style="margin-top:18px"><div class="cardhead"><div class="grow"><h3>🔗 Groupe de liens</h3><p class="sub">Créez d’un coup les liens de plusieurs sujets (ex. <b>J1 à J6 Médecine</b>) et envoyez-les dans un seul message : pour chaque sujet, « <b>${esc(g.prefixe||'Compose ici')} J1 Médecine</b> » puis le lien en dessous.</p></div></div>
+  return `<div class="card" style="margin-top:18px"><div class="cardhead"><div class="grow"><h3>🔗 Groupe de liens</h3><p class="sub">Créez d’un coup les liens de plusieurs sujets (ex. <b>J1 à J6 Médecine</b>) et envoyez-les dans un seul message : pour chaque sujet, « <b>${esc(g.prefixe||'COMPOSE ICI')} J1 Médecine</b> » puis le lien en dessous.</p></div></div>
     <div class="codeform">
       <div style="flex:1 1 220px"><label class="lbl" for="cpgnom">Nom du groupe</label><input class="field" id="cpgnom" maxlength="80" value="${esc(g.nom||'')}" placeholder="Ex. J Médecine"></div>
       <div style="flex:1 1 230px"><label class="lbl" for="cpgmid">Cours</label><select class="field" id="cpgmid">${[...new Set(cat.L.map(x=>x.rub))].map(r=>`<optgroup label="${esc(r)}">${cat.L.filter(x=>x.rub===r).map(x=>`<option value="${esc(x.id)}" ${g.mid===x.id?'selected':''}>${esc(x.nom)}</option>`).join('')}</optgroup>`).join('')}</select></div>
