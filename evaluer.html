@@ -42,6 +42,14 @@ textarea.field{min-height:110px;resize:vertical}
 .btn:disabled{opacity:.55}
 .ok{text-align:center;padding:30px 16px}.ok .e{font-size:48px}
 .err{color:var(--red);font-weight:600;margin-top:8px}
+.pj{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+.pjb{flex:1 1 140px;border:2px dashed var(--line);border-radius:14px;padding:12px;background:var(--paper);font-weight:700;cursor:pointer;text-align:center}
+.pjb.rec{border-color:var(--red);color:var(--red);border-style:solid}
+.mini{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.mini .it{position:relative;border:1px solid var(--line);border-radius:12px;padding:4px;background:var(--card)}
+.mini img{width:86px;height:86px;object-fit:cover;border-radius:9px;display:block}
+.mini audio{width:230px;max-width:70vw;display:block}
+.mini .x{position:absolute;top:-8px;right:-8px;width:26px;height:26px;border-radius:50%;border:0;background:var(--red);color:#fff;font-weight:800;cursor:pointer}
 </style>
 </head>
 <body>
@@ -93,6 +101,10 @@ function vue(q, deja){
     </div>
     <label class="choix" data-v="doute"><input type="radio" name="v" value="doute">🤔 Je ne suis pas sûr(e)</label>
     <span class="lab">Explication</span><textarea class="field" id="x" maxlength="4000" placeholder="Pourquoi ? (notion du cours, référence…)"></textarea>
+    <span class="lab">Photos, images ou note vocale (facultatif)</span>
+    <p class="muted small" style="margin:0">Une photo du cours, un schéma, ou une note vocale qui explique simplement.</p>
+    <div class="pj"><label class="pjb">📷 Photo ou image<input type="file" id="ph" accept="image/*" multiple hidden></label><button type="button" class="pjb" id="mic">🎙️ Enregistrer une note vocale</button></div>
+    <div class="mini" id="pjl"></div>
     <span class="lab">Source (facultatif)</span><input class="field" id="so" maxlength="500" placeholder="Cours, livre, page…">
     <span class="lab">Ton nom (facultatif)</span><input class="field" id="n" maxlength="80" placeholder="Ex. Dr Koné, infirmier diplômé…">
     <div class="err" id="e"></div>
@@ -101,6 +113,46 @@ function vue(q, deja){
   const marque = ()=>{ document.querySelectorAll('.choix').forEach(c=>c.classList.toggle('on', c.querySelector('input').checked)); document.getElementById('bonne').style.display = document.querySelector('input[name=v][value=faux]').checked ? '' : 'none';
     document.querySelectorAll('.lettres label').forEach(l=>l.classList.toggle('on', l.querySelector('input').checked)); };
   M.querySelectorAll('input').forEach(i=>i.addEventListener('change', marque));
+  /* ---- pièces jointes : 8 images (réduites à 1600 px) et 2 notes vocales (3 min) au plus ---- */
+  const PJ = [];
+  const montre = ()=>{ document.getElementById('pjl').innerHTML = PJ.map((p,k)=>`<div class="it">${p.type==='image'?`<img src="${p.url}" alt="Image jointe">`:`<audio controls src="${p.url}"></audio>`}<button type="button" class="x" data-k="${k}" aria-label="Retirer">×</button></div>`).join('');
+    document.querySelectorAll('#pjl .x').forEach(b=>b.onclick=()=>{ const p = PJ.splice(+b.dataset.k, 1)[0]; try{ URL.revokeObjectURL(p.url) }catch(e){} montre(); }); };
+  const reduire = f => new Promise(res=>{ if(!/^image\/(jpeg|png|webp)$/.test(f.type)){ res(f); return; } const u = URL.createObjectURL(f), im = new Image();
+    im.onload = ()=>{ const k = Math.min(1, 1600/Math.max(im.width, im.height)); if(k>=1 && f.size<1.5e6){ URL.revokeObjectURL(u); res(f); return; }
+      const c = document.createElement('canvas'); c.width = Math.round(im.width*k); c.height = Math.round(im.height*k); c.getContext('2d').drawImage(im, 0, 0, c.width, c.height);
+      c.toBlob(b=>{ URL.revokeObjectURL(u); res(b || f); }, 'image/jpeg', .82); }; im.onerror = ()=>{ URL.revokeObjectURL(u); res(f); }; im.src = u; });
+  document.getElementById('ph').onchange = async ev=>{ const e = document.getElementById('e'); e.textContent = '';
+    for(const f of [...ev.target.files]){ if(PJ.filter(p=>p.type==='image').length >= 8){ e.textContent = '8 images au plus.'; break; }
+      if(!/^image\//.test(f.type)){ continue; } const b = await reduire(f); if(b.size > 10*1024*1024){ e.textContent = 'Image trop lourde (10 Mo au plus).'; continue; }
+      PJ.push({type:'image', blob:b, url:URL.createObjectURL(b)}); }
+    ev.target.value = ''; montre(); };
+  let rec = null, morceaux = [], t0 = 0, minu = null;
+  const mic = document.getElementById('mic');
+  mic.onclick = async ()=>{ const e = document.getElementById('e'); e.textContent = '';
+    if(rec){ rec.stop(); return; }
+    if(PJ.filter(p=>p.type==='audio').length >= 2){ e.textContent = '2 notes vocales au plus.'; return; }
+    if(!navigator.mediaDevices || !window.MediaRecorder){ e.textContent = 'L’enregistrement n’est pas possible sur ce navigateur. Tu peux écrire ton explication.'; return; }
+    try{ const flux = await navigator.mediaDevices.getUserMedia({audio:true});
+      const type = ['audio/webm;codecs=opus','audio/webm','audio/mp4','audio/ogg'].find(t=>MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t)) || '';
+      rec = new MediaRecorder(flux, type?{mimeType:type}:undefined); morceaux = []; t0 = Date.now();
+      rec.ondataavailable = d=>{ if(d.data && d.data.size) morceaux.push(d.data); };
+      rec.onstop = ()=>{ clearInterval(minu); flux.getTracks().forEach(t=>t.stop()); const b = new Blob(morceaux, {type:(rec.mimeType||'audio/webm').split(';')[0]});
+        const duree = Math.round((Date.now()-t0)/1000); rec = null; mic.classList.remove('rec'); mic.textContent = '🎙️ Enregistrer une note vocale';
+        if(b.size > 1000) { PJ.push({type:'audio', blob:b, url:URL.createObjectURL(b), duree}); montre(); } };
+      rec.start(1000); mic.classList.add('rec');
+      const maj = ()=>{ const s = Math.round((Date.now()-t0)/1000); mic.textContent = '⏹️ Arrêter (' + Math.floor(s/60) + ':' + String(s%60).padStart(2,'0') + ' / 3:00)'; if(s >= 180 && rec) rec.stop(); };
+      maj(); minu = setInterval(maj, 500);
+    }catch(err){ e.textContent = 'Micro refusé ou indisponible. Autorise le micro puis réessaie.'; rec = null; }
+  };
+  const ext = b => ({'image/jpeg':'jpg','image/png':'png','image/webp':'webp','image/heic':'heic','image/heif':'heif','audio/webm':'webm','audio/ogg':'ogg','audio/mp4':'m4a','audio/aac':'aac','audio/mpeg':'mp3','audio/wav':'wav'})[(b.type||'').split(';')[0]] || 'bin';
+  async function deposer(){ const out = [];
+    for(let k = 0; k < PJ.length; k++){ const p = PJ[k], ty = (p.blob.type||'').split(';')[0] || (p.type==='image'?'image/jpeg':'audio/webm');
+      const chemin = jeton + '/' + Date.now() + '-' + k + '-' + Math.random().toString(36).slice(2, 8) + '.' + ext(p.blob);
+      const r = await fetch(SBC.url + '/storage/v1/object/evaluations/' + chemin, {method:'POST', headers:{apikey:SBC.key, Authorization:'Bearer ' + SBC.key, 'Content-Type':ty, 'x-upsert':'false'}, body:p.blob});
+      if(!r.ok) throw new Error('depot ' + r.status);
+      out.push({type:p.type, chemin, duree:p.duree||0}); }
+    return out; }
+  window.__evalPJ = PJ;
   document.getElementById('go').onclick = async ()=>{
     const e = document.getElementById('e'); e.textContent = '';
     const v = (document.querySelector('input[name=v]:checked')||{}).value;
@@ -112,10 +164,15 @@ function vue(q, deja){
       else { const t = document.getElementById('rr').value.trim(); if(!t){ e.textContent = 'Écris la bonne réponse.'; return; } rep = {r:t}; }
     }
     const x = document.getElementById('x').value.trim();
-    if(v==='faux' && x.length < 5){ e.textContent = 'Ajoute une courte explication.'; return; }
+    if(v==='faux' && x.length < 5 && !PJ.some(p=>p.type==='audio')){ e.textContent = 'Ajoute une courte explication (écrite ou en note vocale).'; return; }
     const b = document.getElementById('go'); b.disabled = true; b.textContent = 'Envoi…';
     try{
-      const r = await rpc('eval_repondre', {p_jeton:jeton, p_nom:document.getElementById('n').value.trim(), p_verdict:v, p_reponse:rep, p_explication:x, p_source:document.getElementById('so').value.trim()});
+      const args = {p_jeton:jeton, p_nom:document.getElementById('n').value.trim(), p_verdict:v, p_reponse:rep, p_explication:x, p_source:document.getElementById('so').value.trim()};
+      let r;
+      if(PJ.length){ if(rec) rec.stop(); b.textContent = 'Envoi des pièces jointes…'; let medias;
+        try{ medias = await deposer(); }catch(err){ e.textContent = 'Les photos ou la note vocale n’ont pas pu être envoyées. Réessaie, ou retire-les et envoie ton avis écrit.'; b.disabled = false; b.textContent = 'Envoyer mon avis'; return; }
+        b.textContent = 'Envoi…'; r = await rpc('eval_repondre_medias', Object.assign(args, {p_medias:medias})); }
+      else r = await rpc('eval_repondre', args);
       if(r && r.ok){ fin('🙏', 'Merci, ton avis est envoyé', 'L’administrateur de Révision INFAS va l’étudier. Tu peux fermer cette page.'); return; }
       e.textContent = r && r.raison==='plein' ? 'Ce lien a déjà reçu tous les avis possibles.' : 'Ce lien n’est plus valable.';
     }catch(err){ e.textContent = 'Envoi impossible : vérifie ta connexion et réessaie.'; }

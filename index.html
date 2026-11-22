@@ -3496,13 +3496,19 @@ function evPanneau(){
         ${A.length?A.map(a=>`<div style="border-left:4px solid ${a.verdict==='juste'?'#16a34a':a.verdict==='faux'?'#dc2626':'#9ca3af'};padding:6px 10px;margin:6px 0;background:var(--soft,#f4f2fb);border-radius:0 10px 10px 0">
           <b>${a.verdict==='juste'?'✅ Réponse juste':a.verdict==='faux'?'❌ Réponse fausse':'🤔 Pas sûr(e)'}</b> <span class="muted" style="font-size:12.5px">· ${esc(a.nom||'Anonyme')} · ${dfr(a.cree)} à ${hfr(a.cree)}${a.lu?'':' · 🆕'}</span>
           ${a.verdict==='faux'&&a.reponse?`<div style="margin-top:3px">👉 Bonne réponse proposée : <b>${esc(evRepTxt(q, a.reponse))}</b></div>`:''}
-          ${a.explication?`<div style="margin-top:3px;white-space:pre-wrap">${esc(a.explication)}</div>`:''}${a.source?`<div class="muted" style="font-size:12.5px;margin-top:2px">📚 ${esc(a.source)}</div>`:''}</div>`).join('')
+          ${a.explication?`<div style="margin-top:3px;white-space:pre-wrap">${esc(a.explication)}</div>`:''}${a.source?`<div class="muted" style="font-size:12.5px;margin-top:2px">📚 ${esc(a.source)}</div>`:''}${(a.medias||[]).length?`<div class="row wrap" style="gap:8px;margin-top:6px">${(a.medias||[]).map(m=>m.type==='image'?`<a data-evma="${esc(m.chemin)}" target="_blank" rel="noopener"><img data-evm="${esc(m.chemin)}" alt="Image jointe" style="width:92px;height:92px;object-fit:cover;border-radius:10px;border:1px solid var(--line);background:var(--soft,#f4f2fb)"></a>`:`<div><div class="muted" style="font-size:12px">🎙️ Note vocale${m.duree?' · '+Math.floor(m.duree/60)+':'+String(Math.round(m.duree%60)).padStart(2,'0'):''}</div><audio controls preload="none" data-evm="${esc(m.chemin)}" style="width:240px;max-width:70vw"></audio></div>`).join('')}</div>`:''}</div>`).join('')
           :'<div class="muted" style="font-size:13px">⏳ Pas encore d’avis.</div>'}
         <div class="row wrap" style="gap:6px;margin-top:6px"><button class="btn sm pri" data-qedit="${esc(l.qid)}">✏️ Corriger</button><button class="btn sm" data-evcop="${esc(l.jeton)}">📋 Copier le lien</button>${A.some(a=>!a.lu)?`<button class="btn sm" data-evlu="${esc(l.id)}">✓ Marquer lu</button>`:''}${l.actif?`<button class="btn sm" data-evfin="${esc(l.id)}">🔒 Fermer le lien</button>`:''}</div></div>`; }).join('')}
     ${!L.length&&EV.etat==='ok'?'<p class="muted" style="margin:0">Aucun lien envoyé pour l’instant.</p>':''}</details>`;
 }
 function evBind(){
   const bx = $('#evbox'); if(bx) bx.ontoggle = ()=>{ EV.ouv = bx.open; };
+  /* photos et notes vocales jointes par la personne invitée (stockage privé « evaluations », liens signés 1 h) */
+  EV.url = EV.url || {};
+  document.querySelectorAll('[data-evm]').forEach(async el=>{ const c = el.dataset.evm; try{
+      if(!EV.url[c] || EV.url[c].t < Date.now()){ const r = await SB.storage.from('evaluations').createSignedUrl(c, 3600); if(r.error || !r.data) throw r.error; EV.url[c] = {u:r.data.signedUrl, t:Date.now()+50*60e3}; }
+      el.src = EV.url[c].u; const a = document.querySelector('[data-evma="'+CSS.escape(c)+'"]'); if(a) a.href = EV.url[c].u;
+    }catch(e){ el.replaceWith(Object.assign(document.createElement('span'), {className:'muted', textContent:'(pièce jointe indisponible : collez supabase/correcteurs/4_evaluations_photos_vocal.sql)'})); } });
   document.querySelectorAll('[data-evcop]').forEach(b=>b.onclick=async()=>{ const u = evPage()+'?t='+b.dataset.evcop; try{ await navigator.clipboard.writeText(u); toast('Lien copié.'); }catch(e){ prompt('Lien :', u); } });
   document.querySelectorAll('[data-evlu]').forEach(b=>b.onclick=async()=>{ await SB.rpc('eval_lus', {p_id:b.dataset.evlu}); evCharger(); });
   document.querySelectorAll('[data-evfin]').forEach(b=>b.onclick=()=>confirmModal('Fermer ce lien ?', 'La personne ne pourra plus donner son avis avec ce lien. Les avis déjà reçus restent ici.', 'Fermer le lien', async()=>{ await SB.rpc('eval_fermer', {p_id:b.dataset.evfin}); evCharger(); }));
