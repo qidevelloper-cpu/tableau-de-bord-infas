@@ -3800,7 +3800,7 @@ function cpgFormHTML(cat){
       <div style="flex:1 1 230px"><label class="lbl" for="cpgmid">Cours</label><select class="field" id="cpgmid">${[...new Set(cat.L.map(x=>x.rub))].map(r=>`<optgroup label="${esc(r)}">${cat.L.filter(x=>x.rub===r).map(x=>`<option value="${esc(x.id)}" ${g.mid===x.id?'selected':''}>${esc(x.nom)}</option>`).join('')}</optgroup>`).join('')}</select></div>
       <div style="flex:1 1 220px"><label class="lbl" for="cpgfil">Chercher les sujets</label><input class="field" id="cpgfil" value="${esc(g.filtre||'')}" placeholder="Ex. J · Médecine"></div>
     </div>
-    <div style="margin-top:10px;max-height:300px;overflow:auto;border:1px solid var(--line);border-radius:12px;padding:6px 10px">${L.map(s=>{ const on=g.sel[s.k]!=null;
+    <div id="cpglist" style="margin-top:10px;max-height:300px;overflow:auto;border:1px solid var(--line);border-radius:12px;padding:6px 10px">${L.map(s=>{ const on=g.sel[s.k]!=null;
       return `<div class="row" style="gap:8px;padding:5px 0;border-top:1px solid var(--line);flex-wrap:wrap"><label class="row" style="gap:8px;cursor:pointer;flex:1 1 260px;min-width:0"><input type="checkbox" data-cpgk="${s.k}" ${on?'checked':''} style="width:18px;height:18px"><span style="min-width:0">${esc(s.t||'Sujet '+(s.k+1))}${s.n?' <span class="cnote">· '+s.n+' q.</span>':''}</span></label>${on?`<input class="field" data-cpgl="${s.k}" maxlength="100" value="${esc(g.sel[s.k])}" title="Nom dans le message" style="flex:0 1 220px;padding:6px 10px">`:''}</div>`; }).join('')||'<p class="sub">Aucun sujet ne correspond.</p>'}</div>
     <div class="cnote" style="margin-top:4px">${nsel} sujet${nsel>1?'s':''} coché${nsel>1?'s':''} · l’ordre du message suit l’ordre des sujets dans la liste. Le nom à droite de chaque sujet est modifiable.</div>
     <div class="codeform" style="margin-top:12px">
@@ -3816,6 +3816,11 @@ function cpgFormHTML(cat){
     ${cpgGroupes().length?`<div style="margin-top:16px"><b>Groupes déjà créés</b>${cpgGroupes().map(G=>`<div class="coderow"><div class="cc" style="flex:1 1 260px;min-width:0"><div><b>🔗 ${esc(G.nom)}</b> <span class="pill">${G.L.length} lien${G.L.length>1?'s':''}</span></div><small>${G.L.map(c=>esc(String(c.groupe_libelle||c.titre||'').replace(/^\S+\s+ici\s+/i,''))).join(' · ')}</small></div>
       <div class="row" style="flex-wrap:wrap;gap:6px"><button class="btn sm" data-cpgcopy="${esc(G.nom)}">📋 Copier le message</button><button class="btn sm wa" data-cpgwa="${esc(G.nom)}">💬 WhatsApp</button></div></div>`).join('')}</div>`:''}
   </div>`; }
+/* réafficher sans remonter en haut : la page (fenêtre ou conteneur qui défile) et la liste des sujets gardent leur position */
+function cpgRender(){ const box=[document.scrollingElement].concat([...document.querySelectorAll('*')].filter(e=>e.scrollTop>0)), pos=box.map(e=>[e.id||'',e.scrollTop]);
+  const lst=$('#cpglist'), ly=lst?lst.scrollTop:0; render();
+  pos.forEach(([id,y],i)=>{ const e=id?document.getElementById(id):box[i]; if(e&&e.isConnected) e.scrollTop=y; });
+  const l2=$('#cpglist'); if(l2) l2.scrollTop=ly; }
 function cpgBind(){
   const g = UI.cpG; if(!g || !$('#cpgnom')) return; const cat=CP_CAT[cpBase()];
   const lire = ()=>{ g.nom=$('#cpgnom').value; g.filtre=$('#cpgfil').value; g.prefixe=$('#cpgpre').value; g.chrono=$('#cpgchrono').value; g.dl=$('#cpgdl').value; g.recompo=$('#cpgrecomp').checked;
@@ -3824,11 +3829,11 @@ function cpgBind(){
   ['#cpgnom','#cpgpre','#cpgchrono','#cpgdl'].forEach(id=>garde(id));
   $('#cpgrecomp').onchange=lire;
   document.querySelectorAll('[data-cpgl]').forEach(i=>i.oninput=lire);
-  let tf=null; $('#cpgfil').oninput=()=>{ lire(); clearTimeout(tf); tf=setTimeout(()=>{ render(); const n=$('#cpgfil'); if(n){ n.focus(); n.setSelectionRange(n.value.length,n.value.length); } },250); };
-  $('#cpgmid').onchange=()=>{ lire(); g.mid=$('#cpgmid').value; g.sel={}; render(); };
-  document.querySelectorAll('[data-cpgmode]').forEach(b=>b.onclick=()=>{ lire(); g.mode=b.dataset.cpgmode; render(); });
+  let tf=null; $('#cpgfil').oninput=()=>{ lire(); clearTimeout(tf); tf=setTimeout(()=>{ cpgRender(); const n=$('#cpgfil'); if(n){ n.focus(); n.setSelectionRange(n.value.length,n.value.length); } },250); };
+  $('#cpgmid').onchange=()=>{ lire(); g.mid=$('#cpgmid').value; g.sel={}; cpgRender(); const l=$('#cpglist'); if(l) l.scrollTop=0; };
+  document.querySelectorAll('[data-cpgmode]').forEach(b=>b.onclick=()=>{ lire(); g.mode=b.dataset.cpgmode; cpgRender(); });
   document.querySelectorAll('[data-cpgk]').forEach(c=>c.onchange=()=>{ lire(); const k=+c.dataset.cpgk, m=cat&&cat.L.find(x=>x.id===g.mid);
-    if(c.checked){ const s=m&&m.sujets.find(x=>x.k===k); g.sel[k]=cpgNomCourt(s); } else delete g.sel[k]; render(); });
+    if(c.checked){ const s=m&&m.sujets.find(x=>x.k===k); g.sel[k]=cpgNomCourt(s); } else delete g.sel[k]; cpgRender(); });
   const parNom = n=>cpgGroupes().find(x=>x.nom===n);
   document.querySelectorAll('[data-cpgcopy]').forEach(b=>b.onclick=async()=>{ const G=parNom(b.dataset.cpgcopy); if(!G) return; try{ await navigator.clipboard.writeText(cpgTexte(G.nom,G.L)); toast('Message du groupe copié.'); }catch(e){ toast('Copie impossible : sélectionnez le texte.'); } });
   document.querySelectorAll('[data-cpgwa]').forEach(b=>b.onclick=()=>{ const G=parNom(b.dataset.cpgwa); if(G) window.open('https://wa.me/?text='+encodeURIComponent(cpgTexte(G.nom,G.L)),'_blank','noopener'); });
@@ -3850,8 +3855,8 @@ function cpgBind(){
         const r=await SB.rpc('compo_grouper',{p_code:data.code,p_groupe:nom,p_libelle:(pre?pre+' ':'')+lib,p_ordre:i++}); if(r.error) throw r.error;
         $('#cpggo').textContent='Création… '+i+'/'+ks.length; }
       audit('Groupe de liens créé', nom+' · '+ks.length+' lien'+(ks.length>1?'s':'')); CP_GNEUF={nom}; g.sel={}; g.nom='';
-      await chargerCompos(); render(); toast('Groupe « '+nom+' » créé : '+ks.length+' lien'+(ks.length>1?'s':'')+'.');
-    }catch(e){ toast(/2_recomposer|3_groupes/.test(String(e&&e.message||e))?e.message:frErr(e), 7000); await chargerCompos(); render(); } };
+      await chargerCompos(); cpgRender(); toast('Groupe « '+nom+' » créé : '+ks.length+' lien'+(ks.length>1?'s':'')+'.');
+    }catch(e){ toast(/2_recomposer|3_groupes/.test(String(e&&e.message||e))?e.message:frErr(e), 7000); await chargerCompos(); cpgRender(); } };
 }
 VIEWS.compos = ()=>{
   const cat = CP_CAT[cpBase()], site = UI.cpSite||'eleves', f = UI.cpF||{};
