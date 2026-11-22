@@ -597,6 +597,7 @@ function frErr(e){
   const m = (e && (e.message||e.error_description||e.msg)) || String(e);
   if(/Invalid login credentials/i.test(m)) return 'E-mail ou mot de passe incorrect.';
   if(/Email not confirmed/i.test(m)) return 'E-mail non confirmé : confirmez le compte dans Supabase (Authentication).';
+  if(/position/i.test(m) && /announcements|column|colonne/i.test(m)) return 'Position des annonces : collez d’abord supabase/annonces/1_position.sql dans Supabase (SQL Editor → Run).';
   if(/Failed to fetch|NetworkError|Load failed/i.test(m)) return 'Supabase injoignable : vérifiez l’URL du projet et la connexion internet.';
   if(/relation .* does not exist|Could not find the table|schema cache/i.test(m)) return 'Tables introuvables : lancez d’abord le script supabase-schema.sql.';
   if(/row-level security|permission denied/i.test(m)) return 'Accès refusé : ce compte n’est pas administrateur.';
@@ -620,8 +621,9 @@ const MAP = [
     to:r=>Object.assign({id:r.id, user_id:r.user_id||null, mat:r.mat, question:r.question, message:r.message, statut:r.statut, note:r.note||'', created_at:r.date, appareil:r.appareil||null, qid:r.qid||null}, r.photo!=null?{photo:r.photo}:{}, r.eleve!=null?{eleve:r.eleve}:{}),
     from:r=>Object.assign({id:r.id, user_id:r.user_id, mat:r.mat, question:r.question, message:r.message, statut:r.statut, note:r.note||'', date:r.created_at, appareil:r.appareil||null, qid:r.qid||null}, r.photo!=null?{photo:r.photo}:{}, r.eleve!=null?{eleve:r.eleve}:{}, r.reponse!=null?{reponse:r.reponse, reponse_type:r.reponse_type||'', reponse_at:r.reponse_at||null}:{})},
   {k:'announcements', t:'announcements', id:'id',
-    to:a=>({id:a.id, titre:a.titre, texte:a.texte, cible:a.cible, couleur:a.couleur, du:a.du, au:a.au, actif:!!a.actif}),
-    from:r=>({id:r.id, titre:r.titre, texte:r.texte, cible:r.cible, couleur:r.couleur, du:r.du, au:r.au, actif:r.actif})},
+    /* position (supabase/annonces/1_position.sql) : envoyée si la colonne existe déjà ou si l'annonce n'est pas « en haut » */
+    to:a=>Object.assign({id:a.id, titre:a.titre, texte:a.texte, cible:a.cible, couleur:a.couleur, du:a.du, au:a.au, actif:!!a.actif}, a.position&&(a._pos||a.position!=='haut')?{position:a.position}:{}),
+    from:r=>Object.assign({id:r.id, titre:r.titre, texte:r.texte, cible:r.cible, couleur:r.couleur, du:r.du, au:r.au, actif:r.actif}, 'position' in r?{position:r.position||'haut', _pos:true}:{})},
   {k:'audit_log', t:'audit_log', id:'id', noDelete:true,
     to:a=>({id:a.id, created_at:a.date, admin:a.admin, action:a.action, cible:a.cible||null}),
     from:r=>({id:r.id, date:r.created_at, admin:r.admin, action:r.action, cible:r.cible||''})},
@@ -2482,10 +2484,10 @@ function bindContact(){
 }
 VIEWS.annonces = ()=>{
   const L = [...DB.announcements].sort((a,b)=>b.du.localeCompare(a.du));
-  return headHTML('Annonces', 'Bannières affichées en haut de l’appli des élèves.', `<button class="btn pri" id="newann">${ic('plus')}Nouvelle annonce</button>`) + contactCard() + `
+  return headHTML('Annonces', 'Bannières affichées sur l’accueil de l’appli des élèves : en haut, en bas, ou en bas avec un bouton en haut qui y mène.', `<button class="btn pri" id="newann">${ic('plus')}Nouvelle annonce</button>`) + contactCard() + `
   <div class="card">${L.map(a=>{ const live=annonceLive(a); return `<div class="annonce">
     <div style="flex:1;min-width:0"><div class="banner" style="background:${esc(a.couleur)}"><b>${esc(a.titre)}</b> — ${esc(a.texte)}</div>
-      <div class="row wrap" style="margin-top:8px;font-size:13px"><span class="pill ${live?'ok':'hid'}">${live?'En ligne':a.actif?'Programmée ou terminée':'Désactivée'}</span><span class="muted">${cibleLabel(a.cible)} · du ${dfr(a.du)} au ${dfr(a.au)}</span></div></div>
+      <div class="row wrap" style="margin-top:8px;font-size:13px"><span class="pill ${live?'ok':'hid'}">${live?'En ligne':a.actif?'Programmée ou terminée':'Désactivée'}</span><span class="muted">${cibleLabel(a.cible)} · ${esc(ANN_POS[a.position||'haut']||ANN_POS.haut)} · du ${dfr(a.du)} au ${dfr(a.au)}</span></div></div>
     <div class="row" style="flex:none"><button class="btn sm" data-ann-toggle="${a.id}">${a.actif?'Désactiver':'Activer'}</button><button class="btn sm" data-ann-edit="${a.id}">Modifier</button></div>
   </div>`; }).join('') || '<div class="empty">Aucune annonce. Créez-en une pour informer vos élèves.</div>'}</div>`;
 };
@@ -2495,6 +2497,7 @@ AFTER.annonces = ()=>{
   document.querySelectorAll('[data-ann-toggle]').forEach(b=>b.onclick=()=>{ const a=api.get('announcements',b.dataset.annToggle); api.update('announcements',a.id,{actif:!a.actif}); audit(a.actif?'Annonce activée':'Annonce désactivée', a.titre); render(); });
   document.querySelectorAll('[data-ann-edit]').forEach(b=>b.onclick=()=>annonceModal(api.get('announcements',b.dataset.annEdit)));
 };
+const ANN_POS = {haut:'⬆️ En haut de l’accueil', bas:'⬇️ En bas de l’accueil', bas_bouton:'⬇️ En bas + bouton en haut qui y mène'};
 function cibleMode(c){ c = String(c||'tous'); if(['tous','gratuit','premium'].includes(c)) return c; return /(^|,)(uid|app):/.test(c) ? 'eleves' : 'groupes'; }
 function annonceModal(a){
   const t = new Date().toISOString().slice(0,10);
@@ -2507,6 +2510,8 @@ function annonceModal(a){
     <label class="lbl" for="ax">Message</label><textarea class="field" id="ax" rows="3" maxlength="160">${esc(a.texte)}</textarea>
     <label class="lbl" for="ac">Public</label><select class="field" id="ac">${[['tous','Tous les élèves'],['gratuit','Élèves gratuits'],['premium','Élèves Premium'],['groupes','Une ou plusieurs filières / licences'],['eleves','Un ou quelques élèves']].map(([v,l])=>`<option value="${v}" ${cibleMode(a.cible)===v?'selected':''}>${l}</option>`).join('')}</select>
     <div id="acx"></div>
+    <label class="lbl" for="apos">Position sur l’accueil de l’appli</label><select class="field" id="apos">${Object.entries(ANN_POS).map(([v,l])=>`<option value="${v}" ${(a.position||'haut')===v?'selected':''}>${l}</option>`).join('')}</select>
+    <div class="cnote" style="margin-top:4px">« En bas + bouton » : l’annonce est en bas de l’accueil et un petit bouton « 📢 titre ⬇ » en haut y descend.</div>
     <label class="lbl">Couleur</label><div class="row">${couleurs.map(c=>`<button class="iconbtn" data-col="${c}" aria-label="Couleur ${c}" style="background:${c};border:${a.couleur===c?'3px solid var(--ink)':'1px solid var(--line)'}"></button>`).join('')}</div>
     <div class="row"><div style="flex:1"><label class="lbl" for="ad">Du</label><input class="field" type="date" id="ad" value="${a.du}"></div><div style="flex:1"><label class="lbl" for="aa">Au</label><input class="field" type="date" id="aa" value="${a.au}"></div></div>
     <div class="row" style="justify-content:space-between;margin-top:18px">${a.id?'<button class="btn danger" id="adel">Supprimer</button>':'<span></span>'}<div class="row"><button class="btn" id="mno">Annuler</button><button class="btn pri" id="mok">${a.id?'Enregistrer':'Publier l’annonce'}</button></div></div>`);
@@ -2527,7 +2532,7 @@ function annonceModal(a){
   if($('#adel')) $('#adel').onclick=()=>{ api.remove('announcements',a.id); audit('Annonce supprimée',a.titre); closeModal(); toast('Annonce supprimée.'); render(); };
   $('#mok').onclick=()=>{
     const mo = $('#ac').value, cib = ['groupes','eleves'].includes(mo) ? [...SEL].filter(x=>mo==='eleves' ? /^(uid|app):/.test(x) : !/^(uid|app):/.test(x)).join(',') : mo;
-    const row={titre:$('#at').value.trim(), texte:$('#ax').value.trim(), cible:cib, couleur:col, du:$('#ad').value, au:$('#aa').value};
+    const row={titre:$('#at').value.trim(), texte:$('#ax').value.trim(), cible:cib, couleur:col, du:$('#ad').value, au:$('#aa').value, position:$('#apos').value||'haut'};
     if(!row.cible){ toast(mo==='eleves'?'Choisissez au moins un élève.':'Cochez au moins un groupe.'); return; }
     if(!row.titre||!row.texte){ toast('Ajoutez un titre et un message.'); return; }
     if(row.au<row.du){ toast('La date de fin doit suivre la date de début.'); return; }
@@ -3767,6 +3772,87 @@ function cpOptions(m,f){ const L=m.sujets.filter(s=>s.n>0||!s.t), opt=(s,t)=>`<o
   if(L.filter(grp).length<L.length/2) return L.map(s=>opt(s,s.t||'Sujet '+(s.k+1))).join('');
   const G=new Map(); L.forEach(s=>{ const g=grp(s)||['Autres',s.t||'Sujet '+(s.k+1)]; if(!G.has(g[0])) G.set(g[0],[]); G.get(g[0]).push([s,g[1]]); });
   return [...G].map(([g,xs])=>`<optgroup label="${esc(g)}">${xs.sort((a,b)=>a[1].localeCompare(b[1],'fr')).map(([s,t])=>opt(s,t)).join('')}</optgroup>`).join(''); }
+/* ---------- 🔗 Groupe de liens : plusieurs compos d'un coup (ex. J1 à J6 Médecine), un seul message (supabase/compos/3_groupes_liens.sql) ----------
+   Message : en-tête, puis pour chaque sujet « Compose ici J1 Médecine » et le lien en dessous. */
+let CP_GNEUF = null;   // {nom, codes:[…]} juste après la création
+/* nom court proposé pour un sujet : « J · Médecine · Prépa D.E j2 (ide3) » → « J2 Médecine » ; sinon le titre sans « J · » */
+function cpgNomCourt(s){ const t=String(s&&s.t||'').trim(), p=t.split(' · ');
+  if(p[0]==='J'&&p.length>2){ const r=p.slice(2).join(' · '), n=r.match(/\bj\s*(\d{1,2})\b/i); return n ? 'J'+n[1]+' '+p[1] : p[1]+' · '+r; }
+  return t || 'Sujet '+((s&&s.k||0)+1); }
+function cpgGroupes(){ const G=new Map(); (CPS||[]).filter(c=>c.groupe).forEach(c=>{ if(!G.has(c.groupe)) G.set(c.groupe,[]); G.get(c.groupe).push(c); });
+  return [...G].map(([nom,L])=>({nom, L:L.sort((a,b)=>(a.groupe_ordre??999)-(b.groupe_ordre??999)||String(a.cree_at).localeCompare(String(b.cree_at)))})); }
+function cpgTexte(nom, L){ const c0=L[0]||{}, memeChrono=L.every(c=>c.chrono_min===c0.chrono_min), memeDl=L.every(c=>String(c.date_limite||'')===String(c0.date_limite||''));
+  const tete=[`📝 Compositions Révision INFAS : ${nom}`];
+  if(memeChrono&&c0.chrono_min) tete.push(`⏱ ${c0.chrono_min} minutes par sujet`);
+  if(memeDl&&c0.date_limite) tete.push(`📅 DATE LIMITE : ${dfr(c0.date_limite,{weekday:'long',day:'numeric',month:'long'})} à ${hfr(c0.date_limite)}`);
+  if(L.every(c=>c.recompo)) tete.push('🔄 Tu peux recomposer plusieurs fois');
+  return tete.join('\n')+'\n\n'+L.map(c=>`${c.groupe_libelle||('Compose ici '+(c.titre||c.sujet_titre||'Sujet '+(c.k+1)))}\n${cpLien(c.code)}`).join('\n\n'); }
+function cpgFormHTML(cat){
+  const g = UI.cpG = UI.cpG||{nom:'', mid:'', filtre:'', sel:{}, prefixe:'Compose ici', mode:'gratuit'};
+  if(!cat||!cat.ok) return '';
+  const m = cat.L.find(x=>x.id===g.mid) || cat.L[0]; if(!g.mid&&m) g.mid=m.id;
+  const q = nrmTxt(String(g.filtre||'').trim());
+  const L = m ? m.sujets.filter(s=>s.n>0||!s.t).filter(s=>!q||nrmTxt(s.t||'').includes(q)||g.sel[s.k]!=null) : [];
+  const nsel = Object.keys(g.sel).length;
+  return `<div class="card" style="margin-top:18px"><div class="cardhead"><div class="grow"><h3>🔗 Groupe de liens</h3><p class="sub">Créez d’un coup les liens de plusieurs sujets (ex. <b>J1 à J6 Médecine</b>) et envoyez-les dans un seul message : pour chaque sujet, « <b>${esc(g.prefixe||'Compose ici')} J1 Médecine</b> » puis le lien en dessous.</p></div></div>
+    <div class="codeform">
+      <div style="flex:1 1 220px"><label class="lbl" for="cpgnom">Nom du groupe</label><input class="field" id="cpgnom" maxlength="80" value="${esc(g.nom||'')}" placeholder="Ex. J Médecine"></div>
+      <div style="flex:1 1 230px"><label class="lbl" for="cpgmid">Cours</label><select class="field" id="cpgmid">${[...new Set(cat.L.map(x=>x.rub))].map(r=>`<optgroup label="${esc(r)}">${cat.L.filter(x=>x.rub===r).map(x=>`<option value="${esc(x.id)}" ${g.mid===x.id?'selected':''}>${esc(x.nom)}</option>`).join('')}</optgroup>`).join('')}</select></div>
+      <div style="flex:1 1 220px"><label class="lbl" for="cpgfil">Chercher les sujets</label><input class="field" id="cpgfil" value="${esc(g.filtre||'')}" placeholder="Ex. J · Médecine"></div>
+    </div>
+    <div style="margin-top:10px;max-height:300px;overflow:auto;border:1px solid var(--line);border-radius:12px;padding:6px 10px">${L.map(s=>{ const on=g.sel[s.k]!=null;
+      return `<div class="row" style="gap:8px;padding:5px 0;border-top:1px solid var(--line);flex-wrap:wrap"><label class="row" style="gap:8px;cursor:pointer;flex:1 1 260px;min-width:0"><input type="checkbox" data-cpgk="${s.k}" ${on?'checked':''} style="width:18px;height:18px"><span style="min-width:0">${esc(s.t||'Sujet '+(s.k+1))}${s.n?' <span class="cnote">· '+s.n+' q.</span>':''}</span></label>${on?`<input class="field" data-cpgl="${s.k}" maxlength="100" value="${esc(g.sel[s.k])}" title="Nom dans le message" style="flex:0 1 220px;padding:6px 10px">`:''}</div>`; }).join('')||'<p class="sub">Aucun sujet ne correspond.</p>'}</div>
+    <div class="cnote" style="margin-top:4px">${nsel} sujet${nsel>1?'s':''} coché${nsel>1?'s':''} · l’ordre du message suit l’ordre des sujets dans la liste. Le nom à droite de chaque sujet est modifiable.</div>
+    <div class="codeform" style="margin-top:12px">
+      <div><label class="lbl" for="cpgpre">Texte devant chaque sujet</label><input class="field" id="cpgpre" maxlength="40" value="${esc(g.prefixe||'')}" style="max-width:200px"></div>
+      <div><label class="lbl" for="cpgchrono">Chronomètre (minutes)</label><input class="field" id="cpgchrono" type="number" min="1" max="600" value="${esc(g.chrono||'')}" placeholder="Sans" style="max-width:130px"></div>
+      <div><label class="lbl" for="cpgdl">Date limite (facultatif)</label><input class="field" id="cpgdl" type="datetime-local" value="${esc(g.dl||'')}"></div>
+    </div>
+    <div style="margin-top:12px"><span class="lbl">Accès</span><div class="chips" style="margin-top:6px">${Object.entries(CP_MODES).map(([k,v])=>`<button class="chip ${(g.mode||'gratuit')===k?'on':''}" data-cpgmode="${k}" title="${esc(v[1])}">${v[0]}</button>`).join('')}</div></div>
+    <label class="row" style="gap:8px;margin-top:12px;cursor:pointer"><input type="checkbox" id="cpgrecomp" ${g.recompo?'checked':''} style="width:18px;height:18px"><span>🔄 Recomposer plusieurs fois</span></label>
+    <div style="margin-top:12px"><button class="btn pri" id="cpggo" ${nsel?'':'disabled'}>${ic('plus')}${nsel?`Créer ${nsel>1?'les '+nsel+' liens':'le lien'} du groupe`:'Cochez les sujets du groupe'}</button></div>
+    ${CP_GNEUF?(()=>{ const G=cpgGroupes().find(x=>x.nom===CP_GNEUF.nom); return G?`<div class="codesneufs" style="margin-top:14px"><b>Groupe « ${esc(G.nom)} » créé : ${G.L.length} lien${G.L.length>1?'s':''}</b><textarea class="field" readonly rows="8" style="margin-top:8px" onclick="this.select()">${esc(cpgTexte(G.nom,G.L))}</textarea>
+      <div class="row" style="gap:6px;flex-wrap:wrap;margin-top:8px"><button class="btn sm" data-cpgcopy="${esc(G.nom)}">📋 Copier le message</button><button class="btn sm wa" data-cpgwa="${esc(G.nom)}">💬 WhatsApp</button></div></div>`:''; })():''}
+    ${cpgGroupes().length?`<div style="margin-top:16px"><b>Groupes déjà créés</b>${cpgGroupes().map(G=>`<div class="coderow"><div class="cc" style="flex:1 1 260px;min-width:0"><div><b>🔗 ${esc(G.nom)}</b> <span class="pill">${G.L.length} lien${G.L.length>1?'s':''}</span></div><small>${G.L.map(c=>esc(String(c.groupe_libelle||c.titre||'').replace(/^\S+\s+ici\s+/i,''))).join(' · ')}</small></div>
+      <div class="row" style="flex-wrap:wrap;gap:6px"><button class="btn sm" data-cpgcopy="${esc(G.nom)}">📋 Copier le message</button><button class="btn sm wa" data-cpgwa="${esc(G.nom)}">💬 WhatsApp</button></div></div>`).join('')}</div>`:''}
+  </div>`; }
+function cpgBind(){
+  const g = UI.cpG; if(!g || !$('#cpgnom')) return; const cat=CP_CAT[cpBase()];
+  const lire = ()=>{ g.nom=$('#cpgnom').value; g.filtre=$('#cpgfil').value; g.prefixe=$('#cpgpre').value; g.chrono=$('#cpgchrono').value; g.dl=$('#cpgdl').value; g.recompo=$('#cpgrecomp').checked;
+    document.querySelectorAll('[data-cpgl]').forEach(i=>{ g.sel[i.dataset.cpgl]=i.value; }); };
+  const garde = (id,fn)=>{ const el=$(id); if(el) el.oninput=()=>{ lire(); if(fn) fn(); }; };
+  ['#cpgnom','#cpgpre','#cpgchrono','#cpgdl'].forEach(id=>garde(id));
+  $('#cpgrecomp').onchange=lire;
+  document.querySelectorAll('[data-cpgl]').forEach(i=>i.oninput=lire);
+  let tf=null; $('#cpgfil').oninput=()=>{ lire(); clearTimeout(tf); tf=setTimeout(()=>{ render(); const n=$('#cpgfil'); if(n){ n.focus(); n.setSelectionRange(n.value.length,n.value.length); } },250); };
+  $('#cpgmid').onchange=()=>{ lire(); g.mid=$('#cpgmid').value; g.sel={}; render(); };
+  document.querySelectorAll('[data-cpgmode]').forEach(b=>b.onclick=()=>{ lire(); g.mode=b.dataset.cpgmode; render(); });
+  document.querySelectorAll('[data-cpgk]').forEach(c=>c.onchange=()=>{ lire(); const k=+c.dataset.cpgk, m=cat&&cat.L.find(x=>x.id===g.mid);
+    if(c.checked){ const s=m&&m.sujets.find(x=>x.k===k); g.sel[k]=cpgNomCourt(s); } else delete g.sel[k]; render(); });
+  const parNom = n=>cpgGroupes().find(x=>x.nom===n);
+  document.querySelectorAll('[data-cpgcopy]').forEach(b=>b.onclick=async()=>{ const G=parNom(b.dataset.cpgcopy); if(!G) return; try{ await navigator.clipboard.writeText(cpgTexte(G.nom,G.L)); toast('Message du groupe copié.'); }catch(e){ toast('Copie impossible : sélectionnez le texte.'); } });
+  document.querySelectorAll('[data-cpgwa]').forEach(b=>b.onclick=()=>{ const G=parNom(b.dataset.cpgwa); if(G) window.open('https://wa.me/?text='+encodeURIComponent(cpgTexte(G.nom,G.L)),'_blank','noopener'); });
+  $('#cpggo').onclick=async()=>{ lire(); const m=cat&&cat.L.find(x=>x.id===g.mid); if(!m){ toast('Choisissez un cours.'); return; }
+    const nom=String(g.nom||'').trim(); if(!nom){ toast('Donnez un nom au groupe (ex. J Médecine).'); $('#cpgnom').focus(); return; }
+    if(cpgGroupes().some(x=>x.nom===nom)){ toast('Ce nom de groupe existe déjà : choisissez-en un autre.'); return; }
+    const ks=m.sujets.map(s=>s.k).filter(k=>g.sel[k]!=null); if(!ks.length){ toast('Cochez au moins un sujet.'); return; }
+    if(ks.some(k=>!String(g.sel[k]||'').trim())){ toast('Chaque sujet coché doit avoir un nom.'); return; }
+    const chrono=g.chrono?Math.round(+g.chrono):null; if(chrono!=null&&!(chrono>=1&&chrono<=600)){ toast('Chronomètre : entre 1 et 600 minutes.'); return; }
+    const dl=g.dl?new Date(g.dl):null; if(dl&&!(dl>new Date())){ toast('La date limite doit être dans le futur.'); return; }
+    const pre=String(g.prefixe||'').trim(); $('#cpggo').disabled=true;
+    try{
+      /* la fonction du groupe doit exister avant de créer quoi que ce soit */
+      { const {error}=await SB.rpc('compo_grouper',{p_code:'-',p_groupe:null,p_libelle:null,p_ordre:null}); if(error) throw new Error(/function|PGRST|404|schema/i.test(String(error.message||error))?'Collez d’abord supabase/compos/3_groupes_liens.sql dans Supabase (SQL Editor → Run).':frErr(error)); }
+      let i=0; for(const k of ks){ const s=m.sujets.find(x=>x.k===k)||{}, lib=String(g.sel[k]).trim();
+        const args={p_titre:lib.toLocaleUpperCase('fr-FR').slice(0,120), p_mid:m.id, p_k:k, p_sujet_titre:s.t||'', p_mode:g.mode||'gratuit', p_chrono_min:chrono, p_date_limite:dl?dl.toISOString():null};
+        if(g.recompo) args.p_recompo=true;
+        const {data,error}=await SB.rpc('compo_creer',args); if(error) throw error; if(!data||!data.ok) throw new Error('Création refusée ('+(data&&data.raison||'?')+').');
+        const r=await SB.rpc('compo_grouper',{p_code:data.code,p_groupe:nom,p_libelle:(pre?pre+' ':'')+lib,p_ordre:i++}); if(r.error) throw r.error;
+        $('#cpggo').textContent='Création… '+i+'/'+ks.length; }
+      audit('Groupe de liens créé', nom+' · '+ks.length+' lien'+(ks.length>1?'s':'')); CP_GNEUF={nom}; g.sel={}; g.nom='';
+      await chargerCompos(); render(); toast('Groupe « '+nom+' » créé : '+ks.length+' lien'+(ks.length>1?'s':'')+'.');
+    }catch(e){ toast(/2_recomposer|3_groupes/.test(String(e&&e.message||e))?e.message:frErr(e), 7000); await chargerCompos(); render(); } };
+}
 VIEWS.compos = ()=>{
   const cat = CP_CAT[cpBase()], site = UI.cpSite||'eleves', f = UI.cpF||{};
   const DOCS = cat&&cat.ok ? cat.L.filter(x=>x.doc) : [];
@@ -3792,7 +3878,7 @@ VIEWS.compos = ()=>{
       <div class="field" style="margin-top:8px;word-break:break-all;user-select:all">${esc(cpLien(CP_NEUF.code))}</div>
       <div class="row" style="gap:6px;flex-wrap:wrap;margin-top:8px"><button class="btn sm" data-cpcopy="${esc(CP_NEUF.code)}">Copier le lien</button><button class="btn sm wa" data-cpwa="${esc(CP_NEUF.code)}">💬 WhatsApp</button><a class="btn sm" href="${esc(cpLien(CP_NEUF.code))}" target="_blank" rel="noopener">Ouvrir</a></div></div>`:''}`;
   const ligne = c=>{ const [et,cl]=cpEtat(c), cop=CP_COPIES[c.code];
-    return `<div class="coderow" style="${c.actif?'':'opacity:.75'}"><div class="cc" style="flex:1 1 260px;min-width:0"><div><b>${esc(c.titre||c.sujet_titre||'Sujet '+(c.k+1))}</b> <span class="pill ${cl==='ok'?'':'warn'}">${et}</span>${c.recompo?' <span class="pill" title="Les élèves peuvent recomposer">🔄 Recomposer</span>':''}</div>
+    return `<div class="coderow" style="${c.actif?'':'opacity:.75'}"><div class="cc" style="flex:1 1 260px;min-width:0"><div><b>${esc(c.titre||c.sujet_titre||'Sujet '+(c.k+1))}</b> <span class="pill ${cl==='ok'?'':'warn'}">${et}</span>${c.recompo?' <span class="pill" title="Les élèves peuvent recomposer">🔄 Recomposer</span>':''}${c.groupe?` <span class="pill" title="Groupe de liens">🔗 ${esc(c.groupe)}</span>`:''}</div>
       <small>${esc(cpNomCours(c.mid))} · ${esc(c.sujet_titre||'Sujet '+(c.k+1))}</small>
       <small><b class="code">${esc(c.code)}</b> · ${esc(CP_MODES[c.mode]?CP_MODES[c.mode][0]:c.mode)}${c.chrono_min?' · ⏱ '+c.chrono_min+' min':''}${c.date_limite?' · 📅 '+dfr(c.date_limite,{day:'numeric',month:'short'})+' '+hfr(c.date_limite):''} · créée le ${dfr(c.cree_at,{day:'numeric',month:'short'})}</small>
       <small>📋 ${c.copies||0} ${c.envois!=null?'élève':'copie'}${(c.copies||0)>1?'s':''}${c.envois!=null&&c.envois>(c.copies||0)?' · '+c.envois+' copies':''}${c.moyenne!=null?' · moyenne '+String(c.moyenne).replace('.',',')+'/20'+(c.envois>(c.copies||0)?' (1res copies)':''):''}</small></div>
@@ -3802,11 +3888,13 @@ VIEWS.compos = ()=>{
   return headHTML('Compositions', 'Liens de composition à envoyer aux élèves : le sujet s’ouvre directement dans l’appli, l’élève tape son nom et sa note revient ici.', `<div class="chips">${CP_SITES.map(([k,l])=>`<button class="chip ${site===k?'on':''}" data-cpsite="${k}">Lien vers : ${l}</button>`).join('')}</div>`) +
     (MODE!=='supabase' ? `<div class="card"><div class="msg warn">Connectez le tableau de bord à Supabase (compte administrateur) pour créer des compositions.</div></div>` : CP_ERR ? `<div class="card"><div class="msg bad">${esc(CP_ERR)}</div></div>` : `
     <div class="card"><div class="cardhead"><div class="grow"><h3>📝 Nouvelle composition</h3><p class="sub">Choisissez un sujet, l’accès, et si besoin un chronomètre (la compo se termine automatiquement à la fin du temps) ou une date limite (après, le lien affiche « Composition terminée »).</p></div></div>${form}</div>
+    ${cpgFormHTML(cat)}
     <div class="card" style="margin-top:18px"><div class="cardhead"><div class="grow"><h3>Compositions créées</h3><p class="sub">Un envoi par téléphone, sauf les compos « 🔄 Recomposer » (plusieurs copies). Sans compte, le nom tapé par l’élève n’est pas vérifié.</p></div><button class="btn sm" id="cpreload">Actualiser</button></div>
       <div class="codelist">${CPS===null?'<p class="sub">Chargement…</p>':CPS.map(ligne).join('')||'<p class="sub">Aucune composition pour l’instant.</p>'}</div></div>`);
 };
 AFTER.compos = ()=>{
   if(MODE!=='supabase') return;
+  cpgBind();
   if(CPS===null){ chargerCompos().then(()=>{ if(page==='compos') render(); }); }
   if(!CP_CAT[cpBase()]){ cpCatalogue().then(()=>{ if(page==='compos') render(); }); }
   const f = UI.cpF = UI.cpF||{};
