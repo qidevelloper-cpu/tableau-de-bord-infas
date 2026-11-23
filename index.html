@@ -3057,23 +3057,31 @@ function qxSujBind(){ const m = $('#sjm'); if(m) m.onchange = ()=>{ QX.sjm = m.v
 function qxOffListe(){ return qxEval('Object.keys(QI).filter(id=>QI[id]&&QI[id].off)') || []; }
 function qxOffInfo(id){ const q = qxQ(id), z = qxSujDe(id); let t = ''; if(z){ t = qxTitreCorr((qxSujets(z.m)[z.k]||{}).first||'') || String(qxEval('String(sujTitre('+JSON.stringify(z.m)+','+z.k+')||"")')||''); } return {q, sujet:t}; }
 const corrPage = ()=>{ const h = location.href.split(/[?#]/)[0]; return (/\/revision-infas-test\/tableau-de-bord\//.test(h) ? h.replace(/\/revision-infas-test\/tableau-de-bord\/.*$/, '/tableau-de-bord-infas/') : h.replace(/[^\/]*$/, '')) + 'correcteurs.html'; };
-function qxOffTexte(L){ const N = 25, lignes = L.slice(0, N).map((id,i)=>{ const {q, sujet} = qxOffInfo(id); if(!q) return ''; return `${i+1}. [${matName(q.m)}]${sujet?' '+sujet+' :':''} ${String(q.q||'').slice(0,180)}\n   ✔ Réponse actuelle : ${qxRepTxt(q)}`; }).filter(Boolean);
+/* matière d'une question désactivée : celle du sujet (« DALOA (S3 : 2026) · MÉDECINE », « J · Pédiatrie · … »), sinon le cours */
+const QX_MATS = [['Médecine',/m[ée]decine/i],['Chirurgie',/chirurgi/i],['Santé publique',/sant[ée][\s-]*publique|\bSP\b/i],['Pédiatrie',/p[ée]diatri/i],['Gynécologie-obstétrique',/gyn[ée]co|obst[ée]tri/i],['SSR / PF',/ssr|sr[\s-]*pf|planification familiale/i]];
+function qxOffMat(id, info){ const {q, sujet} = info || qxOffInfo(id); if(!q) return 'Autres'; const t = String(sujet||'')+' · '+matName(q.m);
+  const m = QX_MATS.find(([,re])=>re.test(t)); return m ? m[0] : matName(q.m); }
+function qxOffGroupes(L){ const G = new Map(); L.forEach(id=>{ const info = qxOffInfo(id); if(!info.q) return; const m = qxOffMat(id, info); if(!G.has(m)) G.set(m, []); G.get(m).push([id, info]); });
+  return [...G].sort((a,b)=>a[0].localeCompare(b[0],'fr')); }
+function qxOffTexte(L){ const N = 25; let i = 0; const lignes = [];
+  for(const [m, X] of qxOffGroupes(L)){ if(i>=N) break; lignes.push(`📚 ${m.toUpperCase()} (${X.length})`);
+    for(const [id, {q, sujet}] of X){ if(i>=N) break; i++; lignes.push(`${i}. ${sujet?sujet+' : ':''}${String(q.q||'').slice(0,180)}\n   ✔ Réponse actuelle : ${qxRepTxt(q)}`); } }
   return `🙈 Questions désactivées · Révision INFAS (${L.length})\nCes questions sont retirées de l’appli des élèves. Vérifie-les avec ton cours et donne ton avis pour qu’on les corrige et les remette :\n\n${lignes.join('\n\n')}${L.length>N?`\n\n… et ${L.length-N} autre${L.length-N>1?'s':''} sur ta page.`:''}\n\n👉 Ta page de correcteur : ${corrPage()}?r=desactivees`; }
 function qxOffHTML(){
   if(qxEval('typeof QI')!=='object') return '';
   const L = qxOffListe(); if(!L.length) return `<div class="card" style="margin-bottom:16px"><h3 style="margin:0 0 4px">🙈 Questions désactivées</h3><p class="muted" style="margin:0">Aucune question désactivée pour l’instant.</p></div>`;
   return `<details class="card" id="qxoffbox" style="margin-bottom:16px" ${QX.offOuv?'open':''}><summary style="cursor:pointer;list-style:none"><h3 style="margin:0;display:inline">🙈 Questions désactivées</h3> <span class="pill">${L.length}</span> <span class="muted" style="font-size:13px">· retirées de l’appli des élèves, à vérifier puis réactiver</span></summary>
     <div class="row wrap" style="gap:8px;margin:10px 0"><button class="btn pri" id="qxoffwa" style="background:#25d366;border-color:#25d366">💬 Partager la liste sur WhatsApp</button><button class="btn" id="qxoffcp">📋 Copier la liste</button><span class="muted" style="font-size:13px">Les correcteurs la retrouvent aussi dans leur page (rubrique 🙈).</span></div>
-    ${L.slice(0, 60).map(id=>{ const {q, sujet} = qxOffInfo(id); if(!q) return '';
+    ${qxOffGroupes(L).map(([m, X])=>`<details class="qxoffmat" data-qxmat="${esc(m)}" style="border-top:1px solid var(--line);padding:6px 0" ${(QX.offMat||{})[m]?'open':''}><summary style="cursor:pointer;font-weight:800;padding:6px 0">📚 ${esc(m)} <span class="pill">${X.length}</span></summary>${X.map(([id, {q, sujet}])=>{
       return `<div class="row wrap" style="gap:10px;padding:8px 0;border-top:1px solid var(--line);align-items:flex-start"><div style="flex:1;min-width:220px"><b>${esc(matName(q.m))}</b> <span class="muted" style="font-size:12.5px">· ${esc(id)}${sujet?' · '+esc(sujet):''}</span><div style="font-size:14px;margin-top:2px">${esc(String(q.q||'').slice(0,200))}</div><div class="muted" style="font-size:13px;margin-top:2px">✔ ${esc(qxRepTxt(q))}</div></div>
-        <div class="row wrap" style="gap:6px"><button class="btn sm pri" data-qedit="${esc(id)}">✏️ Corriger</button><button class="btn sm" data-qsuj="${esc(id)}">📝 Sujet</button><button class="btn sm" data-qeval="${esc(id)}">🔗 Faire évaluer</button><button class="btn sm" data-qon="${esc(id)}">👁️ Réactiver</button></div></div>`; }).join('')}
-    ${L.length>60?`<p class="muted">… et ${L.length-60} autre(s).</p>`:''}</details>`;
+        <div class="row wrap" style="gap:6px"><button class="btn sm pri" data-qedit="${esc(id)}">✏️ Corriger</button><button class="btn sm" data-qsuj="${esc(id)}">📝 Sujet</button><button class="btn sm" data-qeval="${esc(id)}">🔗 Faire évaluer</button><button class="btn sm" data-qon="${esc(id)}">👁️ Réactiver</button></div></div>`; }).join('')}</details>`).join('')}</details>`;
 }
 function qxOffBind(){
   const bx = $('#qxoffbox'); if(bx) bx.ontoggle = ()=>{ QX.offOuv = bx.open; };
   const wa = $('#qxoffwa'); if(wa) wa.onclick = ()=>{ window.open('https://wa.me/?text='+encodeURIComponent(qxOffTexte(qxOffListe())), '_blank', 'noopener'); audit('Liste des questions désactivées partagée', qxOffListe().length+' question(s)'); };
   const cp = $('#qxoffcp'); if(cp) cp.onclick = async ()=>{ try{ await navigator.clipboard.writeText(qxOffTexte(qxOffListe())); toast('Liste copiée.'); }catch(e){ toast('Copie impossible.'); } };
   document.querySelectorAll('[data-qon]').forEach(b=>b.onclick=()=>qxOff(b.dataset.qon, false));
+  document.querySelectorAll('.qxoffmat').forEach(d=>d.ontoggle=()=>{ QX.offMat = QX.offMat||{}; QX.offMat[d.dataset.qxmat] = d.open; });
 }
 /* sujet qui contient une question (signalée) : ouvert en entier, la question signalée mise en avant */
 function qxSujDe(qid){ const m = qxEval('(QI['+JSON.stringify(qid)+']||{}).m'); if(!m) return null; const ix = qxMemo('I|'+m, ()=>{ const o = {}; const L = qxMemo('L|'+m, ()=>qxEval('sujets('+JSON.stringify(m)+')')||[]); L.forEach((l,k)=>(l||[]).forEach(id=>{ if(!(id in o)) o[id] = k; })); return o; }); const k = ix[qid]; return k==null ? null : {m, k}; }
