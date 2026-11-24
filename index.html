@@ -1077,7 +1077,8 @@ const PAGES = [
   {id:'offres', nom:'Offres', icon:'star', grp:1},
   {id:'engagement', nom:'Engagement', icon:'chart', grp:2},
   {id:'annonces', nom:'Annonces', icon:'bell', grp:2, count:()=>DB.announcements.filter(a=>annonceLive(a)).length},
-  {id:'signalements', nom:'Signalements', icon:'flag', grp:2, count:()=>sigGroupes(DB.reports.filter(r=>r.statut!=='corrige')).length},
+  {id:'signalements', nom:'Signalements', icon:'flag', grp:2, count:()=>sigGroupes(DB.reports.filter(r=>r.statut!=='corrige'&&!sigEstAux(r))).length},
+  {id:'sigaux', nom:'Signalements auxiliaires', icon:'flag', grp:2, count:()=>sigGroupes(DB.reports.filter(r=>r.statut!=='corrige'&&sigEstAux(r))).length},
   {id:'questions', nom:'Questions', icon:'quiz', grp:2, count:()=>(QX.suspects||[]).length},
   {id:'auxiliaires', nom:'Auxiliaires', icon:'users', grp:2},
   {id:'dossiers', nom:'Dossiers de correction', icon:'users', grp:2, count:()=>DC.L.filter(dcArbitrer).length},
@@ -1102,7 +1103,7 @@ function renderPhase(){
     <p>${sb?'Administrateur'+(SB_EMAIL?' ('+esc(SB_EMAIL)+')':'')+'. Les modifications partent dans la base.':'Tout est enregistré dans ce navigateur. Branchez Supabase dans Réglages.'}</p>`;
   $('#mename').textContent = ADMIN_NAME;
 }
-function go(p){ if(!DB) return; page=p; if(p==='signalements'){ sigNonVus=0; document.title=SIG_TITRE; } $('#crumb').textContent = PAGES.find(x=>x.id===p).nom; closeSide(); render(); window.scrollTo({top:0}); try{ history.replaceState(null,'','#'+p); }catch(e){} }
+function go(p){ if(!DB) return; page=p; if(p==='signalements'||p==='sigaux'){ sigNonVus=0; document.title=SIG_TITRE; } $('#crumb').textContent = PAGES.find(x=>x.id===p).nom; closeSide(); render(); window.scrollTo({top:0}); try{ history.replaceState(null,'','#'+p); }catch(e){} }
 function render(){ if(!DB) return; renderNav(); const v=$('#view'); v.innerHTML = VIEWS[page](); if(AFTER[page]) AFTER[page](); }
 document.addEventListener('click', e=>{ const b=e.target.closest('[data-page]'); if(b) go(b.dataset.page); });
 function closeSide(){ $('#side').classList.remove('on'); if(!$('#drawer').classList.contains('on') && !$('#modal').classList.contains('on')) $('#scrim').classList.remove('on'); }
@@ -2747,7 +2748,7 @@ let MC = null, MC_ERR = '';
 async function mcCharger(){ if(MODE!=='supabase' || !SB){ MC = null; MC_ERR = 'local'; return; }
   try{ const {data,error} = await SB.rpc('signal_reglages_lire'); if(error) throw error; MC = data || {seuil:3, garder:{}, mises:[]}; MC_ERR = ''; }
   catch(e){ MC = null; MC_ERR = /signal_reglages_lire|function|PGRST|404/.test(String(e&&e.message||e)) ? 'sql' : frErr(e); }
-  if(page==='signalements') render(); }
+  if(page==='signalements'||page==='sigaux') render(); }
 function miseCarte(){
   if(MC===null && !MC_ERR){ mcCharger(); return ''; }
   if(MC_ERR==='local') return '';
@@ -2768,13 +2769,19 @@ function bindMise(){
   document.querySelectorAll('[data-mcgarde],[data-mcannule]').forEach(b=>b.onclick = async ()=>{ const on = !!b.dataset.mcgarde, qid = b.dataset.mcgarde||b.dataset.mcannule; b.disabled = true;
     try{ const {error} = await SB.rpc('signal_garder_en_ligne', {p_qid:qid, p_on:on}); if(error) throw error; audit(on?'Question gardée en ligne':'Garder en ligne annulé', qid); toast(on?'✅ Question remise en ligne : les élèves la retrouvent à leur prochaine ouverture.':'Annulé.'); await mcCharger(); }catch(e){ b.disabled = false; toast('Impossible : '+frErr(e)); } });
 }
-VIEWS.signalements = ()=>{
+/* signalements des auxiliaires (questions des cours xaux…) : page à part « Signalements auxiliaires » ; la page Signalements ne les montre plus */
+function sigEstAux(r){ const q = String(sq(r) || ''); return /^xaux/i.test(q) || /^xaux/i.test(String(r && r.mat || '')); }
+function sigAvec(aux, fn){ const tous = DB.reports; DB.reports = tous.filter(r=>sigEstAux(r)===aux); UI.sigAuxV = aux; try{ return fn(); } finally{ DB.reports = tous; UI.sigAuxV = false; } }
+VIEWS.sigaux = ()=>sigAvec(true, ()=>VIEWS._signalements());
+AFTER.sigaux = ()=>sigAvec(true, ()=>AFTER._signalements());
+VIEWS.signalements = ()=>sigAvec(false, ()=>VIEWS._signalements());
+VIEWS._signalements = ()=>{
   const st = UI.sig, cnt = s=>sigGroupes(DB.reports.filter(r=>r.statut===s)).length;
   const L = DB.reports.filter(r=>r.statut===st && (!UI.sigSuj || r.sjk===UI.sigSuj) && (!UI.sigQ || sq(r)===UI.sigQ)).sort((a,b)=>new Date(b.date)-new Date(a.date));
   const tabs = [['nouveau','🚩 Nouveaux'],['en-cours','🛠️ En cours'],['corrige','✅ Corrigés']];
   const sjF = UI.sigSuj ? (sujStats().S.find(g=>g.k===UI.sigSuj)||null) : null;
   const notif = ('Notification' in window) ? Notification.permission : 'absent';
-  return headHTML('Signalements', 'Erreurs de questions envoyées par les élèves, avec leur photo. Touchez « Corriger dans l’éditeur » pour ouvrir directement la question.', demoTag()) + evPanneau() + `
+  return headHTML(UI.sigAuxV?'Signalements auxiliaires':'Signalements', UI.sigAuxV?'Erreurs signalées par les élèves auxiliaires de santé, séparées de celles des autres filières.':'Erreurs de questions envoyées par les élèves, avec leur photo. Touchez « Corriger dans l’éditeur » pour ouvrir directement la question.', demoTag()) + evPanneau() + `
   <div class="sigalert ${MODE==='supabase'?'':'off'}">
     <span class="si" aria-hidden="true">🔔</span>
     <div style="flex:1;min-width:200px"><b>${MODE==='supabase'?'Alertes en direct activées':'Alertes en direct indisponibles'}</b>
@@ -2805,7 +2812,7 @@ async function waDestCharger(){
   if(MODE!=='supabase' || !SB || WADEST.charge) return; WADEST.charge = true;
   try{ const {data, error} = await SB.rpc('lire_whatsapp_signalements'); if(error) throw error; WADEST.v = data||''; WADEST.etat=''; }
   catch(e){ WADEST.etat='erreur'; WADEST.msg = /function|schema cache|does not exist/i.test(String(e.message||e)) ? 'Réglage pas encore installé : exécutez signalements/1_signalements.sql dans Supabase (SQL Editor).' : frErr(e); }
-  if(page==='signalements') render();
+  if(page==='signalements'||page==='sigaux') render();
 }
 async function waDestEnregistrer(v){
   try{ const {data, error} = await SB.rpc('regler_whatsapp_signalements', {p_numero:v}); if(error) throw error;
@@ -2843,7 +2850,8 @@ async function photoUrl(path){
   if(error || !data) return null;
   PHOTOS[path] = {u:data.signedUrl, t:Date.now()}; return data.signedUrl;
 }
-AFTER.signalements = ()=>{
+AFTER.signalements = ()=>sigAvec(false, ()=>AFTER._signalements());
+AFTER._signalements = ()=>{
   evBind();
   waDestCharger(); sigAttendre(); sujSigPreparer(); bindSujSig(); bindMise(); bindQedit();
   const sa2 = $('#sjall2'); if(sa2) sa2.onclick = ()=>{ UI.sigSuj = ''; render(); };
@@ -2994,12 +3002,23 @@ VIEWS.auxiliaires = ()=>{
   const A = UI.aux = UI.aux || {}; if(!M.some(m=>m.id===A.mid)) A.mid = M[0].id;
   const m = M.find(x=>x.id===A.mid), V = m.ch.filter(v=>v.n); if(!V.some(v=>v.i===A.i)) A.i = V.length ? V[0].i : 0;
   const ids = auxIds(m.id, A.i), L = ids.map(id=>[id, qxQ(id)]).filter(x=>x[1]);
+  const vNom = (V.find(v=>v.i===A.i)||{}).nom || '', AC = UI.auxCp = UI.auxCp || {mode:'gratuit'};
+  const cps = (CPS||[]).filter(c=>/^xaux/i.test(c.mid||'')).sort((a,b)=>String(b.cree_at||'').localeCompare(String(a.cree_at||'')));
+  const compo = MODE!=='supabase' ? '' : `<div class="card" style="margin-top:18px"><div class="cardhead"><div class="grow"><h3>🔗 Liens de compo des auxiliaires</h3><p class="sub">Comme les autres compositions : l’élève auxiliaire tape son nom, compose, et sa note revient ici et dans Compositions. Sujet choisi : <b>${esc(m.t)} · ${esc(vNom)}</b> (${ids.length} questions).</p></div></div>
+    <div class="codeform"><div style="flex:1 1 220px"><label class="lbl" for="auxcpT">Titre (facultatif)</label><input class="field" id="auxcpT" maxlength="120" value="${esc(AC.titre||'')}" placeholder="${esc((m.t+' · '+vNom).toUpperCase())}"></div>
+      <div><label class="lbl" for="auxcpC">Chronomètre (minutes)</label><input class="field" id="auxcpC" type="number" min="1" max="600" value="${esc(AC.chrono||'')}" placeholder="Sans" style="max-width:130px"></div>
+      <div><label class="lbl" for="auxcpD">Date limite (facultatif)</label><input class="field" id="auxcpD" type="datetime-local" value="${esc(AC.dl||'')}"></div></div>
+    <div style="margin-top:10px"><span class="lbl">Accès</span><div class="chips" style="margin-top:6px">${Object.entries(CP_MODES).map(([k,v])=>`<button class="chip ${AC.mode===k?'on':''}" data-auxcpm="${k}" title="${esc(v[1])}">${v[0]}</button>`).join('')}</div></div>
+    <label class="row" style="gap:8px;margin-top:10px;cursor:pointer"><input type="checkbox" id="auxcpR" ${AC.recompo?'checked':''} style="width:18px;height:18px"><span>🔄 Recomposer plusieurs fois</span></label>
+    <div style="margin-top:12px"><button class="btn pri" id="auxcpGo" ${ids.length?'':'disabled'}>${ic('plus')}Créer le lien de compo de ce sujet</button></div>
+    ${cps.length?`<div style="margin-top:16px"><b>Compositions des auxiliaires</b>${cps.map(c=>`<div class="coderow"><div class="cc" style="flex:1 1 260px;min-width:0"><div><b>${esc(c.titre||c.sujet_titre||'')}</b> ${c.actif?'':'<span class="pill">close</span>'}</div><small>${esc(c.sujet_titre||'')} · ${c.copies||0} copie${(c.copies||0)>1?'s':''} · <code>${esc(c.code)}</code></small></div>
+      <div class="row wrap" style="gap:6px"><button class="btn sm" data-auxcpcopy="${esc(c.code)}">📋 Copier le lien</button><button class="btn sm wa" data-auxcpwa="${esc(c.code)}">💬 WhatsApp</button><button class="btn sm" data-auxcpvoir="${esc(c.code)}">📊 Résultats</button></div></div>`).join('')}</div>`:''}</div>`;
   return head + cd + `<div class="card" style="margin-top:18px"><div class="cardhead"><div class="grow"><h3>🩹 Questions des auxiliaires</h3><p class="sub">Choisissez la matière puis la ville. « 🔗 Faire évaluer » crée un lien à envoyer à un enseignant ; son avis revient dans Questions › Évaluations partagées.</p></div></div>
     <div class="chips">${M.map(x=>`<button class="chip ${x.id===A.mid?'on':''}" data-auxm="${esc(x.id)}">${esc(x.t)} <span class="cnote">${x.ch.reduce((a,v)=>a+v.n,0)}</span></button>`).join('')}</div>
     <div class="chips" style="margin-top:8px">${V.map(v=>`<button class="chip ${v.i===A.i?'on':''}" data-auxv="${v.i}">📍 ${esc(v.nom)} <span class="cnote">${v.n}</span></button>`).join('')}</div>
     <div style="margin-top:10px">${L.map(([id,q],k)=>`<div class="row wrap" style="gap:8px;padding:10px 0;border-top:1px solid var(--line);align-items:flex-start">
       <div style="flex:1 1 320px;min-width:0"><div><b>${k+1}.</b> ${esc(String(q.q||'').slice(0,400))}${q.off?' <span class="pill">🙈 désactivée</span>':''}</div><div class="cnote">✔ ${esc(qxRepTxt(q))}</div></div>
-      <div class="row wrap" style="gap:6px"><button class="btn sm pri" data-qedit="${esc(id)}">✏️ Corriger</button><button class="btn sm" data-qsuj="${esc(id)}">📝 Sujet</button><button class="btn sm" data-qeval="${esc(id)}">🔗 Faire évaluer</button></div></div>`).join('')||'<p class="muted">Aucune question.</p>'}</div></div>`;
+      <div class="row wrap" style="gap:6px"><button class="btn sm pri" data-qedit="${esc(id)}">✏️ Corriger</button><button class="btn sm" data-qsuj="${esc(id)}">📝 Sujet</button><button class="btn sm" data-qeval="${esc(id)}">🔗 Faire évaluer</button></div></div>`).join('')||'<p class="muted">Aucune question.</p>'}</div></div>` + compo;
 };
 AFTER.auxiliaires = ()=>{
   const go = $('#auxcdGo'); if(go) go.onclick = ()=>{ const d = $('#auxcdD').value, t = ($('#auxcdT').value||'').trim().slice(0,60) || 'D.E Auxiliaires';
@@ -3010,6 +3029,27 @@ AFTER.auxiliaires = ()=>{
   document.querySelectorAll('[data-auxm]').forEach(b=>b.onclick=()=>{ UI.aux.mid = b.dataset.auxm; UI.aux.i = -1; render(); });
   document.querySelectorAll('[data-auxv]').forEach(b=>b.onclick=()=>{ UI.aux.i = +b.dataset.auxv; render(); });
   bindQedit();
+  if(MODE==='supabase' && CPS===null && !UI.auxCpCh){ UI.auxCpCh = 1; chargerCompos().then(()=>{ if(page==='auxiliaires') render(); }); }
+  const AC = UI.auxCp = UI.auxCp || {mode:'gratuit'};
+  const lire = ()=>{ const t=$('#auxcpT'); if(!t) return; AC.titre=t.value; AC.chrono=$('#auxcpC').value; AC.dl=$('#auxcpD').value; AC.recompo=$('#auxcpR').checked; };
+  ['#auxcpT','#auxcpC','#auxcpD'].forEach(x=>{ const e=$(x); if(e) e.oninput=lire; }); const rr=$('#auxcpR'); if(rr) rr.onchange=lire;
+  document.querySelectorAll('[data-auxcpm]').forEach(b=>b.onclick=()=>{ lire(); AC.mode=b.dataset.auxcpm; render(); });
+  const cpOf = c=>(CPS||[]).find(x=>x.code===c);
+  document.querySelectorAll('[data-auxcpcopy]').forEach(b=>b.onclick=async()=>{ try{ await navigator.clipboard.writeText(cpLien(b.dataset.auxcpcopy)); toast('Lien copié.'); }catch(e){ toast('Copie impossible.'); } });
+  document.querySelectorAll('[data-auxcpwa]').forEach(b=>b.onclick=()=>{ const c=cpOf(b.dataset.auxcpwa); if(!c) return; window.open('https://wa.me/?text='+encodeURIComponent(`📝 Composition Révision INFAS (auxiliaires)${c.titre?' : '+c.titre:''}\n${c.sujet_titre||''}${c.chrono_min?'\n⏱ '+c.chrono_min+' minutes':''}\n\nCOMPOSE ICI\n${cpLien(c.code)}`),'_blank','noopener'); });
+  document.querySelectorAll('[data-auxcpvoir]').forEach(b=>b.onclick=()=>{ go('compos'); const e=document.querySelector('[data-cpres="'+b.dataset.auxcpvoir+'"]'); if(e){ e.scrollIntoView({block:'center'}); e.click(); } });
+  const go2 = $('#auxcpGo'); if(go2) go2.onclick = async()=>{ lire(); const A=UI.aux, M=auxMats(), m=M.find(x=>x.id===A.mid); if(!m) return;
+    const ids = auxIds(m.id, A.i); const k = qxEval("sujets("+JSON.stringify(m.id)+").findIndex(L=>L.includes("+JSON.stringify(ids[0])+"))"), st = qxEval("sujTitre("+JSON.stringify(m.id)+","+(+k)+")");
+    if(!(k>=0) || !st){ toast('Sujet introuvable dans l’appli.'); return; }
+    const chrono = AC.chrono ? Math.round(+AC.chrono) : null; if(chrono!=null && !(chrono>=1&&chrono<=600)){ toast('Chronomètre : entre 1 et 600 minutes.'); return; }
+    const dl = AC.dl ? new Date(AC.dl) : null; if(dl && !(dl>new Date())){ toast('La date limite doit être dans le futur.'); return; }
+    const args = {p_titre:String(AC.titre||st).trim().toLocaleUpperCase('fr-FR').slice(0,120), p_mid:m.id, p_k:k, p_sujet_titre:st, p_mode:AC.mode||'gratuit', p_chrono_min:chrono, p_date_limite:dl?dl.toISOString():null};
+    if(AC.recompo) args.p_recompo = true;
+    go2.disabled = true;
+    try{ const {data,error} = await SB.rpc('compo_creer', args); if(error) throw error; if(!data||!data.ok) throw new Error('Création refusée ('+(data&&data.raison||'?')+').');
+      audit('Composition auxiliaire créée', st+' · '+data.code); UI.auxCp = {mode:AC.mode}; await chargerCompos(); render();
+      try{ await navigator.clipboard.writeText(cpLien(data.code)); toast('Lien créé et copié : '+data.code); }catch(e){ toast('Lien créé : '+data.code); }
+    }catch(e){ toast(frErr(e), 7000); go2.disabled = false; } };
 };
 VIEWS.questions = ()=>{
   if(QX.etat!=='ok' && QX.etat!=='charge' && QX.etat!=='err') qxCharger();
@@ -3533,7 +3573,7 @@ const evPage = ()=>{ const h = location.href.split(/[?#]/)[0]; return (/\/revisi
 async function evCharger(){ if(MODE!=='supabase' || !SB){ EV.etat = 'local'; return; } EV.etat = 'charge';
   try{ const r = await SB.rpc('eval_liste'); if(r.error) throw r.error; EV.L = r.data || []; EV.etat = 'ok'; }
   catch(e){ EV.etat = /eval_liste|function|schema cache/i.test(String(e.message||e)) ? 'sql' : 'err'; }
-  if(page==='signalements') render(); }
+  if(page==='signalements'||page==='sigaux') render(); }
 const evNouveaux = ()=>(EV.L||[]).reduce((n,l)=>n+(l.avis||[]).filter(a=>!a.lu).length, 0);
 function evRepTxt(q, r){ if(!r) return ''; if(r.v!=null) return r.v?'Vrai':'Faux'; if(r.r!=null) return String(r.r); const A = Array.isArray(r.am)?r.am:[r.a]; return A.filter(i=>i!=null).map(i=>QL[i]+((q&&q.o&&q.o[i])?'. '+q.o[i]:'')).join(' ; '); }
 function evPanneau(){
@@ -3779,11 +3819,11 @@ async function veilleSignalements(){
     const r = neufs[neufs.length-1], t = `🚩 Nouveau signalement · ${matName(r.mat)}`;
     toast(t + (neufs.length>1?` (+${neufs.length-1})`:'')); bip();
     if('Notification' in window && Notification.permission==='granted'){ try{ const n = new Notification(t, {body:String(r.message||'').slice(0,140), tag:'ri-signalement'}); n.onclick=()=>{ window.focus(); go('signalements'); n.close(); }; }catch(e){} }
-    if(page==='signalements') render(); else renderNav();
+    if(page==='signalements'||page==='sigaux') render(); else renderNav();
   }catch(e){}
 }
 setInterval(()=>{ veilleSignalements(); }, 45e3);
-document.addEventListener('visibilitychange', ()=>{ if(!document.hidden){ veilleSignalements(); if(page==='signalements'){ sigNonVus=0; document.title=SIG_TITRE; } } });
+document.addEventListener('visibilitychange', ()=>{ if(!document.hidden){ veilleSignalements(); if(page==='signalements'||page==='sigaux'){ sigNonVus=0; document.title=SIG_TITRE; } } });
 
 /* =========================================================
    14. RÉGLAGES
