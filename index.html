@@ -632,7 +632,7 @@ const MAP = [
 const VIRTUAL = [
   {t:'access_rules', id:'cle', rows:db=>Object.entries(db.access.regles).map(([cle,v])=>({cle, acces:v.acces, quota_gratuit:v.quotaGratuit==null?null:v.quotaGratuit}))},
   {t:'app_settings', id:'cle', noDelete:true, rows:db=>[
-    {cle:'public.access', valeur:Object.assign({defaut:db.access.defaut, version:db.access.version, misAJour:db.access.misAJour, questions:db.access.questions||{}, plusapp:db.access.plusapp||{}}, db.access.promo?{promo:db.access.promo}:{}, db.access.fincorr&&Object.keys(db.access.fincorr).length?{fincorr:db.access.fincorr}:{}, db.access.nosig&&Object.keys(db.access.nosig).length?{nosig:db.access.nosig}:{}, db.access.offres&&typeof db.access.offres==='object'?{offres:db.access.offres}:{}, db.access.contact&&typeof db.access.contact==='object'?{contact:db.access.contact}:{})},
+    {cle:'public.access', valeur:Object.assign({defaut:db.access.defaut, version:db.access.version, misAJour:db.access.misAJour, questions:db.access.questions||{}, plusapp:db.access.plusapp||{}}, db.access.promo?{promo:db.access.promo}:{}, db.access.fincorr&&Object.keys(db.access.fincorr).length?{fincorr:db.access.fincorr}:{}, db.access.nosig&&Object.keys(db.access.nosig).length?{nosig:db.access.nosig}:{}, db.access.offres&&typeof db.access.offres==='object'?{offres:db.access.offres}:{}, db.access.contact&&typeof db.access.contact==='object'?{contact:db.access.contact}:{}, db.access.countdownAux&&db.access.countdownAux.d?{countdownAux:db.access.countdownAux}:{}, Array.isArray(db.access.deuxFilieres)&&db.access.deuxFilieres.length?{deuxFilieres:db.access.deuxFilieres}:{})},
     {cle:'goals', valeur:db.goals},
     {cle:'demo_stats', valeur:db.stats},
     {cle:'meta', valeur:{demo:!!db.meta.demo}},
@@ -677,7 +677,7 @@ const SupabaseSource = {
     const rawRules = await fetchAll('access_rules'), rawSettings = await fetchAll('app_settings');
     rawRules.forEach(r=>{ db.access.regles[r.cle] = r.quota_gratuit==null ? {acces:r.acces} : {acces:r.acces, quotaGratuit:r.quota_gratuit}; });
     rawSettings.forEach(r=>{
-      if(r.cle==='public.access'){ if(r.valeur.promo && typeof r.valeur.promo==='object') db.access.promo = r.valeur.promo; db.access.fincorr = (r.valeur.fincorr && typeof r.valeur.fincorr==='object') ? r.valeur.fincorr : {}; db.access.nosig = (r.valeur.nosig && typeof r.valeur.nosig==='object') ? r.valeur.nosig : {}; db.access.offres = (r.valeur.offres && typeof r.valeur.offres==='object') ? r.valeur.offres : null; db.access.contact = (r.valeur.contact && typeof r.valeur.contact==='object') ? r.valeur.contact : null; db.access.defaut = r.valeur.defaut||'gratuit'; db.access.version = r.valeur.version||1; db.access.misAJour = r.valeur.misAJour||db.access.misAJour; db.access.questions = (r.valeur.questions&&typeof r.valeur.questions==='object')?r.valeur.questions:{}; db.access.plusapp = (r.valeur.plusapp&&typeof r.valeur.plusapp==='object')?r.valeur.plusapp:{}; }
+      if(r.cle==='public.access'){ if(r.valeur.promo && typeof r.valeur.promo==='object') db.access.promo = r.valeur.promo; db.access.fincorr = (r.valeur.fincorr && typeof r.valeur.fincorr==='object') ? r.valeur.fincorr : {}; db.access.nosig = (r.valeur.nosig && typeof r.valeur.nosig==='object') ? r.valeur.nosig : {}; db.access.offres = (r.valeur.offres && typeof r.valeur.offres==='object') ? r.valeur.offres : null; db.access.contact = (r.valeur.contact && typeof r.valeur.contact==='object') ? r.valeur.contact : null; db.access.countdownAux = (r.valeur.countdownAux && typeof r.valeur.countdownAux==='object') ? r.valeur.countdownAux : null; db.access.deuxFilieres = Array.isArray(r.valeur.deuxFilieres) ? r.valeur.deuxFilieres : [];   /* comptes « deux filières » (SQL) : gardés tels quels */ db.access.defaut = r.valeur.defaut||'gratuit'; db.access.version = r.valeur.version||1; db.access.misAJour = r.valeur.misAJour||db.access.misAJour; db.access.questions = (r.valeur.questions&&typeof r.valeur.questions==='object')?r.valeur.questions:{}; db.access.plusapp = (r.valeur.plusapp&&typeof r.valeur.plusapp==='object')?r.valeur.plusapp:{}; }
       if(r.cle==='goals' && Array.isArray(r.valeur)) db.goals = r.valeur;
       if(r.cle==='demo_stats' && r.valeur && r.valeur.daily) db.stats = r.valeur;
       if(r.cle==='meta' && r.valeur) db.meta.demo = !!r.valeur.demo;
@@ -1079,6 +1079,7 @@ const PAGES = [
   {id:'annonces', nom:'Annonces', icon:'bell', grp:2, count:()=>DB.announcements.filter(a=>annonceLive(a)).length},
   {id:'signalements', nom:'Signalements', icon:'flag', grp:2, count:()=>sigGroupes(DB.reports.filter(r=>r.statut!=='corrige')).length},
   {id:'questions', nom:'Questions', icon:'quiz', grp:2, count:()=>(QX.suspects||[]).length},
+  {id:'auxiliaires', nom:'Auxiliaires', icon:'users', grp:2},
   {id:'dossiers', nom:'Dossiers de correction', icon:'users', grp:2, count:()=>DC.L.filter(dcArbitrer).length},
   {id:'compos', nom:'Compositions', icon:'quiz', grp:2},
   {id:'contrib', nom:'Contributeurs', icon:'star', grp:2},
@@ -2946,9 +2947,9 @@ function qxCharger(force){
   f.style.cssText = 'position:fixed;left:-9999px;top:0;width:420px;height:800px;border:0;visibility:hidden';
   f.src = qxSite() + (qxSite().includes('?') ? '&' : '?') + 'lecture=1'; document.body.appendChild(f);
   const t0 = Date.now();
-  const tick = ()=>{ let W = null; try{ W = f.contentWindow; void W.document; }catch(e){ QX.etat = 'err'; QX.err = 'origine'; if(page==='questions') render(); return; }
-    try{ if(W && W.PORTAIL_READY && W.eval('typeof QI')==='object'){ QX.W = W; QX.etat = 'ok'; if(page==='questions') render(); return; } }catch(e){}
-    if(Date.now()-t0 > 90e3){ QX.etat = 'err'; QX.err = 'delai'; if(page==='questions') render(); return; }
+  const tick = ()=>{ let W = null; try{ W = f.contentWindow; void W.document; }catch(e){ QX.etat = 'err'; QX.err = 'origine'; if(page==='questions'||page==='auxiliaires') render(); return; }
+    try{ if(W && W.PORTAIL_READY && W.eval('typeof QI')==='object'){ QX.W = W; QX.etat = 'ok'; if(page==='questions'||page==='auxiliaires') render(); return; } }catch(e){}
+    if(Date.now()-t0 > 90e3){ QX.etat = 'err'; QX.err = 'delai'; if(page==='questions'||page==='auxiliaires') render(); return; }
     setTimeout(tick, 400); };
   setTimeout(tick, 600);
 }
@@ -2968,8 +2969,48 @@ async function qxSuspects(force){
   try{ const {data,error} = await SB.rpc('corriges_suspects', {p_min:10, p_part:0.6}); if(error) throw error; QX.suspects = Array.isArray(data)?data:[]; }
   catch(e){ QX.suspects = []; QX.sqlManque = /corriges_suspects|function|schema cache/i.test(String(e.message||e)); }
   try{ const {data,error} = await SB.rpc('corrections_liste'); if(!error) QX.corr = Array.isArray(data)?data:[]; }catch(e){}
-  if(page==='questions') render();
+  if(page==='questions'||page==='auxiliaires') render();
 }
+/* ---------- 🩹 AUXILIAIRES : compte à rebours D.E propre aux auxiliaires (public.access → countdownAux) et questions
+   des sujets auxiliaires (par matière puis par ville), avec ✏️ Corriger, 📝 Sujet et 🔗 Faire évaluer. Les questions sont lues
+   dans l'appli choisie (site élèves / site test), en lecture (?lecture=1) : le tableau de bord voit les deux filières. ---------- */
+function auxMats(){ return qxEval("MAT.filter(m=>window.riFiliere&&riFiliere.estAuxMat(m)).map(m=>({id:m.id,t:String(m.title||'').split(' — ')[0],ch:(m.ch||[]).map((c,i)=>({i,nom:String(c).split(' · ')[0],n:(QBM[m.id]||[]).filter(q=>q.c===i).length}))}))") || []; }
+function auxIds(mid, i){ return qxEval("(QBM["+JSON.stringify(mid)+"]||[]).filter(q=>q.c==="+(+i)+").map(q=>q.id)") || []; }
+VIEWS.auxiliaires = ()=>{
+  if(QX.etat!=='ok' && QX.etat!=='charge' && QX.etat!=='err') qxCharger();
+  const site = UI.qSite || (/revision-infas-test/.test(location.href) ? 'test' : 'eleves');
+  const c = DB.access.countdownAux || {};
+  const head = headHTML('Auxiliaires', 'Réglages et questions des élèves inscrits « Auxiliaire de santé ». Leur contenu reste séparé de celui des autres filières.',
+    `<div class="seg" role="radiogroup" aria-label="Appli lue">${[['eleves','Site élèves'],['test','Site test']].map(([v,l])=>`<button role="radio" aria-checked="${site===v}" class="${site===v?'on':''}" data-qsite="${v}">${l}</button>`).join('')}</div>`);
+  const cd = `<div class="card"><div class="cardhead"><div class="grow"><h3>⏳ Compte à rebours du D.E des auxiliaires</h3><p class="sub">Affiché sur l’accueil des élèves auxiliaires à la place de celui des autres filières (« J-12 · Avant le D.E »). Sans date, il n’est pas affiché.</p></div></div>
+    <div class="codeform"><div style="flex:1 1 220px"><label class="lbl" for="auxcdT">Titre</label><input class="field" id="auxcdT" maxlength="60" value="${esc(c.t||'D.E Auxiliaires')}"></div>
+    <div><label class="lbl" for="auxcdD">Date du D.E</label><input class="field" id="auxcdD" type="date" value="${esc(c.d||'')}"></div>
+    <div style="align-self:flex-end"><button class="btn pri" id="auxcdGo">Enregistrer</button></div></div>
+    ${c.d?`<p class="cnote" style="margin-top:8px">Actuellement : <b>${esc(c.t||'D.E')}</b> · ${esc(dfr(c.d))} (J-${Math.max(0,Math.ceil((new Date(c.d+'T08:00:00')-Date.now())/864e5))})</p>`:''}</div>`;
+  if(QX.etat==='err') return head + cd + `<div class="card"><b>Impossible d’ouvrir les questions de l’appli.</b> Rechargez la page.</div>`;
+  if(QX.etat!=='ok') return head + cd + `<div class="card"><p class="muted">⏳ Chargement des questions de l’appli…</p></div>`;
+  const M = auxMats();
+  if(!M.length) return head + cd + `<div class="card"><p class="muted">Aucun cours auxiliaire dans cette version de l’appli${site==='eleves'?' (essayez « Site test » si la filière Auxiliaire n’est pas encore publiée sur le site élèves)':''}.</p></div>`;
+  const A = UI.aux = UI.aux || {}; if(!M.some(m=>m.id===A.mid)) A.mid = M[0].id;
+  const m = M.find(x=>x.id===A.mid), V = m.ch.filter(v=>v.n); if(!V.some(v=>v.i===A.i)) A.i = V.length ? V[0].i : 0;
+  const ids = auxIds(m.id, A.i), L = ids.map(id=>[id, qxQ(id)]).filter(x=>x[1]);
+  return head + cd + `<div class="card" style="margin-top:18px"><div class="cardhead"><div class="grow"><h3>🩹 Questions des auxiliaires</h3><p class="sub">Choisissez la matière puis la ville. « 🔗 Faire évaluer » crée un lien à envoyer à un enseignant ; son avis revient dans Questions › Évaluations partagées.</p></div></div>
+    <div class="chips">${M.map(x=>`<button class="chip ${x.id===A.mid?'on':''}" data-auxm="${esc(x.id)}">${esc(x.t)} <span class="cnote">${x.ch.reduce((a,v)=>a+v.n,0)}</span></button>`).join('')}</div>
+    <div class="chips" style="margin-top:8px">${V.map(v=>`<button class="chip ${v.i===A.i?'on':''}" data-auxv="${v.i}">📍 ${esc(v.nom)} <span class="cnote">${v.n}</span></button>`).join('')}</div>
+    <div style="margin-top:10px">${L.map(([id,q],k)=>`<div class="row wrap" style="gap:8px;padding:10px 0;border-top:1px solid var(--line);align-items:flex-start">
+      <div style="flex:1 1 320px;min-width:0"><div><b>${k+1}.</b> ${esc(String(q.q||'').slice(0,400))}${q.off?' <span class="pill">🙈 désactivée</span>':''}</div><div class="cnote">✔ ${esc(qxRepTxt(q))}</div></div>
+      <div class="row wrap" style="gap:6px"><button class="btn sm pri" data-qedit="${esc(id)}">✏️ Corriger</button><button class="btn sm" data-qsuj="${esc(id)}">📝 Sujet</button><button class="btn sm" data-qeval="${esc(id)}">🔗 Faire évaluer</button></div></div>`).join('')||'<p class="muted">Aucune question.</p>'}</div></div>`;
+};
+AFTER.auxiliaires = ()=>{
+  const go = $('#auxcdGo'); if(go) go.onclick = ()=>{ const d = $('#auxcdD').value, t = ($('#auxcdT').value||'').trim().slice(0,60) || 'D.E Auxiliaires';
+    if(d && !/^\d{4}-\d\d-\d\d$/.test(d)){ toast('Date invalide.'); return; }
+    DB.access.countdownAux = d ? {t, d} : null; DB.access.version++; DB.access.misAJour = new Date().toISOString(); persist();
+    audit(d?'Compte à rebours des auxiliaires réglé':'Compte à rebours des auxiliaires retiré', d||''); render(); toast(d?'Date du D.E des auxiliaires enregistrée.':'Compte à rebours des auxiliaires retiré.'); };
+  document.querySelectorAll('[data-qsite]').forEach(b=>b.onclick=()=>{ UI.qSite = b.dataset.qsite; QX.etat=''; QX.mid=''; render(); });
+  document.querySelectorAll('[data-auxm]').forEach(b=>b.onclick=()=>{ UI.aux.mid = b.dataset.auxm; UI.aux.i = -1; render(); });
+  document.querySelectorAll('[data-auxv]').forEach(b=>b.onclick=()=>{ UI.aux.i = +b.dataset.auxv; render(); });
+  bindQedit();
+};
 VIEWS.questions = ()=>{
   if(QX.etat!=='ok' && QX.etat!=='charge' && QX.etat!=='err') qxCharger();
   if(QX.suspects===null) qxSuspects();
@@ -4242,7 +4283,7 @@ async function voxAttenteCharger(force){
   VXA.etat = 'charge';
   try{ const {data, error} = await SB.rpc('notes_vocales_liste'); if(error) throw error; VXA.L = Array.isArray(data) ? data : []; VXA.etat = 'ok'; }
   catch(e){ VXA.L = []; VXA.etat = voxSql(e) ? 'sql' : 'err'; }
-  VXA.t = Date.now(); if(page==='questions') render(); }
+  VXA.t = Date.now(); if(page==='questions'||page==='auxiliaires') render(); }
 function voxAttenteCarte(){
   if(MODE==='supabase' && SB && !VXA.etat) setTimeout(()=>voxAttenteCharger(), 0);
   if(VXA.etat!=='ok' || !VXA.L.length) return '';
