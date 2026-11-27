@@ -1166,6 +1166,7 @@ VIEWS.overview = ()=>{
   <div id="live">${liveHTML()}</div>
   ${bilanCard()}
   <div id="instcard">${instHTML()}</div>
+  <div id="vitcard">${vitHTML()}</div>
   <div class="grid kpis">
     <div class="hero">
       <div class="lab">Élèves inscrits</div>
@@ -1214,9 +1215,37 @@ VIEWS.overview = ()=>{
 AFTER.overview = ()=>{
   if(!PRES || Date.now()-PRES_T>25e3) loadPresence();
   if(MODE==='supabase' && (!INST || Date.now()-INST_T>5*60e3)) loadInst();
+  if(MODE==='supabase' && (!VIT || Date.now()-VIT_T>5*60e3)) loadVit();
   document.querySelectorAll('[data-period]').forEach(b=>b.onclick=()=>{ UI.period=+b.dataset.period; render(); });
-  bindUserRows(); bindLive(); bindCnx(); bindBilan(); const ra = $('#recall'); if(ra) ra.onclick = ()=>{ UI.recAll = !UI.recAll; render(); };
+  bindUserRows(); bindLive(); bindCnx(); bindBilan(); bindVit(); const ra = $('#recall'); if(ra) ra.onclick = ()=>{ UI.recAll = !UI.recAll; render(); };
 };
+/* ---------- Venus de la vitrine revisioninfas.org (supabase/outils/5_venus_de_la_vitrine.sql) ----------
+   L'appli enregistre « arrivee_vitrine » quand un étudiant arrive par un lien du site vitrine (?src=vitrine&via=…). */
+let VIT = null, VIT_T = 0, VIT_J = 30;
+const VIT_BOUTONS = {barre:'Bouton du haut', haut:'En-tête', 'barre-mobile':'Barre du bas (téléphone)', installer:'Rubrique « Installer »', final:'Appel final', 'accueil-j':'Bloc des J (accueil)', 'page-j':'Page « Les J »', 'partage-j':'J partagé sur WhatsApp', bouton:'Autre bouton', '':'Autre'};
+async function loadVit(){
+  if(MODE!=='supabase'||!SB){ VIT = null; return; }
+  try{ const {data,error} = await SB.rpc('stats_vitrine', {p_jours:VIT_J}); VIT = error ? {err: /stats_vitrine|function|PGRST/i.test(error.message||'') ? 'sql' : 'reseau'} : (data||{}); }
+  catch(e){ VIT = {err:'reseau'}; }
+  VIT_T = Date.now(); const el = document.getElementById('vitcard'); if(el){ el.innerHTML = vitHTML(); bindVit(); }
+}
+function bindVit(){ document.querySelectorAll('[data-vitj]').forEach(b=>b.onclick=()=>{ VIT_J=+b.dataset.vitj; VIT=null; const el=document.getElementById('vitcard'); if(el) el.innerHTML=vitHTML(); loadVit(); }); }
+function vitHTML(){
+  if(MODE!=='supabase') return '';
+  const X = VIT, tete = `<div class="live-top"><b>🌐 Venus de la vitrine</b><span class="chips" role="group" aria-label="Période">${[7,30,90].map(j=>`<button class="chip ${VIT_J===j?'on':''}" data-vitj="${j}">${j} j</button>`).join('')}</span></div>`;
+  if(!X) return `<div class="card live">${tete}<p class="muted">Chargement…</p></div>`;
+  if(X.err) return `<div class="card live">${tete}<p class="muted">${X.err==='sql'?'Colle supabase/outils/5_venus_de_la_vitrine.sql dans Supabase (SQL Editor → Run) pour voir combien d’étudiants arrivent depuis revisioninfas.org.':'Impossible de joindre Supabase.'}</p></div>`;
+  const n = X.appareils||0, J = X.jours||[], max = Math.max(1, ...J.map(d=>d.appareils||0));
+  const B = (X.boutons||[]).slice(0,6), S = (X.sujets||[]).slice(0,8), tb = Math.max(1, ...B.map(b=>b.n));
+  const jours = J.slice(-30).map(d=>`<div title="${esc(d.jour)} : ${d.appareils} téléphone(s)" style="flex:1;min-width:3px;height:${Math.max(4,Math.round((d.appareils||0)*56/max))}px;background:var(--teal);border-radius:3px 3px 0 0"></div>`).join('');
+  return `<div class="card live">${tete}
+    <div class="live-main"><div class="big num">${fmt(n)}</div><div><b>${n>1?'téléphones sont arrivés':'téléphone est arrivé'} dans l’appli depuis revisioninfas.org</b> <span class="muted">ces ${VIT_J} jours · ${fmt(X.arrivees||0)} arrivées · ${fmt(X.aujourdhui||0)} aujourd’hui</span>
+    <div class="muted">${fmt(X.nouveaux||0)} nouveaux téléphones (jamais venus dans l’appli avant) · ${fmt(X.avec_nom||0)} ont donné leur nom</div></div></div>
+    ${J.length?`<div style="display:flex;align-items:flex-end;gap:3px;height:60px;margin:12px 0 4px">${jours}</div><div class="muted" style="font-size:12px">Téléphones arrivés par jour</div>`:'<p class="muted">Aucune arrivée pour l’instant : les liens de la vitrine portent la marque depuis sa dernière publication.</p>'}
+    ${B.length?`<div style="margin-top:12px"><b style="font-size:13.5px">Par bouton</b>${B.map(b=>`<div style="display:grid;grid-template-columns:minmax(0,11em) 1fr auto;gap:8px;align-items:center;margin-top:6px;font-size:13.5px"><span>${esc(VIT_BOUTONS[b.via]||b.via)}</span><span style="height:8px;border-radius:9px;background:var(--line)"><span style="display:block;height:8px;border-radius:9px;background:var(--violet);width:${Math.round(b.n*100/tb)}%"></span></span><b class="num">${fmt(b.n)}</b></div>`).join('')}</div>`:''}
+    ${S.length?`<details style="margin-top:12px"><summary style="cursor:pointer;font-weight:800;font-size:13.5px">🎯 J ouverts depuis la vitrine · ${S.length}</summary>${S.map(x=>`<div style="display:flex;justify-content:space-between;gap:10px;font-size:13.5px;padding:5px 0;border-top:1px solid var(--line)"><span>${esc(String(x.j).toUpperCase())}</span><b class="num">${fmt(x.n)}</b></div>`).join('')}</details>`:''}
+  </div>`;
+}
 /* ---------- Appli installée sur les téléphones (supabase/installations/1_installations.sql) ---------- */
 let INST = null, INST_T = 0;
 async function loadInst(){
